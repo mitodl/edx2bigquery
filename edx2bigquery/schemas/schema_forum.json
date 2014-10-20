@@ -1,0 +1,156 @@
+{
+    "forum": [
+        {
+            "type": "INTEGER", 
+            "name": "author_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "author_username"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created_at"
+        }, 
+        {
+            "type": "BOOLEAN", 
+            "name": "anonymous_to_peers"
+        }, 
+        {
+            "fields": [
+                {
+                    "type": "INTEGER", 
+                    "name": "count"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "point"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "down_count"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "up"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "down"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "up_count"
+                }
+            ], 
+            "type": "RECORD", 
+            "name": "votes"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "parent_ids"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "historical_abuse_flaggers"
+        }, 
+        {
+	    "type": "STRING", 
+            "name": "comment_thread_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "_type"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "updated_at"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "abuse_flaggers"
+        }, 
+        {
+            "type": "BOOLEAN", 
+            "name": "visible"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "sk"
+        }, 
+        {
+            "type": "BOOLEAN", 
+            "name": "anonymous"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "at_position_list"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "mongoid"
+        }, 
+        {
+            "type": "BOOLEAN", 
+            "name": "endorsed"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "parent_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "last_activity_at"
+        }, 
+        {
+            "type": "BOOLEAN", 
+            "name": "closed"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "title"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "thread_type"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "commentable_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "tags_array"
+        }, 
+        {
+            "fields": [
+                {
+                    "type": "INTEGER", 
+                    "name": "user_id"
+                }, 
+                {
+                    "type": "TIMESTAMP", 
+                    "name": "time"
+                }
+            ], 	
+            "type": "RECORD", 
+            "name": "endorsement"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "comment_count"
+        }, 
+        {
+            "type": "BOOLEAN", 
+            "name": "pinned"
+        },
+         {
+            "type": "STRING", 
+            "name": "body"
+        }
+   ]
+}

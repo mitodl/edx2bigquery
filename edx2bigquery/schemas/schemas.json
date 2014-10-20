@@ -1,0 +1,2196 @@
+{
+    "wiki_simpleplugin": [
+        {
+            "type": "INTEGER", 
+            "name": "articleplugin_ptr_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "article_revision_id"
+        }
+    ], 
+    "derived_grade": [
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "username"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "FLOAT", 
+            "name": "grade"
+        }, 
+        {
+            "type": "Boolean", 
+            "name": "cert"
+        }
+    ], 
+    "auth_permission": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "content_type_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "codename"
+        }
+    ], 
+    "auth_group": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }
+    ], 
+    "course_groups_courseusergroup": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "group_type"
+        }
+    ], 
+    "simplewiki_permission_can_write": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "permission_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }
+    ], 
+    "auth_user_user_permissions": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "permission_id"
+        }
+    ], 
+    "student_usertestgroup": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "description"
+        }
+    ], 
+    "tracking_log": [
+        {
+            "type": "STRING", 
+            "name": "time"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "username"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "ip"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "event_source"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "event_type"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "event"
+        }, 
+        {
+            "type": "Boolean", 
+            "name": "event_js"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "agent"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "module_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "page"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "host"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "vname"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "datafn"
+        }
+    ], 
+    "derived_daily_event_counts": [
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "username"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "date"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "count"
+        }
+    ], 
+    "django_comment_client_role_users": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "role_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }
+    ], 
+    "enrollment_referer": [
+        {
+            "type": "TIMESTAMP", 
+            "name": "dt"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "referer"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }
+    ], 
+    "course_groups_courseusergroup_users": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "courseusergroup_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }
+    ], 
+    "simplewiki_namespace": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }
+    ], 
+    "django_site": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "domain"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }
+    ], 
+    "courseware_studentmodule": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "module_type"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "module_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "student_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "state"
+        }, 
+        {
+            "type": "STRING",
+            "name": "grade"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "modified"
+        }, 
+        {
+            "type": "STRING",
+            "name": "max_grade"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "done"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }
+    ], 
+    "student_usertestgroup_users": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "usertestgroup_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }
+    ], 
+    "course_axis": [
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "index"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "url_name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "category"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "gformat"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "data"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "start"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "due"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "path"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "module_id"
+        }
+    ], 
+    "auth_registration": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "activation_key"
+        }
+    ], 
+    "wiki_articlesubscription": [
+        {
+            "type": "INTEGER", 
+            "name": "subscription_ptr_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "articleplugin_ptr_id"
+        }
+    ], 
+    "certificates_certificatewhitelist": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "whitelist"
+        }
+    ], 
+    "django_content_type": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "app_label"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "model"
+        }
+    ], 
+    "wiki_image": [
+        {
+            "type": "INTEGER", 
+            "name": "revisionplugin_ptr_id"
+        }
+    ], 
+    "course_xbundle": [
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "org"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "semester"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "policy"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "grading"
+        }, 
+        {
+            "type": "File", 
+            "name": "xml"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }
+    ], 
+    "wiki_urlpath": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "slug"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "site_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "parent_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "lft"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "rght"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "tree_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "level"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "article_id"
+        }
+    ], 
+    "wiki_article": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "current_revision_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "modified"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "owner_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "group_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "group_read"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "group_write"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "other_read"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "other_write"
+        }
+    ], 
+    "wiki_articleplugin": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "article_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "deleted"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }
+    ], 
+    "django_session": [
+        {
+            "type": "STRING", 
+            "name": "session_key"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "session_data"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "expire_date"
+        }
+    ], 
+    "auth_user_groups": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "group_id"
+        }
+    ], 
+    "auth_userprofile": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "language"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "location"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "meta"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "courseware"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "gender"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "mailing_address"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "year_of_birth"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "level_of_education"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "goals"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "allow_certificate"
+        },
+        {
+            "type": "STRING",
+            "name": "country"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "city"
+        }
+    ], 
+    "forum_data": [
+        {
+            "type": "List", 
+            "name": "parent_ids"
+        }, 
+        {
+            "type": "EmbeddedDocument", 
+            "name": "votes"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "body"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "_type"
+        }, 
+        {
+            "type": "Boolean", 
+            "name": "endorsed"
+        }, 
+        {
+            "type": "Boolean", 
+            "name": "anonymous"
+        }, 
+        {
+            "type": "Boolean", 
+            "name": "anonymous_to_peers"
+        }, 
+        {
+            "type": "Reference", 
+            "name": "parent_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "author_id"
+        }, 
+        {
+            "type": "Reference", 
+            "name": "comment_thread_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "updated_at"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created_at"
+        }
+    ], 
+    "profile_data_from_csv": [
+        {
+            "type": "STRING", 
+            "name": "username"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "language"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "location"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "courseware"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "gender"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "mailing_address"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "year_of_birth"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "level_of_education"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "goals"
+        }, 
+        {
+            "type": "List", 
+            "name": "courses"
+        }
+    ], 
+    "simplewiki_permission_can_read": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "permission_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }
+    ], 
+    "notify_settings": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "interval"
+        }
+    ], 
+    "django_comment_client_permission_roles": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "permission_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "role_id"
+        }
+    ], 
+    "enrollment_geoip": [
+        {
+            "type": "STRING", 
+            "name": "username"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "dt"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "ip"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "cc"
+        }
+    ], 
+    "django_openid_auth_useropenid": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "claimed_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "display_id"
+        }
+    ], 
+    "student_classification": [
+        {
+            "type": "STRING", 
+            "name": "classif"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }
+    ], 
+    "simplewiki_article_related": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "from_article_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "to_article_id"
+        }
+    ], 
+    "enrollment_vs_time": [
+        {
+            "type": "TIMESTAMP", 
+            "name": "dt"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "count"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }
+    ], 
+    "student_pendingnamechange": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "new_name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "rationale"
+        }
+    ], 
+    "student_testcenterregistration": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "testcenter_user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created_at"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "updated_at"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "user_updated_at"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "client_authorization_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "exam_series_code"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "eligibility_appointment_date_first"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "eligibility_appointment_date_last"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "accommodation_code"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "accommodation_request"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "uploaded_at"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "processed_at"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "upload_status"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "upload_error_message"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "authorization_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "confirmed_at"
+        }
+    ], 
+    "foldit_puzzlecomplete": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "unique_user_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "puzzle_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "puzzle_set"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "puzzle_subset"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }
+    ], 
+    "django_admin_log": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "action_time"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "content_type_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "object_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "object_repr"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "action_flag"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "change_message"
+        }
+    ], 
+    "student_courseenrollment": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "is_active"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "mode"
+        }
+    ], 
+    "student_testcenteruser": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created_at"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "updated_at"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "user_updated_at"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "candidate_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "client_candidate_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "first_name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "last_name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "middle_name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "suffix"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "salutation"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "address_1"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "address_2"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "address_3"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "city"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "state"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "postal_code"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "country"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "phone"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "extension"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "phone_country_code"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "fax"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "fax_country_code"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "company_name"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "uploaded_at"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "processed_at"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "upload_status"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "upload_error_message"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "confirmed_at"
+        }
+    ], 
+    "auth_group_permissions": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "group_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "permission_id"
+        }
+    ], 
+    "simplewiki_articleattachment": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "article_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "file"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "uploaded_by_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "uploaded_on"
+        }
+    ], 
+    "circuit_servercircuit": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "schematic"
+        }
+    ], 
+    "django_openid_auth_nonce": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "server_url"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "timestamp"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "salt"
+        }
+    ], 
+    "simplewiki_permission": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "permission_name"
+        }
+    ], 
+    "courseware_offlinecomputedgradelog": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "seconds"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "nstudents"
+        }
+    ], 
+    "wiki_reusableplugin": [
+        {
+            "type": "INTEGER", 
+            "name": "articleplugin_ptr_id"
+        }
+    ], 
+    "django_comment_client_permission": [
+        {
+            "type": "STRING", 
+            "name": "name"
+        }
+    ], 
+    "wiki_articleforobject": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "article_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "content_type_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "object_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "is_mptt"
+        }
+    ], 
+    "notify_notification": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "subscription_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "message"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "url"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "is_viewed"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "is_emailed"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }
+    ], 
+    "student_courseenrollmentallowed": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "email"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }
+    ], 
+    "simplewiki_article": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "title"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "slug"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "created_by_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created_on"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "modified_on"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "locked"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "permissions_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "current_revision_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "namespace_id"
+        }
+    ], 
+    "django_comment_client_role": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }
+    ], 
+    "foldit_score": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "unique_user_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "puzzle_id"
+        }, 
+        {
+            "type": "FLOAT", 
+            "name": "best_score"
+        }, 
+        {
+            "type": "FLOAT", 
+            "name": "current_score"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "score_version"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }
+    ], 
+    "wiki_articlerevision": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "revision_number"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "user_message"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "automatic_log"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "ip_address"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "modified"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "previous_revision_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "deleted"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "locked"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "article_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "content"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "title"
+        }
+    ], 
+    "earned_certificate": [
+        {
+            "type": "INTEGER", 
+            "name": "grade"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created_date"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "status"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "cert_id"
+        }
+    ], 
+    "certificates_generatedcertificate": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "download_url"
+        }, 
+        {
+            "type": "FLOAT", 
+            "name": "grade"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "key"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "distinction"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "status"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "verify_uuid"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "download_uuid"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created_date"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "modified_date"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "error_reason"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "mode"
+        }
+    ], 
+    "wiki_imagerevision": [
+        {
+            "type": "INTEGER", 
+            "name": "revisionpluginrevision_ptr_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "image"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "width"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "height"
+        }
+    ], 
+    "wiki_reusableplugin_articles": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "reusableplugin_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "article_id"
+        }
+    ], 
+    "django_openid_auth_association": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "server_url"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "handle"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "secret"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "issued"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "lifetime"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "assoc_type"
+        }
+    ], 
+    "psychometrics_psychometricdata": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "studentmodule_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "done"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "attempts"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "checktimes"
+        }
+    ], 
+    "wiki_revisionplugin": [
+        {
+            "type": "INTEGER", 
+            "name": "articleplugin_ptr_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "current_revision_id"
+        }
+    ], 
+    "derived_student_event_counts": [
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "username"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "event_type"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "count"
+        }
+    ], 
+    "south_migrationhistory": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "app_name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "migration"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "applied"
+        }
+    ], 
+    "courseware_offlinecomputedgrade": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "updated"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "gradeset"
+        }
+    ], 
+    "user_id_map": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "username"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "hash_id"
+        }
+    ], 
+    "wiki_revisionpluginrevision": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "revision_number"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "user_message"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "automatic_log"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "ip_address"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "modified"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "previous_revision_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "deleted"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "locked"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "plugin_id"
+        }
+    ], 
+    "wiki_attachmentrevision": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "revision_number"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "user_message"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "automatic_log"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "ip_address"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "modified"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "created"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "previous_revision_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "deleted"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "locked"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "attachment_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "file"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "description"
+        }
+    ], 
+    "notifications_articlesubscription": [
+        {
+            "type": "INTEGER", 
+            "name": "subscription_ptr_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "articleplugin_ptr_id"
+        }
+    ], 
+    "notify_subscription": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "settings_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "notification_type_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "object_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "send_emails"
+        }
+    ], 
+    "student_pendingemailchange": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "new_email"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "activation_key"
+        }
+    ], 
+    "licenses_coursesoftware": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "full_name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "url"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }
+    ], 
+    "licenses_userlicense": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "software_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "serial"
+        }
+    ], 
+    "notify_notificationtype": [
+        {
+            "type": "STRING", 
+            "name": "key"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "label"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "content_type_id"
+        }
+    ], 
+    "simplewiki_revision": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "article_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "revision_text"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "revision_user_id"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "revision_date"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "contents"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "contents_parsed"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "counter"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "previous_revision_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "deleted"
+        }
+    ], 
+    "auth_user": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "username"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "first_name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "last_name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "email"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "password"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "is_staff"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "is_active"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "is_superuser"
+        }, 
+        {
+            "type": "TIMESTAMP",
+            "name": "last_login"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "date_joined"
+        },
+        {
+            "type": "STRING", 
+            "name": "status"
+        }, 
+	{
+	    "type": "STRING",
+	    "name": "email_key"
+        },
+        {
+	    "type": "STRING",
+	    "name": "avatar_type"
+	},
+        {
+	    "type": "STRING",
+	    "name": "country"
+	},
+        {
+	    "type": "STRING",
+	    "name": "show_country"
+	},
+        {
+	    "type": "STRING",
+	    "name": "date_of_birth"
+	},
+        {
+	    "type": "STRING",
+	    "name": "interesting_tags"
+	},
+        {
+	    "type": "STRING",
+	    "name": "ignored_tags"
+	},
+        {
+	    "type": "STRING",
+	    "name": "email_tag_filter_strategy"
+	},
+        {
+	    "type": "STRING",
+	    "name": "display_tag_filter_strategy"
+	},
+        {
+	    "type": "INTEGER",
+	    "name": "consecutive_days_visit_count"
+	}
+    ],
+    "external_auth_externalauthmap": [
+        {
+            "type": "INTEGER", 
+            "name": "id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "external_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "external_domain"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "external_credentials"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "external_email"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "external_name"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "internal_password"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "dtcreated"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "dtsignup"
+        }
+    ], 
+    "wiki_attachment": [
+        {
+            "type": "INTEGER", 
+            "name": "reusableplugin_ptr_id"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "current_revision_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "original_filename"
+        }
+    ], 
+    "forum_entry_votes": [
+        {
+            "type": "List", 
+            "name": "up"
+        }, 
+        {
+            "type": "List", 
+            "name": "down"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "up_count"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "down_count"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "count"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "point"
+        }
+    ]
+}

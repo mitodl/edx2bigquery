@@ -1,0 +1,229 @@
+{
+    "person_course": [
+        {
+            "type": "STRING",
+            "name": "course_id",
+	    "description": "course ID in the standard format as org/number/semester"
+        },
+        {
+            "type": "INTEGER",
+            "name": "user_id",
+	    "description": "user ID number"
+        },
+        {
+            "type": "STRING",
+            "name": "username",
+	    "description": "username"
+        },
+        {
+            "type": "BOOLEAN",
+            "name": "registered",
+	    "description": "Boolean flag, indicating that the user registered in the course (obsolete: should always be 1 or true)"
+        },
+        {
+            "type": "BOOLEAN",
+            "name": "viewed",
+	    "description": "Boolean flag, indicating that the user visited the course at least once"
+        },
+        {
+            "type": "BOOLEAN",
+            "name": "explored",
+	    "description": "Boolean flag, indicating that the user viewed at least half of the chapters of the course"
+        },
+        {
+            "type": "BOOLEAN",
+            "name": "certified",
+	    "description": "Boolean flag, indicating that the user earned a certificate in the course"
+        },
+        {
+            "type": "STRING",
+            "name": "ip",
+	    "description": "Modal value of the IP address from which this user connected, from tracking logs"
+        },
+        {
+            "type": "STRING",
+            "name": "cc_by_ip",
+	    "description": "Two-letter country code corresponding to the modal IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "countryLabel",
+	    "description": "Full name of country corresponding to modal IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "city",
+	    "description": "Full name of city corresponding to modal IP address"
+        },
+        {
+            "type": "FLOAT",
+            "name": "latitude",
+	    "description": "Latitude of city corresponding to modal IP address"
+        },
+        {
+            "type": "FLOAT",
+            "name": "longitude",
+	    "description": "Longitude of city corresponding to modal IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "LoE",
+	    "description": "Level of education"
+        },
+        {
+            "type": "INTEGER",
+            "name": "YoB",
+	    "description": "Year of birth"
+        },
+        {
+            "type": "STRING",
+            "name": "gender",
+	    "description": "gender, one of 'm', 'f', or 'o' (or NULL)"
+        },
+        {
+            "type": "FLOAT",
+            "name": "grade",
+	    "description": "Final grade earned in the course, out of 100 points"
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "start_time",
+	    "description": "Date of enrollment in the course"
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "last_event",
+	    "description": "Date of last event of user, from tracking logs"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nevents",
+	    "description": "Number of tracking log events"
+        },
+        {
+            "type": "INTEGER",
+            "name": "ndays_act",
+	    "description": "Number of days with activity, from tracking logs"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nplay_video",
+	    "description": "Number of video play events from tracking logs"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nchapters",
+	    "description": "Number of chapters visited by the user"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nforum_posts",
+	    "description": "Number of forum posts and comments made by user"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nforum_votes",
+	    "description": "Number of votes received by user's forum posts"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nforum_endorsed",
+	    "description": "Number of endorsed forum posts by user"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nforum_threads",
+	    "description": "Number of forum post threads by user"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nforum_comments",
+	    "description": "Number of forum post comments by user"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nforum_pinned",
+	    "description": "Number of forum posts by user which were pinned (good indicator of staff)"
+        },
+        {
+            "type": "STRING",
+            "name": "roles",
+	    "description": "Roles played by the user in the course, e.g. instructor, course_staff"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nprogcheck",
+	    "description": "Number of progress check events from tracking logs"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nproblem_check",
+	    "description": "Number of problem check events from tracking logs"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nforum_events",
+	    "description": "Number of all kinds of forum events, from tracking logs"
+        },
+        {
+            "type": "STRING",
+            "name": "mode",
+	    "description": "Mode of registrant, e.g. instructor, course_staff, learner"
+        },
+        {
+            "type": "INTEGER",
+            "name": "ntranscript",
+	    "description": "Number of video transcript events from tracking logs"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nshow_answer",
+	    "description": "Number of show answer events from tracking logs"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nvideo",
+	    "description": "Number of video events (of all kinds) from tracking logs"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nseq_goto",
+	    "description": "Number of 'sequence goto' navigational events from tracking logs"
+        },
+        {
+            "type": "INTEGER",
+            "name": "nseek_video",
+	    "description": "Number of 'video seek' events from tracking logs"
+        },
+        {
+            "type": "INTEGER",
+            "name": "npause_video",
+	    "description": "Number of 'video pause' events from tracking logs"
+        },
+        {
+            "type": "FLOAT",
+            "name": "avg_dt",
+	    "description": "Average time difference in seconds between consecutive events from tracking logs"
+        },
+        {
+            "type": "FLOAT",
+            "name": "sdv_dt",
+	    "description": "Standard deviation of difference in seconds between consecutive events from tracking logs"
+        },
+        {
+            "type": "FLOAT",
+            "name": "max_dt",
+	    "description": "Maximum difference in seconds between consecutive events from tracking logs"
+        },
+        {
+            "type": "INTEGER",
+            "name": "n_dt",
+	    "description": "Number of consecutive events used in time difference computations, from tracking logs"
+        },
+        {
+            "type": "FLOAT",
+            "name": "sum_dt",
+	    "description": "Total elapsed time (in seconds) spent by user on this course, based on time difference of consecutive events, with 5 min max cutoff, from tracking logs"
+        }
+    ]
+}

@@ -1,0 +1,560 @@
+{
+    "tracking_log": [
+        {
+            "type": "TIMESTAMP", 
+            "name": "time"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "username"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "ip"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "event_source"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "event_type"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "agent"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "module_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "page"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "host"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "vname"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "datafn"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "event_js"
+        }, 
+        {
+            "fields": [
+                {
+                    "type": "STRING", 
+                    "name": "course_id"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "course_user_tags"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "user_id"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "org_id"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "username"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "ip"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "agent"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "host"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "session"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "path"
+                }, 
+                {
+                    "fields": [
+                        {
+                            "type": "STRING", 
+                            "name": "display_name"
+                        }
+                    ], 
+                    "type": "RECORD", 
+                    "name": "module"
+                }
+            ], 
+            "type": "RECORD", 
+            "name": "context"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "mongoid"
+        }, 
+        {
+            "fields": [
+                {
+                    "type": "STRING", 
+                    "name": "POST"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "GET"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "course_id"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "user_id"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "mode"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "data"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "code"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "id"
+                }, 
+                {
+                    "type": "FLOAT", 
+                    "name": "currentTime"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "new"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "old"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "problem"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "type"
+                }, 
+                {
+                    "type": "FLOAT", 
+                    "name": "new_time"
+                }, 
+                {
+                    "type": "FLOAT", 
+                    "name": "old_time"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "problem_id"
+                }, 
+                {
+                    "fields": [
+                        {
+                            "type": "STRING", 
+                            "name": "student_answers"
+                        }, 
+                        {
+                            "type": "INTEGER", 
+                            "name": "seed"
+                        }, 
+                        {
+                            "type": "BOOLEAN", 
+                            "name": "done"
+                        }, 
+                        {
+                            "type": "STRING", 
+                            "name": "correct_map"
+                        }, 
+                        {
+                            "type": "STRING", 
+                            "name": "input_state"
+                        }
+                    ], 
+                    "type": "RECORD", 
+                    "name": "state"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "answers"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "submission"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "success"
+                }, 
+                {
+                    "type": "FLOAT", 
+                    "name": "grade"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "correct_map"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "attempts"
+                }, 
+                {
+                    "type": "FLOAT", 
+                    "name": "max_grade"
+                }, 
+                {
+                    "type": "FLOAT", 
+                    "name": "current_time"
+                }, 
+                {
+                    "type": "FLOAT", 
+                    "name": "old_speed"
+                }, 
+                {
+                    "type": "FLOAT", 
+                    "name": "new_speed"
+                }, 
+                {
+                    "type": "FLOAT", 
+                    "name": "speed"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "failure"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "course"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "total_results"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "query"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "corrected_text"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "page"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "child_id"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "group_id"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "partition_name"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "partition_id"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "group_name"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "old_state"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "new_state"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "status"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "is_user_staff"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "chapter"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "direction"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "name"
+                }, 
+                {
+                    "type": "FLOAT", 
+                    "name": "amount"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "chapter_title"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "caseSensitive"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "findPrevious"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "highlightAll"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "item_id"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "submission_returned_uuid"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "requesting_student_id"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "saved_response"
+                }, 
+                {
+                    "fields": [
+                        {
+                            "type": "STRING", 
+                            "name": "text"
+                        }
+                    ], 
+                    "type": "RECORD", 
+                    "name": "answer"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "created_at"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "attempt_number"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "submission_uuid"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "submitted_at"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "corrections"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "options_selected"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "scorer_id"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "feedback"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "score_type"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "parts"
+                }, 
+                {
+                    "fields": [
+                        {
+                            "type": "STRING", 
+                            "name": "content_hash"
+                        }
+                    ], 
+                    "type": "RECORD", 
+                    "name": "rubric"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "scored_at"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "feedback_text"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "options"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "thumbnail_title"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "location"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "permutation"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "url"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "descriptionText"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "description"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "title"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "aws_secret_key"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "uploadedFileDir"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "aws_access_key"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "bucketName"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "downvotes"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "upvotes"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "uploadedFileName"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "error"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "newVotes"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "oldVotes"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "old_description"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "old_title"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "old_url"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "old_descriptionText"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "toggle"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "reason"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "isProblematic"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "oldReason"
+                }, 
+                {
+                    "type": "INTEGER", 
+                    "name": "category"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "selection"
+                }, 
+                {
+                    "type": "STRING", 
+                    "name": "element"
+                }
+            ], 
+            "type": "RECORD", 
+            "name": "event_struct"
+        }, 
+	{
+            "type": "STRING", 
+            "name": "event"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "name"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "session"
+        }
+    ]
+}

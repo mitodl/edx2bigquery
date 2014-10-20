@@ -1,0 +1,160 @@
+{
+    "user_info_combo": [
+        {
+            "type": "INTEGER", 
+            "name": "user_id"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "username"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "email"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "is_staff"
+        }, 
+        {
+            "type": "TIMESTAMP",
+            "name": "last_login"
+        }, 
+        {
+            "type": "TIMESTAMP", 
+            "name": "date_joined"
+        },
+              {
+                  "type": "STRING", 
+                  "name": "profile_name"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "profile_language"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "profile_location"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "profile_meta"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "profile_courseware"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "profile_gender"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "profile_mailing_address"
+              }, 
+              {
+                  "type": "INTEGER", 
+                  "name": "profile_year_of_birth"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "profile_level_of_education"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "profile_goals"
+              }, 
+              {
+                  "type": "INTEGER", 
+                  "name": "profile_allow_certificate"
+              },
+              {
+                  "type": "STRING",
+                  "name": "profile_country"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "profile_city"
+              },
+              {
+                  "type": "STRING", 
+                  "name": "enrollment_course_id"
+              }, 
+              {
+                  "type": "TIMESTAMP", 
+                  "name": "enrollment_created"
+              }, 
+              {
+                  "type": "INTEGER", 
+                  "name": "enrollment_is_active"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "enrollment_mode"
+              },
+              {
+                  "type": "INTEGER", 
+                  "name": "certificate_id"
+              }, 
+              {
+                  "type": "INTEGER", 
+                  "name": "certificate_user_id"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "certificate_download_url"
+              }, 
+              {
+                  "type": "FLOAT", 
+                  "name": "certificate_grade"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "certificate_course_id"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "certificate_key"
+              }, 
+              {
+                  "type": "INTEGER", 
+                  "name": "certificate_distinction"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "certificate_status"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "certificate_verify_uuid"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "certificate_download_uuid"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "certificate_name"
+              }, 
+              {
+                  "type": "TIMESTAMP", 
+                  "name": "certificate_created_date"
+              }, 
+              {
+                  "type": "TIMESTAMP", 
+                  "name": "certificate_modified_date"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "certificate_error_reason"
+              }, 
+              {
+                  "type": "STRING", 
+                  "name": "certificate_mode"
+              },
+              {
+                  "type": "STRING", 
+                  "name": "id_map_hash_id"
+              }
+    ]
+}
