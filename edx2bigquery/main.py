@@ -97,7 +97,7 @@ logs2gs <course_id> ...     : transfer compressed daily tracking log files for t
                               Does NOT import the log data into BigQuery.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
-logs2bq <course_id> ...     : import daily tracking log files for the specified course_id's to BigQuery.
+logs2bq <course_id> ...     : import daily tracking log files for the specified course_id's to BigQuery, from Google cloud storage.
                               The import jobs are queued; this does not wait for the jobs to complete,
                               before exiting.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
@@ -147,14 +147,16 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
     # parser.add_argument("-C", "--course_id", type=str, help="course ID in org/number/semester format, e.g. MITx/6.SFMx/1T2014")
     parser.add_argument("--course_base_dir", type=str, help="base directory where course SQL is stored, e.g. 'HarvardX-Year-2-data-sql'")
     parser.add_argument("--course_date_dir", type=str, help="date sub directory where course SQL is stored, e.g. '2014-09-21'")
-    parser.add_argument("--start_date", type=str, help="start date for person-course dataset generated, e.g. '2012-09-01'")
-    parser.add_argument("--end_date", type=str, help="end date for person-course dataset generated, e.g. '2014-09-21'")
+    parser.add_argument("--start-date", type=str, help="start date for person-course dataset generated, e.g. '2012-09-01'")
+    parser.add_argument("--end-date", type=str, help="end date for person-course dataset generated, e.g. '2014-09-21'")
     parser.add_argument("--tlfn", type=str, help="path to daily tracking log file to import, e.g. 'DAILY/mitx-edx-events-2014-10-14.log.gz'")
     parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
     parser.add_argument("--year2", help="increase output verbosity", action="store_true")
     parser.add_argument("--force-recompute", help="force recomputation", action="store_true")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
+    parser.add_argument("--dbname", type=str, help="mongodb db name to use for mongo2gs")
+    parser.add_argument("--collection", type=str, help="mongodb collection name to use for mongo2gs")
     parser.add_argument("--output-project-id", type=str, help="project-id where the report output should go (used by the report and combinepc commands)")
     parser.add_argument("--output-dataset-id", type=str, help="dataset-id where the report output should go (used by the report and combinepc commands)")
     parser.add_argument("--output-bucket", type=str, help="gs bucket where the report output should go, e.g. gs://x-data (used by the report and combinepc commands)")
@@ -237,13 +239,20 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                                                                         verbose=verbose)
             except Exception as err:
                 print err
+                raise
                 
     #-----------------------------------------------------------------------------            
 
     if (args.command=='mongo2gs'):
         from extract_logs_mongo2gs import  extract_logs_mongo2gs
         for course_id in get_course_ids(args):
-            extract_logs_mongo2gs(course_id, verbose=args.verbose)
+            extract_logs_mongo2gs(course_id, verbose=args.verbose,
+                                  start=(args.start_date or "2012-09-05"),
+                                  end=(args.end_date or "2014-09-21"),
+                                  dbname=args.dbname,
+                                  collection=args.collection or 'tracking_log',
+                                  tracking_logs_directory=args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY,
+                                  )
         
     elif (args.command=='rephrase_logs'):
         from rephrase_tracking_logs import do_rephrase_line

@@ -29,7 +29,12 @@ def daterange(start, end):
 def d2dt(date):
     return datetime.datetime.strptime(date, '%Y-%m-%d')
 
-def extract_logs_mongo2gs(course_id, start="2012-09-01", end="2014-09-24", verbose=False):
+def extract_logs_mongo2gs(course_id, start="2012-09-01", end="2014-09-24", verbose=False,
+                          dbname=DBNAME,
+                          collection = 'tracking_log',
+                          tracking_logs_directory="TRACKING_LOGS",
+                          ):
+
     print "extracting logs for course %s" % course_id
 
     # list of dates to dump
@@ -42,8 +47,7 @@ def extract_logs_mongo2gs(course_id, start="2012-09-01", end="2014-09-24", verbo
     gspath = "%s/DAILY" % gs_path_from_course_id(course_id)
     gsfiles = get_gs_file_list(gspath)
 
-    collection = 'tracking_log'
-    DIR = "TRACKING_LOGS"
+    DIR = tracking_logs_directory
     if not os.path.exists(DIR):
         os.mkdir(DIR)
     DIR += '/' + path_from_course_id(course_id)
@@ -70,7 +74,7 @@ def extract_logs_mongo2gs(course_id, start="2012-09-01", end="2014-09-24", verbo
             # db.tracking_log.find({'course_id': "HarvardX/ER22x/2013_Spring", 
             #                       'time': { '$gte': "2013-08-01T00:00:00.000000", '$lt': "2013-08-02T00:00:00.000000" }}).count()
             query = '{"course_id": "%s", "time": {"$gte": "%s", "$lt": "%s" }}' % (course_id, start, end)
-            cmd = "mongoexport -d %s -c %s -q '%s'| edx2bigquery rephrase_logs | gzip -9 > %s" % (DBNAME, collection, query, ofn)
+            cmd = "mongoexport -d %s -c %s -q '%s'| edx2bigquery rephrase_logs | gzip -9 > %s" % (dbname, collection, query, ofn)
             # print cmd
             os.system(cmd)
         

@@ -22,7 +22,7 @@ from edx2bigquery_config import auth_key_file, auth_service_acct
 HAS_CRYPTO = False
 
 from apiclient import discovery
-from oauth2client.client import flow_from_clientsecrets
+from oauth2client.client import flow_from_clientsecrets, Credentials
 try: 
   # Some systems may not have OpenSSL installed so can't use
   # SignedJwtAssertionCredentials.
@@ -56,9 +56,18 @@ def get_creds(verbose=False):
       print "using key file"
       print "service_acct=%s, key_file=%s" % (SERVICE_ACCT, KEY_FILE)
     return get_service_acct_creds(SERVICE_ACCT, KEY_FILE)
+  elif KEY_FILE=='USE_GCLOUD_AUTH':
+    return get_gcloud_oauth2_creds()
   else:
     return get_oauth2_creds()
   
+def get_gcloud_oauth2_creds():
+  gcfp = '~/.config/gcloud/credentials'
+  credfn = os.path.expanduser(gcfp)
+  gcloud_cred = json.loads(open(credfn).read())['data'][0]['credential']
+  credentials = Credentials.new_from_json(json.dumps(gcloud_cred))
+  return credentials
+
 def get_oauth2_creds():
   '''Generates user credentials.
   

@@ -61,8 +61,12 @@ def create_dataset_if_nonexistent(dataset, project_id=DEFAULT_PROJECT_ID):
 def get_list_of_datasets(project_id=DEFAULT_PROJECT_ID):
   dataset_list = datasets.list(projectId=project_id, maxResults=1000).execute()
 
-  dsets = {x['datasetReference']['datasetId']: x for x in dataset_list['datasets']}
-  return dsets
+  if 'datasets' in dataset_list:
+      dsets = {x['datasetReference']['datasetId']: x for x in dataset_list['datasets']}
+      return dsets
+  else:
+      print "no datasets?"
+  return {}
 
 def get_projects(project_id=DEFAULT_PROJECT_ID):
     for project in projects.list().execute()['projects']:
