@@ -20,6 +20,16 @@ else:
     print "WARNING: edx2bigquery needs a configuration file, ./edx2bigquery_config.py, to operate properly"
 
 def get_course_ids(args):
+    if args.clist:
+        course_dicts = getattr(edx2bigquery_config, 'courses', None)
+        if course_dicts is None:
+            print "The --courses argument requires that the 'courses' dict be defined within the edx2bigquery_config.py configuraiton file"
+            sys.exit(-1)
+        if args.clist not in course_dicts:
+            print "The --courses argument specified a course list of name '%s', but that does not exist in the courses dict in the config file" % args.clist
+            print "The courses dict only has these lists defined: %s" % course_dicts.keys()
+            sys.exit(-1)
+        return course_dicts[args.clist]
     if args.year2:
         return edx2bigquery_config.course_id_list
     return args.courses
@@ -152,6 +162,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
     parser.add_argument("--tlfn", type=str, help="path to daily tracking log file to import, e.g. 'DAILY/mitx-edx-events-2014-10-14.log.gz'")
     parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
     parser.add_argument("--year2", help="increase output verbosity", action="store_true")
+    parser.add_argument("--clist", type=str, help="specify name of list of courses to iterate command over")
     parser.add_argument("--force-recompute", help="force recomputation", action="store_true")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
@@ -208,18 +219,26 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             # doing daily_logs, so run split once first, then afterwards logs2gs and logs2bq
             daily_logs(args, 'split', args.tlfn)
             for course_id in get_course_ids(args):
-                daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=False)
+                daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose)
             return
 
         if course_id is None:
             for course_id in get_course_ids(args):
+                print "---> Processing %s on course_id=%s" % (steps, course_id)
                 daily_logs(args, steps, course_id)
             return
 
         if 'split' in steps:
             import split_and_rephrase
             tlfn = course_id		# tracking log filename
-            split_and_rephrase.do_file(tlfn, args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY)
+            if '*' in tlfn:
+                import glob
+                TODO = glob.glob(tlfn)
+            else:
+                TODO = [tlfn]
+            for the_tlfn in TODO:
+                print "--> Splitting tracking logs in %s" % the_tlfn
+                split_and_rephrase.do_file(the_tlfn, args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY)
 
         if 'logs2gs' in steps:
             import transfer_logs_to_gs
