@@ -54,17 +54,21 @@ class GeoIPData(object):
             print "--> Cannot get geoip for %s, skipping" % ip
             return
     
-        if rec is None:
+        if (rec is None) or (not rec):
             print "--> Cannot get geoip for %s, skipping" % ip
             return
     
-        self.geoipdat[ip] = {'ip': ip, 
-                        'city': rec['city'].decode('latin1'),	# maxmind geoip data city encoded as latin1
-                        'countryLabel': rec['country_name'],
-                        'country': rec['country_code'],
-                        'latitude': rec['latitude'],
-                        'longitude': rec['longitude'],
-                        }
+        try:
+            self.geoipdat[ip] = {'ip': ip, 
+                                 'city': rec['city'].decode('latin1'),	# maxmind geoip data city encoded as latin1
+                                 'countryLabel': rec['country_name'],
+                                 'country': rec['country_code'],
+                                 'latitude': rec['latitude'],
+                                 'longitude': rec['longitude'],
+                                 }
+        except Exception as err:
+            print "Oops, bad geoip record for ip=%s, got rec=%s" % (ip, rec)
+            return None
     
         # In [3]: gi.record_by_addr('217.212.231.57')
         # Out[3]: 
