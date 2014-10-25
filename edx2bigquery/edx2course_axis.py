@@ -458,7 +458,7 @@ def process_course(dir):
     # save data as csv and txt: loop through each course (multiple policies can exist withing a given course dir)
     for cid, cdat in ret.iteritems():
 
-        print "================================================== (cid)"
+        print "================================================== (%s)" % cid
 
         log_msg = cdat['log_msg']
 

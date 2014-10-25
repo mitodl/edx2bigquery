@@ -46,7 +46,9 @@ def do_save(cid, caset_in, xbundle, datadir, log_msg):
             except Exception as err:
                 print "failed to create json for %s, error=%s" % (data, err)
         ca['start'] = str(ca['start'])	# datetime to string
-        if ca['data'] is None:
+        if  ca['due'] is not None:
+            ca['due'] = str(ca['due'])	# datetime to string
+        if (ca['data'] is None) or (ca['data']==''):
             ca.pop('data')
         check_schema(linecnt, ca, the_ds=dict_schema, coerce=True)
         try:
