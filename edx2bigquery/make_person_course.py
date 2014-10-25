@@ -78,12 +78,14 @@ class PersonCourse(object):
                  force_recompute_from_logs=False,
                  start_date = '2012-01-01',
                  end_date = '2014-09-21',
+                 nskip = 0,
                  ):
 
         self.course_id = course_id
         self.course_dir = find_course_sql_dir(course_id, course_dir_root, course_dir_date)
         self.cdir = path(self.course_dir)
         self.logmsg = []
+        self.nskip = nskip
 
         if not self.cdir.exists():
             print "Oops: missing directory %s!" % self.cdir
@@ -229,7 +231,7 @@ class PersonCourse(object):
 
             data[key] = dline
         self.pctab = data
-        self.log("Loaded %d lines from %s" % (len(data), dfn))
+        self.log("Loaded %d lines from %s" % (len(data), self.cdir / dfn))
 
     def compute_first_phase(self):
     
@@ -372,6 +374,42 @@ class PersonCourse(object):
             self.copy_from_bq_table(self.pc_geoip, pcent, username, 'countryLabel', mkutf=True)	# unicode
             self.copy_from_bq_table(self.pc_geoip, pcent, username, 'city', mkutf=True)		# unicode
 
+    def compute_fifth_phase(self):
+        '''
+        Add more geoip information, based on extra_geoip and local maxmind geoip
+        '''
+        import make_geoip_table
+        gid = make_geoip_table.GeoIPData()
+        gid.load_geoip()
+
+        def c2pc(field, gdata):
+            pcent[field] = gdata[field]
+
+        gfields = ['city', 'countryLabel', 'latitude', 'longitude']
+
+        nnew = 0
+        for key, pcent in self.pctab.iteritems():
+            cc = pcent.get('cc_by_ip', None)
+            if cc is not None:
+                continue
+            ip = pcent.get('ip', None)
+            if ip is None:
+                continue
+            gdat = gid.lookup_ip(ip)
+            if gdat is None:
+                continue
+            pcent['cc_by_ip'] = gdat['country']
+            for field in gfields:
+                c2pc(field, gdat)
+            pcent['city'] = pcent['city'].encode('utf8')
+            nnew += 1
+            if (nnew%100==0):
+                sys.stdout.write('.')
+                sys.stdout.flush()
+        print "Done: %d new geoip entries added to person_course for %s" % (nnew, self.course_id)
+        gid.write_geoip_table()
+        
+
     def output_table(self):
         '''
         output person_course table 
@@ -423,7 +461,7 @@ class PersonCourse(object):
 
         description = '\n'.join(self.logmsg)
         description += "Person course for %s with nchapters=%s, start=%s, end=%s\n" % (self.course_id,
-                                                                                       self.nchapters,
+                                                                                       getattr(self, 'nchapters', 'unknown'),
                                                                                        self.start_date,
                                                                                        self.end_date,
                                                                                        )
@@ -648,10 +686,26 @@ class PersonCourse(object):
         self.cwsm = load_csv('studentmodule.csv', 'student_id', fields=['module_id', 'module_type'], keymap=int)
 
     def make_all(self):
-        self.compute_first_phase()
-        self.compute_second_phase()
-        self.compute_third_phase()
-        self.compute_fourth_phase()
+        steps = [
+            self.compute_first_phase,
+            self.compute_second_phase,
+            self.compute_third_phase,
+            self.compute_fourth_phase,
+            self.compute_fifth_phase,
+            ]
+        if self.nskip==0:
+            for step in steps:
+                step()
+        else:
+            self.log("Running subset of steps, nskip=%s" % self.nskip)
+            self.reload_table()
+            for step in steps:
+                if self.nskip <= 0:
+                    step()
+                else:
+                    print "Skipping %s" % repr(step)
+                self.nskip -= 1
+
         self.output_table()
         self.upload_to_bigquery()
 
@@ -669,6 +723,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                        start="2012-09-05",
                        end="2013-09-21",
                        force_recompute=False,
+                       nskip=0,
                        ):
     '''
     make one person course dataset
@@ -683,7 +738,9 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                       gsbucket=gsbucket,
                       start_date=start, 
                       end_date=end,
-                      force_recompute_from_logs=force_recompute)
+                      force_recompute_from_logs=force_recompute,
+                      nskip=nskip,
+                      )
     redo2 = 'redo2' in options
     if redo2:
         pc.redo_second_phase()

@@ -5,15 +5,16 @@
 
 import os, sys
 import dateutil.parser
+from path import path
 
 sys.path.append(os.path.abspath(os.curdir))
 import edx2bigquery_config
 
 def path_from_course_id(course_id):
-    return course_id.replace('/', '__')
+    return path(course_id.replace('/', '__'))
 
 def gs_path_from_course_id(course_id, gsbucket=None):
-    return "%s/%s" % (gsbucket or edx2bigquery_config.GS_BUCKET, path_from_course_id(course_id))
+    return path("%s/%s" % (gsbucket or edx2bigquery_config.GS_BUCKET, path_from_course_id(course_id)))
 
 def gs_download_link(gspath):
     return "https://storage.cloud.google.com/" + gspath[5:]   # drop gs:// prefix    

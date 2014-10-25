@@ -100,8 +100,14 @@ def get_table_data(dataset_id, table_id, key=None, logger=None, project_id=DEFAU
     field_names = name of top-level schema fields
     data = list of data
     data_by_key = dict of data, with key being the value of the fieldname specified as the key arg
+
+    Arguments:
+
+      - key: dict with {'name': name_of_field_for_key}
+
     '''
     table_ref = dict(datasetId=dataset_id, projectId=project_id, tableId=table_id)
+    table_ref['maxResults'] = 1000000
     table = get_bq_table_info(dataset_id, table_id)
     data = tabledata.list(**table_ref).execute()
 

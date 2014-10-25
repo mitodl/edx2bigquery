@@ -1,0 +1,34 @@
+{
+    "extra_geoip": [
+        {
+            "type": "STRING",
+            "name": "ip",
+	    "description": "IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "city",
+	    "description": "city name (unicode!)"
+        },
+        {
+            "type": "STRING",
+            "name": "countryLabel",
+	    "description": "country name"
+        },
+        {
+            "type": "STRING",
+            "name": "country",
+	    "description": "two-level country code"
+        },
+        {
+            "type": "FLOAT",
+            "name": "latitude",
+	    "description": "latitude"
+        },
+        {
+            "type": "FLOAT",
+            "name": "longitude",
+	    "description": "longitude"
+        }
+    ]
+}

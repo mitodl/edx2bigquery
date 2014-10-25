@@ -91,6 +91,11 @@ load_forum <course_id> ...  : Rephrase the forum.mongo data from the edX SQL dum
                               data in the course BigQuery tables.  Saves this to google storage, and imports into BigQuery.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
+makegeoip                   : Creates table of geoip information for IP addresses in person_course table missing country codes.
+                              Accepts the --table argument to specify the person_course table to use.
+                              Alternatively, provide the --org argument to specify the course_report_ORG dataset to look
+                              in for the latest person_course dataset.
+
 --- TRACKING LOG DATA RELATED COMMANDS
 
 split <daily_log_file> ...  : split single-day tracking log files (should be named something like mitx-edx-events-2014-10-17.log.gz),
@@ -173,6 +178,8 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
     parser.add_argument("--dbname", type=str, help="mongodb db name to use for mongo2gs")
+    parser.add_argument("--table", type=str, help="bigquery table to use, specified as dataset_id.table_id")
+    parser.add_argument("--org", type=str, help="organization ID to use")
     parser.add_argument("--collection", type=str, help="mongodb collection name to use for mongo2gs")
     parser.add_argument("--output-project-id", type=str, help="project-id where the report output should go (used by the report and combinepc commands)")
     parser.add_argument("--output-dataset-id", type=str, help="dataset-id where the report output should go (used by the report and combinepc commands)")
@@ -297,6 +304,14 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
     elif (args.command=='setup_sql'):
         setup_sql(args, args.command)
 
+    elif (args.command=='makegeoip'):
+        import make_geoip_table
+        gid = make_geoip_table.GeoIPData()
+        gid.make_table(args.table,
+                       org=args.org or getattr(edx2bigquery_config, 'ORG'),
+                       nskip=(args.nskip or 0),
+                       )
+
     elif (args.command=='testbq'):
         # test authentication to bigquery - list databases in project
         import bqutil
@@ -374,6 +389,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                                                       start=(args.start_date or "2012-09-05"),
                                                       end=(args.end_date or "2014-09-21"),
                                                       force_recompute=args.force_recompute,
+                                                      nskip=(args.nskip or 0),
                                                       )
             except Exception as err:
                 print err
