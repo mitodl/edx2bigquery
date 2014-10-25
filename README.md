@@ -23,8 +23,8 @@ Also, setup the file edx2bigquery_config.py in your current working directory.  
     ]
     
     # google cloud project access
-    auth_key_file = "/path/to/service-key/<keyfile.p12>"
-    auth_service_acct = '<project-service-account-email-address>@developer.gserviceaccount.com'
+    auth_key_file = "USE_GCLOUD_AUTH"
+    auth_service_acct = None
     
     # google bigquery config
     PROJECT_ID = "x-data"

@@ -28,6 +28,8 @@ setup(
             ],
         },
     install_requires=['path.py',
+                      'argparse',
+		      'pygeoip',
                       ],
     dependency_links = [
         ],
