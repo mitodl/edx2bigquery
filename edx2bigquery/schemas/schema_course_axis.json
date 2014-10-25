@@ -1,0 +1,76 @@
+{
+    "course_axis": [
+        {
+            "type": "STRING",
+            "name": "category",
+	    "description": "type of course content, e.g. chapter, sequential, vertical, problem, video, html"
+        },
+        {
+            "type": "INTEGER",
+            "name": "index",
+	    "description": "sequence index giving order in which this content appears within the course"
+        },
+        {
+            "type": "STRING",
+            "name": "url_name",
+	    "description": "unique database key for this module element of the course"
+        },
+        {
+            "type": "STRING",
+            "name": "name",
+	    "description": "human-readable name for this module element of the course"
+        },
+        {
+            "type": "STRING",
+            "name": "gformat",
+	    "description": "grading format, aka the name of the assignment into which this element's grade is aggregated"
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "due",
+	    "description": "due date for this element"
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "start",
+	    "description": "start date for this element"
+        },
+        {
+            "type": "STRING",
+            "name": "module_id",
+	    "description": "org/number/category/url_name for this element (note this leaves out the semester-ID, and while it is unique within a course, is not unique across semester re-runs)"
+        },
+        {
+            "type": "STRING",
+            "name": "course_id",
+	    "description": "org/number/semester course_id"
+        },
+        {
+            "type": "STRING",
+            "name": "path",
+	    "description": "slash separated path of url_name's to this element, from the course root; gives parents for the element, including chapter and section"
+        },
+        {
+            "type": "RECORD",
+            "name": "data",
+	    "description": "additional data associated with this element of the course, e.g. you-tube ID for videos",
+                    "fields": [
+                        {
+                            "type": "STRING", 
+                            "name": "ytid",
+			    "description": "youtube ID of video element, or of youtube video within an iframe in an HTML element"
+                        },
+                        {
+                            "type": "FLOAT", 
+                            "name": "weight",
+			    "description": "grading weight (for problems)"
+                        }
+                    ] 
+        },
+        {
+            "type": "STRING",
+            "name": "chapter_mid",
+	    "description": "module-id of chapter within which this module element exists"
+        }
+    ]
+}

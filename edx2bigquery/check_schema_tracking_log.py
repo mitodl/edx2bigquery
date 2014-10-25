@@ -23,9 +23,10 @@ bq2ptype = {'RECORD': dict, 'INTEGER': int, 'STRING': unicode, 'FLOAT': float,
 def schema2dict(the_schema_in):
     '''
     Convert schema from BigQuery format (list of dicts) to a dict with entries.
-    Do this recursively.
+    Do this recursively.  Easier to check a schema when using this "dict" format.
+    Ensures the original schema is unmodified by side effects.
     '''
-    the_schema = copy.deepcopy(the_schema_in)
+    the_schema = copy.deepcopy(the_schema_in)	# make sure not to modify the original schema dict, by copying it
     dict_schema = OrderedDict()
     for ent in the_schema:
         dict_schema[ent['name']] = ent
@@ -36,8 +37,13 @@ def schema2dict(the_schema_in):
 
 ds = schema2dict(schema)
 
-def check_schema(linecnt, data, the_ds=None, path='', coerce=False):
+def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=None):
+
     global ds
+
+    if the_schema is not None and the_ds is None:
+        the_ds = schema2dict(the_schema)
+
     if the_ds is None:
         the_ds = ds
 

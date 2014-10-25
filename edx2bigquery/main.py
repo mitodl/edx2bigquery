@@ -118,6 +118,12 @@ mongo2gs <course_id> ...    : extract tracking logs from mongodb (using mongoexp
                               Rephrases log file entries to be consistent with the schema used for tracking log file data in BigQuery.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
+--- COURSE CONTENT DATA RELATED COMMANDS
+
+axis2bq <course_id> ...     : construct "course axis" table, upload to gs, and generate table in BigQuery dataset for the
+                              specified course_id's.  
+                              Accepts the "--clist" flag, to process specified list of courses in the config file's "courses" dict.
+
 --- REPORTING COMMANDS
 
 person_day <course_id> ...  : Compute the person_course_day (pcday) for the specified course_id's, based on 
@@ -328,6 +334,26 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
 
     elif (args.command=='logs2bq'):
         daily_logs(args, args.command)
+
+    elif (args.command=='axis2bq'):
+        import edx2course_axis
+        import load_course_sql
+        for course_id in get_course_ids(args):
+            sdir = load_course_sql.find_course_sql_dir(course_id, 
+                                                       basedir=args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None), 
+                                                       datedir=args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None),
+                                                       )
+            edx2course_axis.DATADIR = sdir
+            edx2course_axis.VERBOSE_WARNINGS = args.verbose
+            fn = sdir / 'course.xml.tar.gz'
+            if not os.path.exists(fn):
+                print "---> oops, cannot generate course axis for %s, file %s missing!" % (course_id, fn)
+                continue
+            try:
+                edx2course_axis.process_xml_tar_gz_file(fn)
+            except Exception as err:
+                print err
+                raise
 
     elif (args.command=='person_day'):
         import make_person_course_day
