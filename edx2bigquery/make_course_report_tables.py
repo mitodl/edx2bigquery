@@ -34,6 +34,7 @@ class CourseReport(object):
         self.make_totals_by_course()
         self.make_total_populations_by_course()
         self.make_table_of_n_courses_registered()
+        self.make_geographic_distributions()
         self.make_overall_totals()
     
     def do_table(self, the_sql, tablename):
@@ -122,6 +123,25 @@ class CourseReport(object):
         '''.format(**self.parameters)
         
         self.do_table(the_sql, 'multi_registrations')
+    
+    def make_geographic_distributions(self):
+        the_sql = '''
+            SELECT cc_by_ip as cc,
+                countryLabel,
+                sum(case when certified then 1 else 0 end) as ncertified,
+                sum(case when registered then 1 else 0 end) as nregistered,
+                sum(case when viewed then 1 else 0 end) as nviewed,
+                sum(case when explored then 1 else 0 end) as nexplored,
+                sum(case when (mode="verified") then 1 else 0 end) as nverified,
+                sum(case when (mode="verified") and certified then 1 else 0 end) as ncert_verified,
+                avg(case when certified then avg_dt else null end) as avg_certified_dt,
+            FROM {pc_tables}
+            group by cc, countryLabel
+            #order by countryLabel
+            order by nverified desc
+        '''.format(**self.parameters)
+        
+        self.do_table(the_sql, 'geographic_distributions')
         
     def make_overall_totals(self):
         the_sql = '''
