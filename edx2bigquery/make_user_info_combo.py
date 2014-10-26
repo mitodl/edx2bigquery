@@ -84,41 +84,95 @@ def process_file(course_id, basedir=None, datedir=None):
                 continue
             dest[prefix + key] = src[key]
     
-    def openfile(fn, mode='r'):
-        if (not os.path.exists(cdir / fn)) and (not fn.endswith('.gz')):
+    def openfile(fn_in, mode='r', add_dir=True):
+        if add_dir:
+            fn = cdir / fn_in
+        else:
+            fn = fn_in
+        if (not os.path.exists(fn)) and (not fn.endswith('.gz')):
             fn += ".gz"
+        if mode=='r' and not os.path.exists(fn):
+            newfn = convert_sql(fn)		# try converting from *.sql file, if that exists
+            if not newfn:
+                return None			# failure, no file found, return None
+            fn = newfn
         if fn.endswith('.gz'):
-            return gzip.GzipFile(cdir / fn, mode)
-        return open(cdir / fn, mode)
+            return gzip.GzipFile(fn, mode)
+        return open(fn, mode)
     
+    def tsv2csv(fn_in, fn_out):
+        import csv
+        fp = openfile(fn_out, 'w', add_dir=False)
+        csvfp = csv.writer(fp)
+        for line in openfile(fn_in, add_dir=False):
+            csvfp.writerow(line[:-1].split('\t'))
+        fp.close()
+    
+    def convert_sql(fnroot):
+        '''
+        Returns filename if suitable file exists or was created by conversion of tab separated values to comma separated values.
+        Returns False otherwise.
+        '''
+        if fnroot.endswith('.gz'):
+            fnroot = fnroot[:-3]
+        if fnroot.endswith('.csv'):
+            fnroot = fnroot[:-4]
+        if os.path.exists(fnroot + ".csv"):
+            return fnroot + ".csv"
+        if os.path.exists(fnroot + ".csv.gz"):
+            return fnroot + ".csv.gz"
+        if os.path.exists(fnroot + ".sql") or os.path.exists(fnroot + ".sql.gz"):
+            infn = fnroot + '.sql'
+            outfn = fnroot + '.csv.gz'
+            print "--> Converting %s to %s" % (infn, outfn)
+            tsv2csv(infn, outfn)
+            return outfn
+        return False
+
     for line in csv.DictReader(openfile('users.csv')):
         uid = int(line['id'])
         fields = ['username', 'email', 'is_staff', 'last_login', 'date_joined']
         copy_elements(line, uic[uid], fields)
         uic[uid]['user_id'] = uid
     
-    for line in csv.DictReader(openfile('profiles.csv')):
-        uid = int(line['user_id'])
-        fields = ['name', 'language', 'location', 'meta', 'courseware', 
-                   'gender', 'mailing_address', 'year_of_birth', 'level_of_education', 'goals', 
-                   'allow_certificate', 'country', 'city']
-        copy_elements(line, uic[uid], fields, prefix="profile_")
+    fp = openfile('profiles.csv')
+    if fp is None:
+        print "--> Skipping profiles.csv, file does not exist"
+    else:
+        for line in csv.DictReader(fp):
+            uid = int(line['user_id'])
+            fields = ['name', 'language', 'location', 'meta', 'courseware', 
+                       'gender', 'mailing_address', 'year_of_birth', 'level_of_education', 'goals', 
+                       'allow_certificate', 'country', 'city']
+            copy_elements(line, uic[uid], fields, prefix="profile_")
     
-    for line in csv.DictReader(openfile('enrollment.csv')):
-        uid = int(line['user_id'])
-        fields = ['course_id', 'created', 'is_active', 'mode', ]
-        copy_elements(line, uic[uid], fields, prefix="enrollment_")
+    fp = openfile('enrollment.csv')
+    if fp is None:
+        print "--> Skipping enrollment.csv, file does not exist"
+    else:
+        for line in csv.DictReader(fp):
+            uid = int(line['user_id'])
+            fields = ['course_id', 'created', 'is_active', 'mode', ]
+            copy_elements(line, uic[uid], fields, prefix="enrollment_")
     
-    for line in csv.DictReader(openfile('certificates.csv')):
-        uid = int(line['user_id'])
-        fields = ['download_url', 'grade', 'course_id', 'key', 'distinction', 'status', 
-                  'verify_uuid', 'download_uuid', 'name', 'created_date', 'modified_date', 'error_reason', 'mode',]
-        copy_elements(line, uic[uid], fields, prefix="certificate_")
+    fp = openfile('certificates.csv')
+    if fp is None:
+        print "--> Skipping certificates.csv, file does not exist"
+    else:
+        for line in csv.DictReader(fp):
+            uid = int(line['user_id'])
+            fields = ['download_url', 'grade', 'course_id', 'key', 'distinction', 'status', 
+                      'verify_uuid', 'download_uuid', 'name', 'created_date', 'modified_date', 'error_reason', 'mode',]
+            copy_elements(line, uic[uid], fields, prefix="certificate_")
     
-    for line in csv.DictReader(openfile('user_id_map.csv')):
-        uid = int(line['id'])
-        fields = ['hash_id']
-        copy_elements(line, uic[uid], fields, prefix="id_map_")
+    fp = openfile('user_id_map.csv')
+    if fp is None:
+        print "--> Skipping user_id_map.csv, file does not exist"
+    else:
+        for line in csv.DictReader(fp):
+            uid = int(line['id'])
+            fields = ['hash_id']
+            copy_elements(line, uic[uid], fields, prefix="id_map_")
     
     # sort by userid
     uidset = uic.keys()

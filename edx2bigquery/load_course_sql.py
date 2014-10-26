@@ -28,6 +28,8 @@ import time
 import glob
 import re
 import datetime
+import pytz
+import gzip
 import bqutil
 import gsutil
 from path import path
@@ -54,6 +56,23 @@ def find_course_sql_dir(course_id, basedir, datedir):
 
 #-----------------------------------------------------------------------------
 
+def openfile(fn, mode='r'):
+    if (not os.path.exists(fn)) and (not fn.endswith('.gz')):
+        fn += ".gz"
+    if fn.endswith('.gz'):
+        return gzip.GzipFile(fn, mode)
+    return open(fn, mode)
+
+def tsv2csv(fn_in, fn_out):
+    import csv
+    fp = openfile(fn_out, 'w')
+    csvfp = csv.writer(fp)
+    for line in openfile(fn_in):
+        csvfp.writerow(line[:-1].split('\t'))
+    fp.close()
+
+#-----------------------------------------------------------------------------
+
 def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-data-sql", datedir="2014-09-21", do_gs_copy=False):
     
     print "Loading SQL for course %s into BigQuery (start: %s)" % (course_id, datetime.datetime.now())
@@ -63,10 +82,42 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
 
     print "Using this directory for local files: ", lfp
     sys.stdout.flush()
+                          
+    # convert studentmodule if necessary
+
+    fn_sm = lfp / 'studentmodule.csv.gz'
+    if not fn_sm.exists():
+        fn_sm = lfp / 'studentmodule.csv'
+        if not fn_sm.exists():
+            fn_sm = lfp / 'studentmodule.sql.gz'
+            if not fn_sm.exists():
+                fn_sm = lfp / 'studentmodule.sql'
+                if not fn_sm.exists():
+                    print "Error!  Missing studentmodule.[sql,csv][.gz]"
+            if fn_sm.exists():	# have .sql or .sql.gz version: convert to .csv
+                newfn = lfp / 'studentmodule.csv.gz'
+                print "--> Converting %s to %s" % (fn_sm, newfn)
+                tsv2csv(fn_sm, newfn)
+                fn_sm = newfn
+
+    def convert_sql(fnroot):
+        if os.path.exists(fnroot + ".csv") or os.path.exists(fnroot + ".csv.gz"):
+            return
+        if os.path.exists(fnroot + ".sql") or os.path.exists(fnroot + ".sql.gz"):
+            infn = fnroot + '.sql'
+            outfn = fnroot + '.csv.gz'
+            print "--> Converting %s to %s" % (infn, outfn)
+            tsv2csv(infn, outfn)
+
+    # convert sql files if necesssary
+    fnset = ['users', 'certificates', 'enrollment', "profiles", 'user_id_map']
+    for fn in fnset:
+        convert_sql(lfp / fn)
 
     local_files = glob.glob(lfp / '*')
-                          
     gsdir = gsutil.gs_path_from_course_id(course_id, gsbucket=gsbucket)
+
+    local = pytz.timezone ("America/New_York")
 
     if do_gs_copy:
         try:
@@ -81,38 +132,47 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
                 print "...unknown file type %s, skipping" % fn
                 sys.stdout.flush()
                 continue
-            if fnb in fnset:
+
+            statbuf = os.stat(fn)
+            mt = datetime.datetime.fromtimestamp(statbuf.st_mtime)
+            
+            # do some date checking to upload files which have changed, and are newer than that on google cloud storage
+            local_dt = local.localize(mt, is_dst=None)
+            utc_dt = local_dt.astimezone (pytz.utc)
+
+            if fnb in fnset and fnset[fnb]['date'] > utc_dt:
                 print "...%s already copied, skipping" % fn
                 sys.stdout.flush()
                 continue
+            elif fnb in fnset:
+                print "...%s already exists, but has date=%s and mtime=%s, re-uploading" % (fn, fnset[fnb]['date'], mt)
 
             cmd = 'gsutil cp -z csv,json %s %s/' % (fn, gsdir)
-            print cmd
+            print "--> %s" % cmd
             sys.stdout.flush()
             os.system(cmd)
             
     # load into bigquery
     dataset = bqutil.course_id2dataset(course_id)
-    DO_LOAD = ['user_info_combo.json.gz', 'studentmodule.csv.gz']
-
-    if not os.path.exists(lfp / 'studentmodule.csv.gz'):
-        if os.path.exists(lfp / 'studentmodule.csv'):
-            DO_LOAD = ['user_info_combo.json.gz', 'studentmodule.csv']
-        else:
-            print "Error!  Missing studentmodule.csv[.gz]"
-
     bqutil.create_dataset_if_nonexistent(dataset)
-
     mypath = os.path.dirname(os.path.realpath(__file__))
 
-    if 1:
+    # load user_info_combo
+    uicfn = lfp / 'user_info_combo.json.gz'
+    if uicfn.exists():
         uic_schema = json.loads(open('%s/schemas/schema_user_info_combo.json' % mypath).read())['user_info_combo']
-        bqutil.load_data_to_table(dataset, 'user_info_combo', gsdir + '/' + "user_info_combo.json.gz", uic_schema, wait=False)
+        bqutil.load_data_to_table(dataset, 'user_info_combo', gsdir / "user_info_combo.json.gz", uic_schema, wait=False)
+    else:
+        print "--> File %s does not exist, not loading user_info_combo into BigQuery" % uicfn
     
-    if 1:
+    # load studentmodule
+                
+    if fn_sm.exists():
         schemas = json.loads(open('%s/schemas/schemas.json' % mypath).read())
         cwsm_schema = schemas['courseware_studentmodule']
-        bqutil.load_data_to_table(dataset, 'studentmodule', gsdir + '/' + DO_LOAD[1], cwsm_schema, format='csv', wait=False, skiprows=1)
+        bqutil.load_data_to_table(dataset, 'studentmodule', gsdir / fn_sm.basename(), cwsm_schema, format='csv', wait=False, skiprows=1)
+    else:
+        print "--> Not loading studentmodule: file %s not found" % fn_sm
 
 
         
