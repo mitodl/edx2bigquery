@@ -96,6 +96,9 @@ makegeoip                   : Creates table of geoip information for IP addresse
                               Alternatively, provide the --org argument to specify the course_report_ORG dataset to look
                               in for the latest person_course dataset.
 
+tsv2csv                     : filter, which takes lines of tab separated values and outputs lines of comma separated values.
+                              Useful when processing the *.sql files from edX dumps.
+
 --- TRACKING LOG DATA RELATED COMMANDS
 
 split <daily_log_file> ...  : split single-day tracking log files (should be named something like mitx-edx-events-2014-10-17.log.gz),
@@ -187,8 +190,9 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
     
     args = parser.parse_args()
-    print "command = ", args.command
-    sys.stdout.flush()
+    if args.verbose:
+        sys.stderr.write("command = %s\n" % args.command)
+        sys.stderr.flush()
 
     def setup_sql(args, steps, course_id=None):
         doall = steps=='setup_sql'
@@ -349,6 +353,12 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
 
     elif (args.command=='logs2bq'):
         daily_logs(args, args.command)
+
+    elif (args.command=='tsv2csv'):
+        import csv
+        fp = csv.writer(sys.stdout)
+        for line in sys.stdin:
+            fp.writerow(line[:-1].split('\t'))
 
     elif (args.command=='axis2bq'):
         import edx2course_axis
