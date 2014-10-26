@@ -58,11 +58,6 @@ def do_save(cid, caset_in, xbundle, datadir, log_msg):
             print "Failed to save!  Error=%s, data=%s" % (err, ca)
     fp.close()
 
-    # save course xbundle (XML file without static content)
-    # note this includes the grading policy
-    #if xbundle is not None:
-    #    db.course_axis.insert({'course_id': cid, 'xbundle': xbundle})
-
     # upload axis.json file and course xbundle
     gsdir = path(gsutil.gs_path_from_course_id(cid))
     if 1:
@@ -71,6 +66,7 @@ def do_save(cid, caset_in, xbundle, datadir, log_msg):
 
     # import into BigQuery
     dataset = bqutil.course_id2dataset(cid)
+    bqutil.create_dataset_if_nonexistent(dataset)	# create dataset if not already existent
     table = "course_axis"
     bqutil.load_data_to_table(dataset, table, gsdir / (cafn.basename()), the_schema)
 
