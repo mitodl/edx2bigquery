@@ -377,6 +377,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             make_problem_analysis.analyze_problems(course_id, 
                                                    basedir=args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None), 
                                                    datedir=args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None),
+                                                   force_recompute=args.force_recompute,
                                                    )
 
     elif (args.command=='axis2bq'):

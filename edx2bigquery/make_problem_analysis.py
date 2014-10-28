@@ -23,7 +23,9 @@ from collections import defaultdict
 from check_schema_tracking_log import schema2dict, check_schema
 from load_course_sql import find_course_sql_dir, openfile
 
-def analyze_problems(course_id, basedir=None, datedir=None):
+csv.field_size_limit(1310720)
+
+def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=False):
 
     basedir = path(basedir or '')
     course_dir = course_id.replace('/','__')
@@ -42,6 +44,15 @@ def analyze_problems(course_id, basedir=None, datedir=None):
 
     print "[analyze_problems] processing %s for course %s" % (smfn, course_id)
     sys.stdout.flush()
+
+    # if table already exists, then assume we've already done analysis for this course
+    if not force_recompute:
+        dataset = bqutil.course_id2dataset(course_id)
+        table = 'problem_analysis'
+        tables = bqutil.get_list_of_table_ids(dataset)
+        if table in tables:
+            print "--> %s.%s already exists in BigQuery...skipping (use --force-recompute to not skip)" % (dataset, table)
+            return
 
     data = []
     nlines = 0
@@ -120,7 +131,5 @@ def analyze_problems(course_id, basedir=None, datedir=None):
     gsfn = gsutil.gs_path_from_course_id(course_id) / ofnb
     gsutil.upload_file_to_gs(ofn, gsfn)
 
-    dataset = bqutil.course_id2dataset(course_id)
-    table = 'problem_analysis'
     bqutil.load_data_to_table(dataset, table, gsfn, the_schema, wait=True)
         
