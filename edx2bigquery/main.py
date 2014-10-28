@@ -85,6 +85,8 @@ make_uic <course_id> ...    : make the "user_info_combo" file for the specified 
 
 sql2bq <course_id> ...      : load specified course_id SQL files into google storage, and import the user_info_combo and studentmodule
                               data into BigQuery.
+                              Also upload course_image.jpg images from the course SQL directories (if image exists) to
+                              google storage, and make them public-read.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
 load_forum <course_id> ...  : Rephrase the forum.mongo data from the edX SQL dump, to fit the schema used for forum
@@ -131,6 +133,10 @@ mongo2gs <course_id> ...    : extract tracking logs from mongodb (using mongoexp
 axis2bq <course_id> ...     : construct "course axis" table, upload to gs, and generate table in BigQuery dataset for the
                               specified course_id's.  
                               Accepts the "--clist" flag, to process specified list of courses in the config file's "courses" dict.
+
+make_cinfo listings.csv     : make the courses.listings table, which contains a listing of all the courses with metadata.
+                              The listings.csv file should contain the columns Institution, Semester, New or Rerun, Course Number,
+                              Short Title, Title, Instructors, Registration Open, Course Launch, Course Wrap, course_id
 
 --- REPORTING COMMANDS
 
@@ -379,6 +385,10 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             except Exception as err:
                 print err
                 raise
+
+    elif (args.command=='make_cinfo'):
+        import make_cinfo
+        make_cinfo.do_course_listings(args.courses[0])
 
     elif (args.command=='person_day'):
         import make_person_course_day

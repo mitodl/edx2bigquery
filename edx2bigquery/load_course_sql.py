@@ -125,14 +125,7 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
         except Exception as err:
             fnset = []
         
-        for fn in local_files:
-            fnb = os.path.basename(fn)
-            if not (fnb.endswith('.csv') or fnb.endswith('.json') or fnb.endswith('.csv.gz') 
-                    or fnb.endswith('.json.gz') or fnb.endswith('.mongo.gz')):
-                print "...unknown file type %s, skipping" % fn
-                sys.stdout.flush()
-                continue
-
+        def copy_if_newer(fn, fnset, options='-z csv,json'):
             statbuf = os.stat(fn)
             mt = datetime.datetime.fromtimestamp(statbuf.st_mtime)
             
@@ -140,18 +133,27 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
             local_dt = local.localize(mt, is_dst=None)
             utc_dt = local_dt.astimezone (pytz.utc)
 
+            fnb = os.path.basename(fn)
             if fnb in fnset and fnset[fnb]['date'] > utc_dt:
                 print "...%s already copied, skipping" % fn
                 sys.stdout.flush()
-                continue
+                return
             elif fnb in fnset:
                 print "...%s already exists, but has date=%s and mtime=%s, re-uploading" % (fn, fnset[fnb]['date'], mt)
 
-            cmd = 'gsutil cp -z csv,json %s %s/' % (fn, gsdir)
-            print "--> %s" % cmd
-            sys.stdout.flush()
-            os.system(cmd)
-            
+            gsutil.upload_file_to_gs(fn, gsdir / fnb, options=options, verbose=True)
+
+        for fn in local_files:
+            fnb = os.path.basename(fn)
+            if fnb=='course_image.jpg':
+                copy_if_newer(fn, fnset, options='-a public-read')
+            if not (fnb.endswith('.csv') or fnb.endswith('.json') or fnb.endswith('.csv.gz') 
+                    or fnb.endswith('.json.gz') or fnb.endswith('.mongo.gz')):
+                print "...unknown file type %s, skipping" % fn
+                sys.stdout.flush()
+                continue
+            copy_if_newer(fn, fnset)
+
     # load into bigquery
     dataset = bqutil.course_id2dataset(course_id)
     bqutil.create_dataset_if_nonexistent(dataset)

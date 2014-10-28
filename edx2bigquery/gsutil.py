@@ -44,6 +44,7 @@ def get_gs_file_list(path):
 def upload_file_to_gs(src, dst, options='', verbose=False):
     cmd = 'gsutil cp %s %s %s' % (options, src, dst)
     if verbose:
-        print cmd
+        print "--> %s" % cmd
+        sys.stdout.flush()
     os.system(cmd)
 
