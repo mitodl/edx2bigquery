@@ -19,6 +19,8 @@ GIPTABLE = 'extra_geoip'
 class GeoIPData(object):
     def __init__(self, gipdataset=GIPDATASET, giptable=GIPTABLE, geoipdat='GeoIPCity.dat'):
 
+        if not os.path.exists(geoipdat):
+            raise Exception("---> [make_geoip_table] Error! Missing file %s for local geoip" % geoipdat)
         self.gipdataset = gipdataset
         self.giptable = giptable
         self.gipfn = self.giptable + ".json"

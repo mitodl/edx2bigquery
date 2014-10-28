@@ -199,8 +199,11 @@ class PersonCourse(object):
                     return fn
             raise Exception('Cannot find required file in %s, one of %s' % (self.cdir, files))
 
-        csfn = getonefile(['course_structure-prod-analytics.json.gz', 'course_structure.json'])
-        struct = json.loads(self.openfile(csfn).read())
+        csfn = getonefile(['course_structure-prod-analytics.json.gz', 'course_structure.json', 'course_axis.json'])
+        if csfn=='course_axis.json':
+            struct = {x: json.loads(x) for x in self.openfile(csfn) }
+        else:
+            struct = json.loads(self.openfile(csfn).read())
         for key, ent in struct.iteritems():
             if ent['category']=='chapter':
                 nchapters += 1
@@ -294,15 +297,16 @@ class PersonCourse(object):
             else:
                 pcent['viewed'] = False
 
-            for field in [  ['nforum', 'nforum_posts'],
-                            ['nvotes', 'nforum_votes'],
-                            ['nendorsed', 'nforum_endorsed'],
-                            ['nthread', 'nforum_threads'],
-                            ['ncomment', 'nforum_comments'],
-                            ['npinned', 'nforum_pinned'],
-                          ]:
-                self.copy_from_bq_table(self.pc_forum, pcent, uid, field)
-
+            if self.pc_forum is not None:
+                for field in [  ['nforum', 'nforum_posts'],
+                                ['nvotes', 'nforum_votes'],
+                                ['nendorsed', 'nforum_endorsed'],
+                                ['nthread', 'nforum_threads'],
+                                ['ncomment', 'nforum_comments'],
+                                ['npinned', 'nforum_pinned'],
+                              ]:
+                    self.copy_from_bq_table(self.pc_forum, pcent, uid, field)
+    
     @staticmethod
     def copy_from_bq_table(src, dst, username, field, new_field=None, mkutf=False):
         '''
@@ -319,6 +323,11 @@ class PersonCourse(object):
             if mkutf:
                 dst[field] = dst[field].encode('utf8')
 
+    def are_tracking_logs_available(self):
+        datasets = bqutil.get_list_of_datasets()
+        lds = ("%s_logs" % self.dataset)
+        return (lds in datasets)
+
     def compute_third_phase(self):
     
         # -----------------------------------------------------------------------------
@@ -326,6 +335,11 @@ class PersonCourse(object):
         
         self.log("-"*20)
         self.log("Computing third phase based on tracking log table queries done in BigQuery")
+
+        # skip if no tracking logs available
+        if not self.are_tracking_logs_available():
+            print "--> Missing tracking logs dataset %s_logs, skipping third phase of person_course" % self.dataset
+            return
 
         self.load_last_event()
         self.load_pc_day_totals()	# person-course-day totals contains all the aggregate nevents, etc.
@@ -362,6 +376,11 @@ class PersonCourse(object):
         self.log("-"*20)
         self.log("Computing fourth phase based on modal_ip and geoip join in BigQuery")
 
+        # skip if no tracking logs available
+        if not self.are_tracking_logs_available():
+            print "--> Missing tracking logs dataset %s_logs, skipping third phase of person_course" % self.dataset
+            return
+
         self.load_pc_geoip()
 
         pcd_fields = [['country', 'cc_by_ip'], 'latitude', 'longitude']
@@ -379,7 +398,13 @@ class PersonCourse(object):
         Add more geoip information, based on extra_geoip and local maxmind geoip
         '''
         import make_geoip_table
-        gid = make_geoip_table.GeoIPData()
+
+        try:
+            gid = make_geoip_table.GeoIPData()
+        except Exception as err:
+            print "---> Skipping local geoip"
+            return
+        
         gid.load_geoip()
 
         def c2pc(field, gdata):
@@ -546,6 +571,13 @@ class PersonCourse(object):
         '''.format(**self.sql_parameters)
         
         tablename = 'pc_forum'
+
+        # make sure the forum table exists; if not, skip this
+        tables = bqutil.get_list_of_table_ids(self.dataset)
+        if not 'forum' in tables:
+            self.log("--> No foum table for %s, skipping forum statistics" % self.course_id)
+            setattr(self, tablename, None)
+            return
 
         self.log("Loading %s from BigQuery" % tablename)
         setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'user_id'},

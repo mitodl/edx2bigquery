@@ -47,17 +47,20 @@ def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=N
     if the_ds is None:
         the_ds = ds
 
-    #if type(data)==list:
-    #    for item in data:
-    #        check_schema(linecnt, item, the_ds, path=path, coerce=coerce)
-    #    return
-
     for key, val in data.iteritems():
         if val is None:
             continue
         if not key in the_ds:
             raise Exception("[check_schema] Oops! field %s is not in the schema, linecnt=%s, path=%s" % (key, linecnt, path))
-        ptype = the_ds[key]['ptype']
+
+        ptype = the_ds[key]['ptype']	# python type corresponding to the BigQuery schema field type
+
+        # allow repeated nested records (see https://cloud.google.com/bigquery/preparing-data-for-bigquery?hl=ja#dataformats)
+        if ptype==dict and type(val)==list and the_ds[key].get('mode')=='REPEATED':
+            for item in val:
+                check_schema(linecnt, item, the_ds[key]['dict_schema'], path=path + '/' + key, coerce=coerce)
+            return
+
         if not type(val)==ptype:
             if type(val)==int and ptype==float:
                 continue

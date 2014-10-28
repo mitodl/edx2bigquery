@@ -1,0 +1,59 @@
+{
+    "course_listings": [
+        {
+            "type": "STRING",
+            "name": "institution",
+	    "description": "institution, e.g. MITx"
+        },
+        {
+            "type": "STRING",
+            "name": "semester",
+	    "description": "semester, e.g. Fall 2014"
+        },
+        {
+            "type": "STRING",
+            "name": "new_or_rerun",
+	    "description": "'New' or 'Rerun'"
+        },
+        {
+            "type": "STRING",
+            "name": "course_number",
+	    "description": "course number from course_id"
+        },
+        {
+            "type": "STRING",
+            "name": "short_title",
+	    "description": "short title"
+        },
+        {
+            "type": "STRING",
+            "name": "title",
+	    "description": "full title"
+        },
+        {
+            "type": "STRING",
+            "name": "instructors",
+	    "description": "comma separated list of instructors"
+        },
+        {
+            "type": "STRING",
+            "name": "registration_open",
+	    "description": "registration open"
+        },
+        {
+            "type": "STRING",
+            "name": "courses_launch",
+	    "description": "when course starts"
+        },
+        {
+            "type": "STRING",
+            "name": "course_wrap",
+	    "description": "when course ends"
+        },
+        {
+            "type": "STRING",
+            "name": "course_id",
+	    "description": "org/number/semester course_id string"
+        }
+    ]
+}

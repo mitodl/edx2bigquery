@@ -101,6 +101,10 @@ makegeoip                   : Creates table of geoip information for IP addresse
 tsv2csv                     : filter, which takes lines of tab separated values and outputs lines of comma separated values.
                               Useful when processing the *.sql files from edX dumps.
 
+analyze_problems <c_id> ... : Analyze capa problem data in studentmodule table, generating the problem_analysis table as a result.  
+                              Uploads the result to google cloud storage and to BigQuery.
+                              This table is necessary for the insights dashboard.
+
 --- TRACKING LOG DATA RELATED COMMANDS
 
 split <daily_log_file> ...  : split single-day tracking log files (should be named something like mitx-edx-events-2014-10-17.log.gz),
@@ -148,6 +152,7 @@ person_day <course_id> ...  : Compute the person_course_day (pcday) for the spec
 
 person_course <course_id> ..: Compute the person-course table for the specified course_id's.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
+                              Accepts the --force-recompute flag, to force recomputation of all pc_* tables in BigQuery.
 
 report <course_id> ...      : Compute overall statistics, across all specified course_id's, based on the person_course tables.
                               Accepts the --nskip=XXX optional argument to determine how many report processing steps to skip.
@@ -365,6 +370,14 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
         fp = csv.writer(sys.stdout)
         for line in sys.stdin:
             fp.writerow(line[:-1].split('\t'))
+
+    elif (args.command=='analyze_problems'):
+        import make_problem_analysis
+        for course_id in get_course_ids(args):
+            make_problem_analysis.analyze_problems(course_id, 
+                                                   basedir=args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None), 
+                                                   datedir=args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None),
+                                                   )
 
     elif (args.command=='axis2bq'):
         import edx2course_axis

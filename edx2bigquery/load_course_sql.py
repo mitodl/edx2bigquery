@@ -59,6 +59,8 @@ def find_course_sql_dir(course_id, basedir, datedir):
 def openfile(fn, mode='r'):
     if (not os.path.exists(fn)) and (not fn.endswith('.gz')):
         fn += ".gz"
+    if mode=='r' and not os.path.exists(fn):
+        return None			# failure, no file found, return None
     if fn.endswith('.gz'):
         return gzip.GzipFile(fn, mode)
     return open(fn, mode)
