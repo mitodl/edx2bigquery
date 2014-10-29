@@ -45,10 +45,11 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
     print "[analyze_problems] processing %s for course %s" % (smfn, course_id)
     sys.stdout.flush()
 
+    dataset = bqutil.course_id2dataset(course_id)
+    table = 'problem_analysis'
+
     # if table already exists, then assume we've already done analysis for this course
     if not force_recompute:
-        dataset = bqutil.course_id2dataset(course_id)
-        table = 'problem_analysis'
         tables = bqutil.get_list_of_table_ids(dataset)
         if table in tables:
             print "--> %s.%s already exists in BigQuery...skipping (use --force-recompute to not skip)" % (dataset, table)
