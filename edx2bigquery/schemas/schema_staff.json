@@ -1,0 +1,24 @@
+{
+    "staff": [
+        {
+            "type": "STRING",
+            "name": "course_id",
+	    "description": "course ID"
+        },
+        {
+            "type": "STRING",
+            "name": "username",
+	    "description": "username"
+        },
+        {
+            "type": "STRING",
+            "name": "name",
+	    "description": "Full name"
+        },
+        {
+            "type": "STRING",
+            "name": "role",
+	    "description": "course role, e.g. instructor, staff"
+        }
+    ]
+}
