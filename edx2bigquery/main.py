@@ -105,6 +105,8 @@ analyze_problems <c_id> ... : Analyze capa problem data in studentmodule table, 
                               Uploads the result to google cloud storage and to BigQuery.
                               This table is necessary for the insights dashboard.
 
+staff2bq <staff.csv>        : load staff.csv file into BigQuery; put it in the "courses" dataset.
+
 --- TRACKING LOG DATA RELATED COMMANDS
 
 split <daily_log_file> ...  : split single-day tracking log files (should be named something like mitx-edx-events-2014-10-17.log.gz),
@@ -399,6 +401,10 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             except Exception as err:
                 print err
                 raise
+
+    elif (args.command=='staff2bq'):
+        import load_staff
+        load_staff.do_staff_csv(args.courses[0])
 
     elif (args.command=='make_cinfo'):
         import make_cinfo
