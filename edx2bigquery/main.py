@@ -39,6 +39,7 @@ def CommandLine():
 
 Examples of common commands:
 
+edx2bigquery --clist=all_mitx logs2gs 
 edx2bigquery setup_sql MITx/24.00x/2013_SOND
 edx2bigquery --tlfn=DAILY/mitx-edx-events-2014-10-14.log.gz  --year2 daily_logs
 edx2bigquery --year2 person_course
@@ -69,6 +70,10 @@ setup_sql <course_id> ...   : Do all commands (make_uic, sql2bq, load_forum) to 
                               Returns when all uploads and imports are completed.
 
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
+
+                              Accepts the --dataset-latest flag, to use the latest directory date in the SQL data directory.
+                              Directories should be named YYYY-MM-DD.  When this flag is used, the course SQL dataset name has
+                              "_latest" appended to it.
 
 daily_logs --tlfn=<path>    : Do all commands (split, logs2gs, logs2bq) to get one day's edX tracking logs into google storage 
            <course_id>        and import into BigQuery.  See more information about each of those commands, below.
@@ -182,8 +187,8 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
 
     parser.add_argument("command", help=cmd_help)
     # parser.add_argument("-C", "--course_id", type=str, help="course ID in org/number/semester format, e.g. MITx/6.SFMx/1T2014")
-    parser.add_argument("--course_base_dir", type=str, help="base directory where course SQL is stored, e.g. 'HarvardX-Year-2-data-sql'")
-    parser.add_argument("--course_date_dir", type=str, help="date sub directory where course SQL is stored, e.g. '2014-09-21'")
+    parser.add_argument("--course-base-dir", type=str, help="base directory where course SQL is stored, e.g. 'HarvardX-Year-2-data-sql'")
+    parser.add_argument("--course-date-dir", type=str, help="date sub directory where course SQL is stored, e.g. '2014-09-21'")
     parser.add_argument("--start-date", type=str, help="start date for person-course dataset generated, e.g. '2012-09-01'")
     parser.add_argument("--end-date", type=str, help="end date for person-course dataset generated, e.g. '2014-09-21'")
     parser.add_argument("--tlfn", type=str, help="path to daily tracking log file to import, e.g. 'DAILY/mitx-edx-events-2014-10-14.log.gz'")
@@ -191,10 +196,11 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
     parser.add_argument("--year2", help="increase output verbosity", action="store_true")
     parser.add_argument("--clist", type=str, help="specify name of list of courses to iterate command over")
     parser.add_argument("--force-recompute", help="force recomputation", action="store_true")
+    parser.add_argument("--dataset-latest", help="use the *_latest SQL dataset", action="store_true")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
     parser.add_argument("--dbname", type=str, help="mongodb db name to use for mongo2gs")
-    parser.add_argument("--table", type=str, help="bigquery table to use, specified as dataset_id.table_id")
+    parser.add_argument("--table", type=str, help="bigquery table to use, specified as dataset_id.table_id") 
     parser.add_argument("--org", type=str, help="organization ID to use")
     parser.add_argument("--collection", type=str, help="mongodb collection name to use for mongo2gs")
     parser.add_argument("--output-project-id", type=str, help="project-id where the report output should go (used by the report and combinepc commands)")
@@ -207,6 +213,9 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
         sys.stderr.write("command = %s\n" % args.command)
         sys.stderr.flush()
 
+    the_basedir = args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None)
+    the_datedir = args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None)
+
     def setup_sql(args, steps, course_id=None):
         doall = steps=='setup_sql'
         if course_id is None:
@@ -217,17 +226,19 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
         if doall or 'make_uic' in steps:
             import make_user_info_combo
             make_user_info_combo.process_file(course_id, 
-                                              basedir=args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None),
-                                              datedir=args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None)
+                                              basedir=the_basedir,
+                                              datedir=the_datedir,
+                                              use_dataset_latest=args.dataset_latest,
                                               )
         if doall or 'sql2bq' in steps:
             import load_course_sql
             try:
                 load_course_sql.load_sql_for_course(course_id, 
                                                     gsbucket=edx2bigquery_config.GS_BUCKET,
-                                                    basedir=args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None),
-                                                    datedir=args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None),
-                                                    do_gs_copy=True
+                                                    basedir=the_basedir,
+                                                    datedir=the_datedir,
+                                                    do_gs_copy=True,
+                                                    use_dataset_latest=args.dataset_latest,
                                                     )
             except Exception as err:
                 print err
@@ -238,8 +249,9 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                 try:
                     rephrase_forum_data.rephrase_forum_json_for_course(course_id,
                                                                        gsbucket=edx2bigquery_config.GS_BUCKET,
-                                                                       basedir=args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None),
-                                                                       datedir=args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None),
+                                                                       basedir=the_basedir,
+                                                                       datedir=the_datedir,
+                                                                       use_dataset_latest=args.dataset_latest,
                                                                        )
                 except Exception as err:
                     print err
@@ -377,8 +389,8 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
         import make_problem_analysis
         for course_id in get_course_ids(args):
             make_problem_analysis.analyze_problems(course_id, 
-                                                   basedir=args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None), 
-                                                   datedir=args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None),
+                                                   basedir=the_basedir, 
+                                                   datedir=the_datedir,
                                                    force_recompute=args.force_recompute,
                                                    )
 
@@ -387,8 +399,8 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
         import load_course_sql
         for course_id in get_course_ids(args):
             sdir = load_course_sql.find_course_sql_dir(course_id, 
-                                                       basedir=args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None), 
-                                                       datedir=args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None),
+                                                       basedir=the_basedir, 
+                                                       datedir=the_datedir,
                                                        )
             edx2course_axis.DATADIR = sdir
             edx2course_axis.VERBOSE_WARNINGS = args.verbose
@@ -424,8 +436,8 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             try:
                 make_person_course.make_person_course(course_id,
                                                       gsbucket=edx2bigquery_config.GS_BUCKET,
-                                                      basedir=args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None),
-                                                      datedir=args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None),
+                                                      basedir=the_basedir,
+                                                      datedir=the_datedir,
                                                       start=(args.start_date or "2012-09-05"),
                                                       end=(args.end_date or "2014-09-21"),
                                                       force_recompute=args.force_recompute,

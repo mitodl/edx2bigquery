@@ -61,11 +61,11 @@ from load_course_sql import find_course_sql_dir
 #csv.field_size_limit(sys.maxsize)
 csv.field_size_limit(1310720)
 
-def process_file(course_id, basedir=None, datedir=None):
+def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False):
 
     basedir = path(basedir or '')
     course_dir = course_id.replace('/','__')
-    lfp = find_course_sql_dir(course_id, basedir, datedir)
+    lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest=use_dataset_latest)
 
     cdir = lfp
     print "Processing %s from files in %s" % (course_id, cdir)

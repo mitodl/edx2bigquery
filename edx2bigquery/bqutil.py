@@ -34,7 +34,7 @@ def get_project_name(project_id=DEFAULT_PROJECT_ID):
           PROJECT_NAMES[project_id] = project['id']
           return project['id']
 
-def course_id2dataset(course_id, dtype=None):
+def course_id2dataset(course_id, dtype=None, use_dataset_latest=False):
     '''
     Generate a dataset name for a given course_id
     BigQuery disallows certain characters in table names, e.g. "-" and "."
@@ -46,7 +46,9 @@ def course_id2dataset(course_id, dtype=None):
         dataset += "_logs"
     elif dtype=='pcday':
         dataset += "_pcday"
-    return dataset
+    elif use_dataset_latest:	# used to store the latest SQL data
+        dataset += "_latest"
+    return dataset		# default dataset for SQL data
 
 def create_dataset_if_nonexistent(dataset, project_id=DEFAULT_PROJECT_ID):
 

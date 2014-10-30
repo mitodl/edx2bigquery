@@ -144,18 +144,23 @@ def do_rephrase_line(line, linecnt=0):
 
 #-----------------------------------------------------------------------------
 
-def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-data-sql", datedir="2014-09-21", do_gs_copy=False):
+def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data", 
+                                   basedir="X-Year-2-data-sql", 
+                                   datedir=None, 
+                                   do_gs_copy=False,
+                                   use_dataset_latest=False,
+                                   ):
     
     print "Loading SQL for course %s into BigQuery (start: %s)" % (course_id, datetime.datetime.now())
     sys.stdout.flush()
 
-    lfp = find_course_sql_dir(course_id, basedir, datedir)
+    lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest=use_dataset_latest)
 
     print "Using this directory for local files: ", lfp
     sys.stdout.flush()
 
     fn = 'forum.mongo'
-    gsdir = gsutil.gs_path_from_course_id(course_id, gsbucket)
+    gsdir = gsutil.gs_path_from_course_id(course_id, gsbucket, use_dataset_latest)
     
     def openfile(fn, mode='r'):
         if (not os.path.exists(lfp / fn)) and (not fn.endswith('.gz')):
@@ -168,7 +173,7 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data", basedir="X
 
     ofn = lfp / "forum-rephrased.json.gz"
 
-    dataset = bqutil.course_id2dataset(course_id)
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
 
     if os.path.exists(ofn):
 
@@ -192,6 +197,11 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data", basedir="X
     ofp.close()
 
     print "...done (%s)" % datetime.datetime.now()
+
+    if cnt==0:
+        print "...but cnt=0 entries found, skipping forum loading"
+        sys.stdout.flush()
+        return
 
     print "...copying to gsc"
     sys.stdout.flush()

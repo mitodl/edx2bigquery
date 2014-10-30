@@ -13,8 +13,11 @@ import edx2bigquery_config
 def path_from_course_id(course_id):
     return path(course_id.replace('/', '__'))
 
-def gs_path_from_course_id(course_id, gsbucket=None):
-    return path("%s/%s" % (gsbucket or edx2bigquery_config.GS_BUCKET, path_from_course_id(course_id)))
+def gs_path_from_course_id(course_id, gsbucket=None, use_dataset_latest=False):
+    gsp = path("%s/%s" % (gsbucket or edx2bigquery_config.GS_BUCKET, path_from_course_id(course_id)))
+    if use_dataset_latest:
+        gsp = gsp / 'latest'
+    return gsp
 
 def gs_download_link(gspath):
     return "https://storage.cloud.google.com/" + gspath[5:]   # drop gs:// prefix    

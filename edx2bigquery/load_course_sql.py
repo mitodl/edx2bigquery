@@ -37,20 +37,40 @@ from gsutil import get_gs_file_list
 
 #-----------------------------------------------------------------------------
 
-def find_course_sql_dir(course_id, basedir, datedir):
+def find_course_sql_dir(course_id, basedir, datedir=None, use_dataset_latest=False):
     basedir = path(basedir or '')
 
     course_dir = course_id.replace('/','__')
 
-    lfp = (basedir or '.') / course_dir / (datedir or '.')
+    # find the directory modulo date, first
+    lfp = (basedir or '.') / course_dir 
     if not os.path.exists(lfp):
         # maybe course directory uses dashes instead of __ (due to edX convention)?
         olfp = lfp
-        lfp = (basedir or '.') / course_id.replace('/','-') / (datedir or '.')
+        lfp = (basedir or '.') / course_id.replace('/','-') 
         if not os.path.exists(lfp):
             msg = "Error!  Cannot find course SQL directory %s or %s" % (olfp , lfp)
             print msg
             raise Exception(msg)
+
+    if use_dataset_latest:	# overrides datedir
+        # find the directory with the latest date, and use that date, for any local SQL accesses
+        datedirs = glob.glob(lfp / '20*-*-*')
+        datedirs.sort()
+        if not datedirs:
+            msg = "[find_course_sql_dir] use_dateset_latest=True, but no date directories found in %s!" % (lfp)
+            print msg
+            raise Exception(msg)
+        datedir = path(datedirs[-1]).basename()
+        print "[find_course_sql_dir] using latest datedir = %s for %s" % (datedir, course_id)
+
+    if datedir is not None:
+        lfp = lfp / datedir
+        
+    if not os.path.exists(lfp):
+        msg = "Error!  Cannot find course SQL directory %s" % (lfp)
+        print msg
+        raise Exception(msg)
 
     return lfp
 
@@ -75,12 +95,22 @@ def tsv2csv(fn_in, fn_out):
 
 #-----------------------------------------------------------------------------
 
-def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-data-sql", datedir="2014-09-21", do_gs_copy=False):
+def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-data-sql", datedir="2014-09-21", 
+                        do_gs_copy=False,
+                        use_dataset_latest=False):
+    '''
+    Load SQL files into google cloud storage then import into BigQuery.
+
+    Datasets are typically named by course_id, with "__" replacing "/", and "_" replacing "."
+
+    If use_dataset_latest then "_latest" is appended to the dataset name.  
+    Thus, the latest SQL dataset can always be put in a consistently named dataset.
+    '''
     
     print "Loading SQL for course %s into BigQuery (start: %s)" % (course_id, datetime.datetime.now())
     sys.stdout.flush()
 
-    lfp = find_course_sql_dir(course_id, basedir, datedir)
+    lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest=use_dataset_latest)
 
     print "Using this directory for local files: ", lfp
     sys.stdout.flush()
@@ -117,7 +147,7 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
         convert_sql(lfp / fn)
 
     local_files = glob.glob(lfp / '*')
-    gsdir = gsutil.gs_path_from_course_id(course_id, gsbucket=gsbucket)
+    gsdir = gsutil.gs_path_from_course_id(course_id, gsbucket=gsbucket, use_dataset_latest=use_dataset_latest)
 
     local = pytz.timezone ("America/New_York")
 
@@ -157,7 +187,7 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
             copy_if_newer(fn, fnset)
 
     # load into bigquery
-    dataset = bqutil.course_id2dataset(course_id)
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     bqutil.create_dataset_if_nonexistent(dataset)
     mypath = os.path.dirname(os.path.realpath(__file__))
 

@@ -79,6 +79,7 @@ class PersonCourse(object):
                  start_date = '2012-01-01',
                  end_date = '2014-09-21',
                  nskip = 0,
+                 use_dataset_latest=False,
                  ):
 
         self.course_id = course_id
@@ -96,7 +97,7 @@ class PersonCourse(object):
 
         self.gspath = gsutil.gs_path_from_course_id(course_id, gsbucket)
 
-        self.dataset = bqutil.course_id2dataset(course_id)
+        self.dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
         self.log("dataset=%s" % self.dataset)
 
         self.end_date = end_date
@@ -756,6 +757,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                        end="2013-09-21",
                        force_recompute=False,
                        nskip=0,
+                       use_dataset_latest=False,
                        ):
     '''
     make one person course dataset
