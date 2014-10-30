@@ -245,16 +245,15 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             
         if doall or 'load_forum' in steps:
             import rephrase_forum_data
-            for course_id in get_course_ids(args):
-                try:
-                    rephrase_forum_data.rephrase_forum_json_for_course(course_id,
-                                                                       gsbucket=edx2bigquery_config.GS_BUCKET,
-                                                                       basedir=the_basedir,
-                                                                       datedir=the_datedir,
-                                                                       use_dataset_latest=args.dataset_latest,
-                                                                       )
-                except Exception as err:
-                    print err
+            try:
+                rephrase_forum_data.rephrase_forum_json_for_course(course_id,
+                                                                   gsbucket=edx2bigquery_config.GS_BUCKET,
+                                                                   basedir=the_basedir,
+                                                                   datedir=the_datedir,
+                                                                   use_dataset_latest=args.dataset_latest,
+                                                                   )
+            except Exception as err:
+                print err
                     
     def daily_logs(args, steps, course_id=None, verbose=True):
         if steps=='daily_logs':

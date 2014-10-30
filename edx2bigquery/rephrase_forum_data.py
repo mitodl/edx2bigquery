@@ -174,6 +174,7 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data",
     ofn = lfp / "forum-rephrased.json.gz"
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    bqutil.create_dataset_if_nonexistent(dataset)
 
     if os.path.exists(ofn):
 
