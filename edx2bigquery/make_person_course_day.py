@@ -146,7 +146,10 @@ def process_course(course_id, force_recompute=False):
 
     print "pcday_tables = ", pcday_tables
 
-    for table in log_tables['tables']:
+    log_table_list = log_tables['tables']
+    log_table_list.sort()
+
+    for table in log_table_list:
         tr = table['tableReference']
         table_id = tr['tableId']
         if not table_id.startswith('tracklog'):
