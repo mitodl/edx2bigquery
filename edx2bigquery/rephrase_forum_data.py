@@ -216,7 +216,7 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data",
     table = 'forum'
     bqutil.load_data_to_table(dataset, table, gsfn, SCHEMA, wait=True)
     msg = "Original data from %s" % (lfp / fn)
-    bqutil.add_description_to_table(dataset, table, msg)    
+    bqutil.add_description_to_table(dataset, table, msg, append=True)
 
     os.system('mv tmp.json.gz "%s"' % (ofn))
 
