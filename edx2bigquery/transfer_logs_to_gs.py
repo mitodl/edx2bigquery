@@ -43,8 +43,10 @@ def process_dir(course_id, gspath='gs://x-data', logs_directory="TRACKING_LOGS",
     gp = path(gspath + "/" + cdir.basename()) / 'DAILY'
     filelist = gsutil.get_gs_file_list(gp)
     # print filelist
+    local_files = glob.glob(cdir / '*.gz')
+    local_files.sort()
     
-    for fn in glob.glob(cdir / '*.gz'):
+    for fn in local_files:
         fnp = path(fn)
         fnb = fnp.basename()
         statbuf = os.stat(fn)

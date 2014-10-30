@@ -220,6 +220,9 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
         doall = steps=='setup_sql'
         if course_id is None:
             for course_id in get_course_ids(args):
+                print "="*100
+                print "Processing setup_sql for %s" % course_id
+                sys.stdout.flush()
                 setup_sql(args, steps, course_id)
             return
 

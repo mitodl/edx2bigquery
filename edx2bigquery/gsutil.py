@@ -6,6 +6,7 @@
 import os, sys
 import dateutil.parser
 from path import path
+from collections import OrderedDict
 
 sys.path.append(os.path.abspath(os.curdir))
 import edx2bigquery_config
@@ -26,7 +27,7 @@ def get_gs_file_list(path):
     if not path.startswith('gs://'):
         path = edxbigquery_config.GS_BUCKET + path
     print "Getting file list from %s" % path
-    fnset = {}
+    fnset = OrderedDict()
     for dat in os.popen('gsutil ls -l ' + path).readlines():
         if dat.strip().startswith('TOTAL'):
             continue
