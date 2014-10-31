@@ -366,7 +366,7 @@ def make_axis(dir):
                 # The hierarchy goes: `course > chapter > (problemset | sequential | videosequence)`
                 if x.tag=='chapter':
                     path = [url_name]
-                elif x.tag in ['problemset', 'sequential', 'videosequence']:
+                elif x.tag in ['problemset', 'sequential', 'videosequence', 'proctor', 'randomize']:
                     seq_type = x.tag
                     path = [path[0], url_name]
                 else:

@@ -112,7 +112,7 @@ class XBundle(object):
 
     DescriptorTags = ['course','chapter','sequential','vertical','html','problem','video',
                       'conditional', 'combinedopenended', 'videosequence', 'problemset',
-                      'wrapper', 'poll_question' ]
+                      'wrapper', 'poll_question', 'proctor', 'randomize' ]
     MapTags = dict(section='sequential')
     DefaultSemester = '2013_Fall'
     DefaultOrg = 'MITx'
