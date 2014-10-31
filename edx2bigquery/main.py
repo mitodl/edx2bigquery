@@ -356,7 +356,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
         bqutil.auth.print_creds()
         print "="*20
         print "list of datasets accessible:"
-        print bqutil.get_list_of_datasets()
+        print json.dumps(bqutil.get_list_of_datasets().keys(), indent=4)
 
     elif (args.command=='get_tables'):
         import bqutil
