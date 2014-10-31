@@ -161,6 +161,7 @@ person_day <course_id> ...  : Compute the person_course_day (pcday) for the spec
 person_course <course_id> ..: Compute the person-course table for the specified course_id's.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
                               Accepts the --force-recompute flag, to force recomputation of all pc_* tables in BigQuery.
+                              Accepts the --skip-if-exists flag, to skip computation of the table already exists in the course's dataset.
 
 report <course_id> ...      : Compute overall statistics, across all specified course_id's, based on the person_course tables.
                               Accepts the --nskip=XXX optional argument to determine how many report processing steps to skip.
@@ -199,6 +200,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
     parser.add_argument("--force-recompute", help="force recomputation", action="store_true")
     parser.add_argument("--dataset-latest", help="use the *_latest SQL dataset", action="store_true")
     parser.add_argument("--skip-geoip", help="skip geoip processing in person_course", action="store_true")
+    parser.add_argument("--skip-if-exists", help="skip processing in person_course if table already exists", action="store_true")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
     parser.add_argument("--dbname", type=str, help="mongodb db name to use for mongo2gs")
@@ -460,6 +462,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                                                       force_recompute=args.force_recompute,
                                                       nskip=(args.nskip or 0),
                                                       skip_geoip=args.skip_geoip,
+                                                      skip_if_table_exists=args.skip_if_exists,
                                                       use_dataset_latest=args.dataset_latest,
                                                       )
             except Exception as err:

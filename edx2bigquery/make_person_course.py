@@ -102,6 +102,7 @@ class PersonCourse(object):
         self.dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
         self.dataset_logs = bqutil.course_id2dataset(course_id, 'logs')
         self.dataset_pcday = bqutil.course_id2dataset(course_id, 'pcday')
+        self.tableid = "person_course"
         self.log("dataset=%s" % self.dataset)
 
         self.end_date = end_date
@@ -502,7 +503,7 @@ class PersonCourse(object):
         gsfnp = upload_to_gs('person_course.json.gz')
         upload_to_gs('person_course.csv.gz')
 
-        tableid = "person_course"
+        tableid = self.tableid
         bqutil.load_data_to_table(self.dataset, tableid, gsfnp, self.the_schema, wait=True, verbose=False)
 
         description = '\n'.join(self.logmsg)
@@ -779,6 +780,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                        nskip=0,
                        skip_geoip=False,
                        use_dataset_latest=False,
+                       skip_if_table_exists=False,
                        ):
     '''
     make one person course dataset
@@ -798,6 +800,14 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                       skip_geoip=skip_geoip,
                       use_dataset_latest=use_dataset_latest,
                       )
+
+    if skip_if_table_exists:
+        # don't run person_course if the dataset table for this course_id already exists
+        if pc.tableid in bqutil.get_list_of_table_ids(pc.dataset):
+            print "--> %s.%s already exists, skipping" % (pc.dataset, pc.tableid)
+            sys.stdout.flush()
+            return
+
     redo2 = 'redo2' in options
     if redo2:
         pc.redo_second_phase()
