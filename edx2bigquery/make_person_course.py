@@ -80,6 +80,7 @@ class PersonCourse(object):
                  end_date = '2014-09-21',
                  nskip = 0,
                  use_dataset_latest=False,
+                 skip_geoip = False,
                  ):
 
         self.course_id = course_id
@@ -87,6 +88,7 @@ class PersonCourse(object):
         self.cdir = path(self.course_dir)
         self.logmsg = []
         self.nskip = nskip
+        self.skip_geoip = skip_geoip
 
         if not self.cdir.exists():
             print "Oops: missing directory %s!" % self.cdir
@@ -377,6 +379,10 @@ class PersonCourse(object):
         self.log("-"*20)
         self.log("Computing fourth phase based on modal_ip and geoip join in BigQuery")
 
+        if self.skip_geoip:
+            print "--> Skipping geoip"
+            return
+
         # skip if no tracking logs available
         if not self.are_tracking_logs_available():
             print "--> Missing tracking logs dataset %s_logs, skipping third phase of person_course" % self.dataset
@@ -398,6 +404,11 @@ class PersonCourse(object):
         '''
         Add more geoip information, based on extra_geoip and local maxmind geoip
         '''
+
+        if self.skip_geoip:
+            print "--> Skipping geoip"
+            return
+
         import make_geoip_table
 
         try:
@@ -757,6 +768,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                        end="2013-09-21",
                        force_recompute=False,
                        nskip=0,
+                       skip_geoip=False,
                        use_dataset_latest=False,
                        ):
     '''
@@ -774,6 +786,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                       end_date=end,
                       force_recompute_from_logs=force_recompute,
                       nskip=nskip,
+                      skip_geoip=skip_geoip,
                       use_dataset_latest=use_dataset_latest,
                       )
     redo2 = 'redo2' in options

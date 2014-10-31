@@ -198,6 +198,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
     parser.add_argument("--clist", type=str, help="specify name of list of courses to iterate command over")
     parser.add_argument("--force-recompute", help="force recomputation", action="store_true")
     parser.add_argument("--dataset-latest", help="use the *_latest SQL dataset", action="store_true")
+    parser.add_argument("--skip-geoip", help="skip geoip processing in person_course", action="store_true")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
     parser.add_argument("--dbname", type=str, help="mongodb db name to use for mongo2gs")
@@ -450,6 +451,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                                                       end=(args.end_date or "2014-09-21"),
                                                       force_recompute=args.force_recompute,
                                                       nskip=(args.nskip or 0),
+                                                      skip_geoip=args.skip_geoip,
                                                       use_dataset_latest=args.dataset_latest,
                                                       )
             except Exception as err:
