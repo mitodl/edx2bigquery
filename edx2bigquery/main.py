@@ -7,6 +7,7 @@ import os
 import sys
 import argparse
 import json
+import traceback
 
 from path import path
 
@@ -223,7 +224,12 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                 print "="*100
                 print "Processing setup_sql for %s" % course_id
                 sys.stdout.flush()
-                setup_sql(args, steps, course_id)
+                try:
+                    setup_sql(args, steps, course_id)
+                except Exception as err:
+                    print "===> Error completing setup_sql on %s, err=%s" % (course_id, str(err))
+                    traceback.print_exc()
+                    sys.stdout.flush()
             return
 
         if doall or 'make_uic' in steps:
@@ -444,6 +450,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                                                       end=(args.end_date or "2014-09-21"),
                                                       force_recompute=args.force_recompute,
                                                       nskip=(args.nskip or 0),
+                                                      use_dataset_latest=args.dataset_latest,
                                                       )
             except Exception as err:
                 print err

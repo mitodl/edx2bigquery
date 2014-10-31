@@ -83,7 +83,7 @@ class PersonCourse(object):
                  ):
 
         self.course_id = course_id
-        self.course_dir = find_course_sql_dir(course_id, course_dir_root, course_dir_date)
+        self.course_dir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest)
         self.cdir = path(self.course_dir)
         self.logmsg = []
         self.nskip = nskip
@@ -95,7 +95,7 @@ class PersonCourse(object):
         self.verbose = verbose
         self.force_recompute_from_logs = force_recompute_from_logs
 
-        self.gspath = gsutil.gs_path_from_course_id(course_id, gsbucket)
+        self.gspath = gsutil.gs_path_from_course_id(course_id, gsbucket, use_dataset_latest)
 
         self.dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
         self.log("dataset=%s" % self.dataset)
@@ -774,6 +774,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                       end_date=end,
                       force_recompute_from_logs=force_recompute,
                       nskip=nskip,
+                      use_dataset_latest=use_dataset_latest,
                       )
     redo2 = 'redo2' in options
     if redo2:
