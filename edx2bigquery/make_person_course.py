@@ -100,12 +100,16 @@ class PersonCourse(object):
         self.gspath = gsutil.gs_path_from_course_id(course_id, gsbucket, use_dataset_latest)
 
         self.dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+        self.dataset_logs = bqutil.course_id2dataset(course_id, 'logs')
+        self.dataset_pcday = bqutil.course_id2dataset(course_id, 'pcday')
         self.log("dataset=%s" % self.dataset)
 
         self.end_date = end_date
         self.start_date = start_date
         # self.start_date = '2014-08-01'			# for debugging - smaller BQ queries
         self.sql_parameters = {'dataset': self.dataset, 
+                               'dataset_logs': self.dataset_logs,
+                               'dataset_pcday': self.dataset_pcday,
                                'end_date': self.end_date, 
                                'start_date': self.start_date,
                                'course_id': self.course_id,
@@ -200,9 +204,15 @@ class PersonCourse(object):
             for fn in files:
                 if (self.cdir / fn).exists():
                     return fn
-            raise Exception('Cannot find required file in %s, one of %s' % (self.cdir, files))
+            return None
 
-        csfn = getonefile(['course_structure-prod-analytics.json.gz', 'course_structure.json', 'course_axis.json'])
+        csfiles = ['course_structure-prod-analytics.json.gz', 'course_structure.json', 'course_axis.json']
+        csfn = getonefile(csfiles)
+        if csfn is None:
+            print '[make_person_course] get_nchapters: Cannot find required file in %s, one of %s' % (self.cdir, csfiles)
+            sys.stdout.flush()
+            return 9999   	# dummy value
+
         if csfn=='course_axis.json':
             struct = {x: json.loads(x) for x in self.openfile(csfn) }
         else:
@@ -328,8 +338,7 @@ class PersonCourse(object):
 
     def are_tracking_logs_available(self):
         datasets = bqutil.get_list_of_datasets()
-        lds = ("%s_logs" % self.dataset)
-        return (lds in datasets)
+        return (self.dataset_logs in datasets)
 
     def compute_third_phase(self):
     
@@ -385,7 +394,7 @@ class PersonCourse(object):
 
         # skip if no tracking logs available
         if not self.are_tracking_logs_available():
-            print "--> Missing tracking logs dataset %s_logs, skipping third phase of person_course" % self.dataset
+            print "--> Missing tracking logs dataset %s_logs, skipping fourth phase of person_course" % self.dataset
             return
 
         self.load_pc_geoip()
@@ -405,9 +414,9 @@ class PersonCourse(object):
         Add more geoip information, based on extra_geoip and local maxmind geoip
         '''
 
-        if self.skip_geoip:
-            print "--> Skipping geoip"
-            return
+        #if self.skip_geoip:
+        #    print "--> Skipping geoip"
+        #    return
 
         import make_geoip_table
 
@@ -552,7 +561,7 @@ class PersonCourse(object):
                 sum(sum_dt) as sum_dt
             from
                 (TABLE_DATE_RANGE( 
-                      [{dataset}_pcday.pcday_],                                                                                                               
+                      [{dataset_pcday}.pcday_],                                                                                                               
                       TIMESTAMP('{start_date}'), TIMESTAMP('{end_date}')))
             group by username
             order by sum_dt desc
@@ -600,7 +609,7 @@ class PersonCourse(object):
         the_sql = '''
         SELECT username, max(time) as last_event
             FROM (TABLE_DATE_RANGE(
-                                   [{dataset}_logs.tracklog_], 
+                                   [{dataset_logs}.tracklog_], 
                                    TIMESTAMP('{start_date}'), TIMESTAMP('{end_date}')))
             where username != "" 
             group by username
@@ -657,7 +666,7 @@ class PersonCourse(object):
         the_sql = '''
         SELECT username, count(*) as nevents
             FROM (TABLE_DATE_RANGE(
-                                   [{dataset}_logs.tracklog_], 
+                                   [{dataset_logs}.tracklog_], 
                                    TIMESTAMP('{start_date}'), TIMESTAMP('{end_date}')))
             where username != "" 
             group by username
@@ -681,7 +690,7 @@ class PersonCourse(object):
           from
           ( SELECT username, IP, count(IP) as ip_count
             FROM (TABLE_DATE_RANGE(
-                                   [{dataset}_logs.tracklog_], 
+                                   [{dataset_logs}.tracklog_], 
                                    TIMESTAMP('{start_date}'), TIMESTAMP('{end_date}')))
             where username != "" 
             group by username, IP

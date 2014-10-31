@@ -438,6 +438,8 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                 make_person_course_day.process_course(course_id, force_recompute=args.force_recompute)
             except Exception as err:
                 print err
+                traceback.print_exc()
+                sys.stdout.flush()
 
     elif (args.command=='person_course'):
         import make_person_course
