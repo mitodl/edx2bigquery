@@ -397,11 +397,17 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
     elif (args.command=='analyze_problems'):
         import make_problem_analysis
         for course_id in get_course_ids(args):
-            make_problem_analysis.analyze_problems(course_id, 
-                                                   basedir=the_basedir, 
-                                                   datedir=the_datedir,
-                                                   force_recompute=args.force_recompute,
-                                                   )
+            try:
+                make_problem_analysis.analyze_problems(course_id, 
+                                                       basedir=the_basedir, 
+                                                       datedir=the_datedir,
+                                                       force_recompute=args.force_recompute,
+                                                       use_dataset_latest=args.dataset_latest,
+                                                       )
+            except Exception as err:
+                print err
+                traceback.print_exc()
+                sys.stdout.flush()
 
     elif (args.command=='axis2bq'):
         import edx2course_axis

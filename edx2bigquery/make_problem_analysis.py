@@ -25,11 +25,13 @@ from load_course_sql import find_course_sql_dir, openfile
 
 csv.field_size_limit(1310720)
 
-def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=False):
+def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=False,
+                     use_dataset_latest=False,
+                     ):
 
     basedir = path(basedir or '')
     course_dir = course_id.replace('/','__')
-    lfp = find_course_sql_dir(course_id, basedir, datedir)
+    lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest)
     
     mypath = os.path.dirname(os.path.realpath(__file__))
     SCHEMA_FILE = '%s/schemas/schema_problem_analysis.json' % mypath
@@ -45,7 +47,7 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
     print "[analyze_problems] processing %s for course %s" % (smfn, course_id)
     sys.stdout.flush()
 
-    dataset = bqutil.course_id2dataset(course_id)
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = 'problem_analysis'
 
     # if table already exists, then assume we've already done analysis for this course
@@ -129,7 +131,7 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
     ofp.close()
 
     # upload and import
-    gsfn = gsutil.gs_path_from_course_id(course_id) / ofnb
+    gsfn = gsutil.gs_path_from_course_id(course_id, use_dataset_latest=use_dataset_latest) / ofnb
     gsutil.upload_file_to_gs(ofn, gsfn)
 
     bqutil.load_data_to_table(dataset, table, gsfn, the_schema, wait=True)
