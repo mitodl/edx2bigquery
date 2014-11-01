@@ -46,12 +46,16 @@ def find_course_sql_dir(course_id, basedir, datedir=None, use_dataset_latest=Fal
     lfp = (basedir or '.') / course_dir 
     if not os.path.exists(lfp):
         # maybe course directory uses dashes instead of __ (due to edX convention)?
-        olfp = lfp
+        olfp = [ lfp ]
         lfp = (basedir or '.') / course_id.replace('/','-') 
         if not os.path.exists(lfp):
-            msg = "Error!  Cannot find course SQL directory %s or %s" % (olfp , lfp)
-            print msg
-            raise Exception(msg)
+            # maybe course directory doesn't have the initial ORG- prefix (Harvard's local convention)
+            olfp.append(lfp) 
+            lfp = (basedir or '.') / course_id.split('/',1)[1].replace('/','-') 
+            if not os.path.exists(lfp):
+                msg = "Error!  Cannot find course SQL directory %s or %s" % (olfp , lfp)
+                print msg
+                raise Exception(msg)
 
     if use_dataset_latest:	# overrides datedir
         # find the directory with the latest date, and use that date, for any local SQL accesses
