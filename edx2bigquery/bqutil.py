@@ -344,11 +344,22 @@ def load_data_to_table(dataset_id, table_id, gsfn, schema, wait=True, verbose=Fa
     if verbose:
         print job
 
-    try:
-        job = jobs.insert(body=job, **project_ref).execute()
-    except Exception as err:
-        print "[bqutil] oops!  Failed to insert job=%s" % job
-        raise
+    for k in range(10):
+        try:
+            jobret = jobs.insert(body=job, **project_ref).execute()
+            break
+        except Exception as err:
+            print "[bqutil] oops!  Failed to insert job=%s" % job
+            if (k==9):
+                raise
+            if 'HttpError 500' in str(err):
+                print err
+                print "--> 500 error, retrying in 30 sec"
+                time.sleep(30)
+                continue
+            raise
+
+    job = jobret
 
     if verbose:
         print "job=", json.dumps(job, indent=4)
