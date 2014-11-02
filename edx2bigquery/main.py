@@ -158,7 +158,14 @@ person_day <course_id> ...  : Compute the person_course_day (pcday) for the spec
                               before exiting.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
+enrollment_day <c_id> ...   : Compute the enrollment_day (enrollday_*) tables for the specified course_id's, based on 
+                              processing the course's daily tracking log table data.
+                              The compute (query) jobs are queued; this does not wait for the jobs to complete,
+                              before exiting.
+                              Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
+
 person_course <course_id> ..: Compute the person-course table for the specified course_id's.
+                              Needs person_day tables to be created first.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
                               Accepts the --force-recompute flag, to force recomputation of all pc_* tables in BigQuery.
                               Accepts the --skip-if-exists flag, to skip computation of the table already exists in the course's dataset.
@@ -444,6 +451,16 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
         for course_id in get_course_ids(args):
             try:
                 make_person_course_day.process_course(course_id, force_recompute=args.force_recompute)
+            except Exception as err:
+                print err
+                traceback.print_exc()
+                sys.stdout.flush()
+
+    elif (args.command=='enrollment_day'):
+        import make_enrollment_day
+        for course_id in get_course_ids(args):
+            try:
+                make_enrollment_day.process_course(course_id, force_recompute=args.force_recompute)
             except Exception as err:
                 print err
                 traceback.print_exc()
