@@ -169,7 +169,7 @@ def process_course(course_id, force_recompute=False):
             sys.stdout.flush()
             continue
 
-        print ("Creating %s " % table_id), 
+        print ("Creating %s " % table_out),
         
         the_sql = PCDAY_SQL.format(course_id=course_id, 
                                    dataset=log_dataset,
