@@ -12,7 +12,7 @@ import copy
 from path import path
 from check_schema_tracking_log import check_schema, schema2dict
 
-def do_save(cid, caset_in, xbundle, datadir, log_msg):
+def do_save(cid, caset_in, xbundle, datadir, log_msg, use_dataset_latest=False):
     '''
     Save course axis data to bigquery
     
@@ -59,13 +59,13 @@ def do_save(cid, caset_in, xbundle, datadir, log_msg):
     fp.close()
 
     # upload axis.json file and course xbundle
-    gsdir = path(gsutil.gs_path_from_course_id(cid))
+    gsdir = path(gsutil.gs_path_from_course_id(cid, use_dataset_latest=use_dataset_latest))
     if 1:
         gsutil.upload_file_to_gs(cafn, gsdir, options="-z json", verbose=False)
         gsutil.upload_file_to_gs(xbfn, gsdir, options='-z xml', verbose=False)
 
     # import into BigQuery
-    dataset = bqutil.course_id2dataset(cid)
+    dataset = bqutil.course_id2dataset(cid, use_dataset_latest=use_dataset_latest)
     bqutil.create_dataset_if_nonexistent(dataset)	# create dataset if not already existent
     table = "course_axis"
     bqutil.load_data_to_table(dataset, table, gsdir / (cafn.basename()), the_schema)

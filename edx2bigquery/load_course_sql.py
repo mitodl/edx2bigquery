@@ -147,6 +147,15 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
         convert_sql(lfp / fn)
 
     local_files = glob.glob(lfp / '*')
+
+    # if using latest date directory, also look for course_image.jpg one level up
+    if use_dataset_latest:
+        print lfp.dirname()
+        ci_files = glob.glob(lfp.dirname() / 'course_image.jpg')
+        if ci_files:
+            local_files += list(ci_files)
+            print "--> local course_image file: %s" % ci_files
+
     gsdir = gsutil.gs_path_from_course_id(course_id, gsbucket=gsbucket, use_dataset_latest=use_dataset_latest)
 
     local = pytz.timezone ("America/New_York")
