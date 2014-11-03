@@ -258,8 +258,17 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
     if not wait:
         return
 
-    while job['status']['state'] <> 'DONE':
-        job = jobs.get(**job_ref).execute()
+    ecnt = 0
+    while job.get('status', {}).get('state', None) <> 'DONE':
+        if 'status' not in job:
+            logger("[bqutil] Error!  no job status?  job ret = %s" % job)
+            ecnt += 1
+            if (ecnt > 5):
+                raise Exception('BQ Error getting job status')
+        try:
+            job = jobs.get(**job_ref).execute()
+        except Exception as err:
+            print "[bqutil] oops!  Failed to execute jobs.get=%s" % (job_ref)
 
     status = job['status']
     logger( "[bqutil] job status: %s" % status )
