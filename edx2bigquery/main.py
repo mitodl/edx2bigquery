@@ -158,7 +158,7 @@ person_day <course_id> ...  : Compute the person_course_day (pcday) for the spec
                               before exiting.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
-enrollment_day <c_id> ...   : Compute the enrollment_day (enrollday_*) tables for the specified course_id's, based on 
+enrollment_day <c_id> ...   : Compute the enrollment_day (enrollday2_*) tables for the specified course_id's, based on 
                               processing the course's daily tracking log table data.
                               The compute (query) jobs are queued; this does not wait for the jobs to complete,
                               before exiting.

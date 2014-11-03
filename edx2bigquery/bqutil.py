@@ -233,7 +233,20 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
     if verbose:
         print job
 
-    job = jobs.insert(body=job, **project_ref).execute()
+    for k in range(10):
+        try:
+            jobret = jobs.insert(body=job, **project_ref).execute()
+            break
+        except Exception as err:
+            print "[bqutil] oops!  Failed to insert job=%s" % job
+            if (k==9):
+                raise
+            if 'HttpError 500' in str(err):
+                print err
+                print "--> 500 error, retrying in 30 sec"
+                time.sleep(30)
+                continue
+            raise
 
     if verbose:
         print "job=", json.dumps(job, indent=4)

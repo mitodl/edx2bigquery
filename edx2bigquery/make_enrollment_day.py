@@ -28,17 +28,35 @@ from gsutil import get_gs_file_list
 
 def process_course(course_id, force_recompute=False):
     '''
-    make enrollday_* tables for specified course_id
+    make enrollday2_* tables for specified course_id
     '''
 
     SQL = """
             SELECT 
   		    "{course_id}" as course_id,
 	            time, 
-		    username, 
-	            (case when event_type = "edx.course.enrollment.activated" then 1 
-                          when event_type = "edx.course.enrollment.deactivated" then -1 
-			  else 0 end) as diff_enrollment
+                    event_struct.user_id as user_id, 
+                    (case when (event_type = "edx.course.enrollment.activated" 
+                                and event_struct.mode = "honor")
+                          then 1 
+                          when (event_type = "edx.course.enrollment.deactivated" 
+                                and event_struct.mode = "honor")
+                          then -1 
+                          else 0 end) as diff_enrollment_honor,
+                    (case when (event_type = "edx.course.enrollment.activated" 
+                                and event_struct.mode = "verified")
+                          then 1 
+                          when (event_type = "edx.course.enrollment.deactivated" 
+                                and event_struct.mode = "verified")
+                          then -1 
+                          else 0 end) as diff_enrollment_verified,
+                    (case when (event_type = "edx.course.enrollment.activated" 
+                                and event_struct.mode = "audit")
+                          then 1 
+                          when (event_type = "edx.course.enrollment.deactivated" 
+                                and event_struct.mode = "audit")
+                          then -1 
+                          else 0 end) as diff_enrollment_audit,
             FROM [{dataset}.{table_id}] 
             where (event_type = "edx.course.enrollment.activated") or
                   (event_type = "edx.course.enrollment.deactivated")
@@ -76,7 +94,7 @@ def process_course(course_id, force_recompute=False):
     
         date = table_id[9:]
     
-        table_out = 'enrollday_%s' % date
+        table_out = 'enrollday2_%s' % date
     
         if (table_out in pcday_tables) and not force_recompute:
             print "%s...already done, skipping" % table_id
