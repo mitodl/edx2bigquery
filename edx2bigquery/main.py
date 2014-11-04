@@ -83,6 +83,9 @@ daily_logs --tlfn=<path>    : Do all commands (split, logs2gs, logs2bq) to get o
 
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
+nightly <course_id> ...     : Run sequence of commands for common nightly update (based on having new tracking logs available).
+                              This includes 
+
 --- SQL DATA RELATED COMMANDS
 
 make_uic <course_id> ...    : make the "user_info_combo" file for the specified course_id, from edX's SQL dumps, and upload to google storage.

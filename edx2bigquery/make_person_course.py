@@ -533,6 +533,13 @@ class PersonCourse(object):
         
         tablename = 'pc_nchapters'
 
+        # make sure the studentmodule table exists; if not, skip this
+        tables = bqutil.get_list_of_table_ids(self.dataset)
+        if not 'studentmodule' in tables:
+            self.log("--> No studentmodule table for %s, skipping nchapters statistics" % self.course_id)
+            setattr(self, tablename, {'data': [], 'data_by_key': {}})
+            return
+
         self.log("Loading %s from BigQuery" % tablename)
         self.pc_nchapters = bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'user_id'}, logger=self.log)
 
