@@ -21,6 +21,8 @@ else:
     print "WARNING: edx2bigquery needs a configuration file, ./edx2bigquery_config.py, to operate properly"
 
 def get_course_ids(args):
+    if type(args)==str:		# special case: a single course, already specified
+        return [ args ]
     if args.clist:
         course_dicts = getattr(edx2bigquery_config, 'courses', None)
         if course_dicts is None:
@@ -83,8 +85,11 @@ daily_logs --tlfn=<path>    : Do all commands (split, logs2gs, logs2bq) to get o
 
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
+doall <course_id> ...       : run setup_sql, analyze_problems, logs2gs, logs2bq, axis2bq, person_day, enrollment_day,
+                              and person_course, for each of the specified courses.
+
 nightly <course_id> ...     : Run sequence of commands for common nightly update (based on having new tracking logs available).
-                              This includes 
+                              This includes...TBD 
 
 --- SQL DATA RELATED COMMANDS
 
@@ -229,9 +234,10 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
 
     the_basedir = args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None)
     the_datedir = args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None)
+    use_dataset_latest = args.dataset_latest
 
     def setup_sql(args, steps, course_id=None):
-        doall = steps=='setup_sql'
+        sqlall = steps=='setup_sql'
         if course_id is None:
             for course_id in get_course_ids(args):
                 print "="*100
@@ -245,14 +251,14 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                     sys.stdout.flush()
             return
 
-        if doall or 'make_uic' in steps:
+        if sqlall or 'make_uic' in steps:
             import make_user_info_combo
             make_user_info_combo.process_file(course_id, 
                                               basedir=the_basedir,
                                               datedir=the_datedir,
-                                              use_dataset_latest=args.dataset_latest,
+                                              use_dataset_latest=use_dataset_latest,
                                               )
-        if doall or 'sql2bq' in steps:
+        if sqlall or 'sql2bq' in steps:
             import load_course_sql
             try:
                 load_course_sql.load_sql_for_course(course_id, 
@@ -260,19 +266,19 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                                                     basedir=the_basedir,
                                                     datedir=the_datedir,
                                                     do_gs_copy=True,
-                                                    use_dataset_latest=args.dataset_latest,
+                                                    use_dataset_latest=use_dataset_latest,
                                                     )
             except Exception as err:
                 print err
             
-        if doall or 'load_forum' in steps:
+        if sqlall or 'load_forum' in steps:
             import rephrase_forum_data
             try:
                 rephrase_forum_data.rephrase_forum_json_for_course(course_id,
                                                                    gsbucket=edx2bigquery_config.GS_BUCKET,
                                                                    basedir=the_basedir,
                                                                    datedir=the_datedir,
-                                                                   use_dataset_latest=args.dataset_latest,
+                                                                   use_dataset_latest=use_dataset_latest,
                                                                    )
             except Exception as err:
                 print err
@@ -323,6 +329,94 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                 print err
                 raise
                 
+    def analyze_problems(courses):
+        import make_problem_analysis
+        for course_id in get_course_ids(courses):
+            try:
+                make_problem_analysis.analyze_problems(course_id, 
+                                                       basedir=the_basedir, 
+                                                       datedir=the_datedir,
+                                                       force_recompute=args.force_recompute,
+                                                       use_dataset_latest=use_dataset_latest,
+                                                       )
+            except Exception as err:
+                print err
+                traceback.print_exc()
+                sys.stdout.flush()
+        
+    def axis2bq(courses):
+        import edx2course_axis
+        import load_course_sql
+        import axis2bigquery
+        for course_id in get_course_ids(courses):
+            if args.skip_if_exists and axis2bigquery.already_exists(course_id, use_dataset_latest=use_dataset_latest):
+                print "--> course_axis for %s already exists, skipping" % course_id
+                sys.stdout.flush()
+                continue
+            sdir = load_course_sql.find_course_sql_dir(course_id, 
+                                                       basedir=the_basedir, 
+                                                       datedir=the_datedir,
+                                                       use_dataset_latest=use_dataset_latest,
+                                                       )
+            edx2course_axis.DATADIR = sdir
+            edx2course_axis.VERBOSE_WARNINGS = args.verbose
+            fn = sdir / 'course.xml.tar.gz'
+            if not os.path.exists(fn):
+                fn = sdir / 'course-prod-analytics.xml.tar.gz'
+                if not os.path.exists(fn):
+                    print "---> oops, cannot generate course axis for %s, file %s (or 'course.xml.tar.gz') missing!" % (course_id, fn)
+                    continue
+            try:
+                edx2course_axis.process_xml_tar_gz_file(fn,
+                                                       use_dataset_latest=use_dataset_latest)
+            except Exception as err:
+                print err
+                # raise
+            
+
+    def person_day(courses):
+        import make_person_course_day
+        for course_id in get_course_ids(courses):
+            try:
+                make_person_course_day.process_course(course_id, force_recompute=args.force_recompute)
+            except Exception as err:
+                print err
+                traceback.print_exc()
+                sys.stdout.flush()
+
+
+    def enrollment_day(courses):
+        import make_enrollment_day
+        for course_id in get_course_ids(courses):
+            try:
+                make_enrollment_day.process_course(course_id, force_recompute=args.force_recompute)
+            except Exception as err:
+                print err
+                traceback.print_exc()
+                sys.stdout.flush()
+        
+    def person_course(courses):
+        import make_person_course
+        for course_id in get_course_ids(courses):
+            try:
+                make_person_course.make_person_course(course_id,
+                                                      gsbucket=edx2bigquery_config.GS_BUCKET,
+                                                      basedir=the_basedir,
+                                                      datedir=the_datedir,
+                                                      start=(args.start_date or "2012-09-05"),
+                                                      end=(args.end_date or "2014-09-21"),
+                                                      force_recompute=args.force_recompute,
+                                                      nskip=(args.nskip or 0),
+                                                      skip_geoip=args.skip_geoip,
+                                                      skip_if_table_exists=args.skip_if_exists,
+                                                      use_dataset_latest=use_dataset_latest,
+                                                      )
+            except Exception as err:
+                print err
+                if ('no user_info_combo' in str(err)) or ('aborting - no dataset' in str(err)):
+                    continue
+                raise
+
     #-----------------------------------------------------------------------------            
 
     if (args.command=='mongo2gs'):
@@ -341,6 +435,16 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
         for line in sys.stdin:
             newline = do_rephrase_line(line)
             sys.stdout.write(newline)
+
+    elif (args.command=='doall'):
+        for course_id in get_course_ids(args):
+            setup_sql(course_id, 'setup_sql')
+            analyze_problems(course_id)
+            axis2bq(course_id)
+            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose)
+            person_day(course_id)
+            enrollment_day(course_id)
+            person_course(course_id)
 
     elif (args.command=='make_uic'):
         setup_sql(args, args.command)
@@ -407,48 +511,10 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             fp.writerow(line[:-1].split('\t'))
 
     elif (args.command=='analyze_problems'):
-        import make_problem_analysis
-        for course_id in get_course_ids(args):
-            try:
-                make_problem_analysis.analyze_problems(course_id, 
-                                                       basedir=the_basedir, 
-                                                       datedir=the_datedir,
-                                                       force_recompute=args.force_recompute,
-                                                       use_dataset_latest=args.dataset_latest,
-                                                       )
-            except Exception as err:
-                print err
-                traceback.print_exc()
-                sys.stdout.flush()
+        analyze_problems(args)
 
     elif (args.command=='axis2bq'):
-        import edx2course_axis
-        import load_course_sql
-        import axis2bigquery
-        for course_id in get_course_ids(args):
-            if args.skip_if_exists and axis2bigquery.already_exists(course_id, use_dataset_latest=args.dataset_latest):
-                print "--> course_axis for %s already exists, skipping" % course_id
-                sys.stdout.flush()
-                continue
-            sdir = load_course_sql.find_course_sql_dir(course_id, 
-                                                       basedir=the_basedir, 
-                                                       datedir=the_datedir,
-                                                       use_dataset_latest=args.dataset_latest,
-                                                       )
-            edx2course_axis.DATADIR = sdir
-            edx2course_axis.VERBOSE_WARNINGS = args.verbose
-            fn = sdir / 'course.xml.tar.gz'
-            if not os.path.exists(fn):
-                fn = sdir / 'course-prod-analytics.xml.tar.gz'
-                if not os.path.exists(fn):
-                    print "---> oops, cannot generate course axis for %s, file %s (or 'course.xml.tar.gz') missing!" % (course_id, fn)
-                    continue
-            try:
-                edx2course_axis.process_xml_tar_gz_file(fn,
-                                                       use_dataset_latest=args.dataset_latest)
-            except Exception as err:
-                print err
-                # raise
+        axis2bq(args)
 
     elif (args.command=='staff2bq'):
         import load_staff
@@ -459,46 +525,13 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
         make_cinfo.do_course_listings(args.courses[0])
 
     elif (args.command=='person_day'):
-        import make_person_course_day
-        for course_id in get_course_ids(args):
-            try:
-                make_person_course_day.process_course(course_id, force_recompute=args.force_recompute)
-            except Exception as err:
-                print err
-                traceback.print_exc()
-                sys.stdout.flush()
+        person_day(args)
 
     elif (args.command=='enrollment_day'):
-        import make_enrollment_day
-        for course_id in get_course_ids(args):
-            try:
-                make_enrollment_day.process_course(course_id, force_recompute=args.force_recompute)
-            except Exception as err:
-                print err
-                traceback.print_exc()
-                sys.stdout.flush()
+        enrollment_day(args)
 
     elif (args.command=='person_course'):
-        import make_person_course
-        for course_id in get_course_ids(args):
-            try:
-                make_person_course.make_person_course(course_id,
-                                                      gsbucket=edx2bigquery_config.GS_BUCKET,
-                                                      basedir=the_basedir,
-                                                      datedir=the_datedir,
-                                                      start=(args.start_date or "2012-09-05"),
-                                                      end=(args.end_date or "2014-09-21"),
-                                                      force_recompute=args.force_recompute,
-                                                      nskip=(args.nskip or 0),
-                                                      skip_geoip=args.skip_geoip,
-                                                      skip_if_table_exists=args.skip_if_exists,
-                                                      use_dataset_latest=args.dataset_latest,
-                                                      )
-            except Exception as err:
-                print err
-                if ('no user_info_combo' in str(err)) or ('aborting - no dataset' in str(err)):
-                    continue
-                raise
+        person_course(args)
 
     elif (args.command=='report'):
         import make_course_report_tables
