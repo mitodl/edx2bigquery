@@ -421,7 +421,12 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
     elif (args.command=='axis2bq'):
         import edx2course_axis
         import load_course_sql
+        import axis2bigquery
         for course_id in get_course_ids(args):
+            if args.skip_if_exists and axis2bigquery.already_exists(course_id, use_dataset_latest=args.dataset_latest):
+                print "--> course_axis for %s already exists, skipping" % course_id
+                sys.stdout.flush()
+                continue
             sdir = load_course_sql.find_course_sql_dir(course_id, 
                                                        basedir=the_basedir, 
                                                        datedir=the_datedir,
@@ -440,7 +445,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                                                        use_dataset_latest=args.dataset_latest)
             except Exception as err:
                 print err
-                raise
+                # raise
 
     elif (args.command=='staff2bq'):
         import load_staff

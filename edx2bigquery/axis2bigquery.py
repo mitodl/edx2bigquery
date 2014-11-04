@@ -12,6 +12,12 @@ import copy
 from path import path
 from check_schema_tracking_log import check_schema, schema2dict
 
+def already_exists(course_id, use_dataset_latest=False):
+    table = "course_axis"
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    tables = bqutil.get_list_of_table_ids(dataset)
+    return table in tables
+
 def do_save(cid, caset_in, xbundle, datadir, log_msg, use_dataset_latest=False):
     '''
     Save course axis data to bigquery
