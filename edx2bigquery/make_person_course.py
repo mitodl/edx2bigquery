@@ -105,6 +105,11 @@ class PersonCourse(object):
         self.tableid = "person_course"
         self.log("dataset=%s" % self.dataset)
 
+        if self.dataset not in bqutil.get_list_of_datasets():
+            msg = "[person_course] error! aborting - no dataset %s" % self.dataset
+            self.log(msg)
+            raise Exception(msg)
+
         self.end_date = end_date
         self.start_date = start_date
         # self.start_date = '2014-08-01'			# for debugging - smaller BQ queries
@@ -258,7 +263,13 @@ class PersonCourse(object):
         self.log("-"*20)
         self.log("Computing first phase based on user_info_combo")
         
-        uicdat = self.load_json('user_info_combo.json.gz', 'username') # start with user_info_combo file, use username as key becase of tracking logs
+        try:
+            uicdat = self.load_json('user_info_combo.json.gz', 'username') # start with user_info_combo file, use username as key becase of tracking logs
+        except Exception as err:
+            self.log('[person_course] Error loading user_info_combo.json.gz, a required file ; aborting!')
+            self.log('                err=%s' % str(err))
+            raise Exception('no user_info_combo')
+
         self.uicdat = uicdat
     
         for key, uicent in uicdat.iteritems():
@@ -301,15 +312,16 @@ class PersonCourse(object):
         for key, pcent in self.pctab.iteritems():
 
             uid = str(pcent['user_id'])
-            if uid in self.pc_nchapters['data_by_key']:
-                pcent['viewed'] = True
-                pcent['nchapters'] = int(self.pc_nchapters['data_by_key'][uid]['nchapters'])
-                if int(self.pc_nchapters['data_by_key'][uid]['nchapters']) >= nchapters/2:
-                    pcent['explored'] = True
+            if self.pc_nchapters is not None:
+                if uid in self.pc_nchapters['data_by_key']:
+                    pcent['viewed'] = True
+                    pcent['nchapters'] = int(self.pc_nchapters['data_by_key'][uid]['nchapters'])
+                    if int(self.pc_nchapters['data_by_key'][uid]['nchapters']) >= nchapters/2:
+                        pcent['explored'] = True
+                    else:
+                        pcent['explored'] = False
                 else:
-                    pcent['explored'] = False
-            else:
-                pcent['viewed'] = False
+                    pcent['viewed'] = False
 
             if self.pc_forum is not None:
                 for field in [  ['nforum', 'nforum_posts'],
@@ -519,6 +531,15 @@ class PersonCourse(object):
 
     def load_nchapters(self):
         
+        tablename = 'pc_nchapters'
+
+        # make sure the studentmodule exists; if not, skip this
+        tables = bqutil.get_list_of_table_ids(self.dataset)
+        if not 'studentmodule' in tables:
+            self.log("--> No studentmodule table for %s, skipping chapters" % self.course_id)
+            setattr(self, tablename, None)
+            return
+
         the_sql = '''
         select user_id, count(*) as nchapters from (
             SELECT student_id as user_id, module_id, count(*) as chapter_views
@@ -530,8 +551,6 @@ class PersonCourse(object):
         group by user_id
         order by user_id
         '''.format(**self.sql_parameters)
-        
-        tablename = 'pc_nchapters'
 
         # make sure the studentmodule table exists; if not, skip this
         tables = bqutil.get_list_of_table_ids(self.dataset)
