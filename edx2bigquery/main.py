@@ -488,6 +488,8 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                                                       )
             except Exception as err:
                 print err
+                if ('no user_info_combo' in str(err)) or ('aborting - no dataset' in str(err)):
+                    continue
                 raise
 
     elif (args.command=='report'):
