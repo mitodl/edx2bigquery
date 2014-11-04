@@ -533,13 +533,6 @@ class PersonCourse(object):
         
         tablename = 'pc_nchapters'
 
-        # make sure the studentmodule exists; if not, skip this
-        tables = bqutil.get_list_of_table_ids(self.dataset)
-        if not 'studentmodule' in tables:
-            self.log("--> No studentmodule table for %s, skipping chapters" % self.course_id)
-            setattr(self, tablename, None)
-            return
-
         the_sql = '''
         select user_id, count(*) as nchapters from (
             SELECT student_id as user_id, module_id, count(*) as chapter_views
