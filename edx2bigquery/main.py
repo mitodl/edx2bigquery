@@ -86,10 +86,11 @@ daily_logs --tlfn=<path>    : Do all commands (split, logs2gs, logs2bq) to get o
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
 doall <course_id> ...       : run setup_sql, analyze_problems, logs2gs, logs2bq, axis2bq, person_day, enrollment_day,
-                              and person_course, for each of the specified courses.
+                              and person_course, for each of the specified courses.  This is idempotent, and can be run
+                              weekly when new SQL dumps come in.
 
 nightly <course_id> ...     : Run sequence of commands for common nightly update (based on having new tracking logs available).
-                              This includes...TBD 
+                              This includes logs2gs, logs2bq, person_day, enrollment_day
 
 --- SQL DATA RELATED COMMANDS
 
@@ -441,6 +442,13 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             setup_sql(course_id, 'setup_sql')
             analyze_problems(course_id)
             axis2bq(course_id)
+            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose)
+            person_day(course_id)
+            enrollment_day(course_id)
+            person_course(course_id)
+
+    elif (args.command=='nightly'):
+        for course_id in get_course_ids(args):
             daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose)
             person_day(course_id)
             enrollment_day(course_id)
