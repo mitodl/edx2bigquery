@@ -444,7 +444,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             setup_sql(course_id, 'setup_sql')
             analyze_problems(course_id)
             axis2bq(course_id)
-            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose)
+            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
             person_day(course_id)
             enrollment_day(course_id)
             person_course(course_id)
