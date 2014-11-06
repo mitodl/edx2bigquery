@@ -284,7 +284,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             except Exception as err:
                 print err
                     
-    def daily_logs(args, steps, course_id=None, verbose=True):
+    def daily_logs(args, steps, course_id=None, verbose=True, wait=False):
         if steps=='daily_logs':
             # doing daily_logs, so run split once first, then afterwards logs2gs and logs2bq
             daily_logs(args, 'split', args.tlfn)
@@ -326,7 +326,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             import load_daily_tracking_logs
             try:
                 load_daily_tracking_logs.load_all_daily_logs_for_course(course_id, edx2bigquery_config.GS_BUCKET,
-                                                                        verbose=verbose)
+                                                                        verbose=verbose, wait=wait)
             except Exception as err:
                 print err
                 raise
@@ -450,7 +450,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
 
     elif (args.command=='nightly'):
         for course_id in get_course_ids(args):
-            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose)
+            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
             person_day(course_id)
             enrollment_day(course_id)
             person_course(course_id)
