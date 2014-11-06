@@ -304,6 +304,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             if '*' in tlfn:
                 import glob
                 TODO = glob.glob(tlfn)
+                TODO.sort()
             else:
                 TODO = [tlfn]
             for the_tlfn in TODO:
