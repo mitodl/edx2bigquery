@@ -397,7 +397,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                 traceback.print_exc()
                 sys.stdout.flush()
         
-    def person_course(courses):
+    def person_course(courses, just_do_nightly=False, force_recompute=False):
         import make_person_course
         for course_id in get_course_ids(courses):
             try:
@@ -407,11 +407,12 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                                                       datedir=the_datedir,
                                                       start=(args.start_date or "2012-09-05"),
                                                       end=(args.end_date or "2014-09-21"),
-                                                      force_recompute=args.force_recompute,
+                                                      force_recompute=args.force_recompute or force_recompute,
                                                       nskip=(args.nskip or 0),
                                                       skip_geoip=args.skip_geoip,
                                                       skip_if_table_exists=args.skip_if_exists,
                                                       use_dataset_latest=use_dataset_latest,
+                                                      just_do_nightly=just_do_nightly,
                                                       )
             except Exception as err:
                 print err
@@ -453,7 +454,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
             person_day(course_id)
             enrollment_day(course_id)
-            person_course(course_id)
+            person_course(course_id, just_do_nightly=True, force_recompute=True)
 
     elif (args.command=='make_uic'):
         setup_sql(args, args.command)
