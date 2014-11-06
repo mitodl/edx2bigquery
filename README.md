@@ -45,11 +45,14 @@ To run:
   
 Command help message:
 
-    usage: edx2bigquery [-h] [--course_base_dir COURSE_BASE_DIR]
-                        [--course_date_dir COURSE_DATE_DIR]
-                        [--start_date START_DATE] [--end_date END_DATE]
-                        [--tlfn TLFN] [-v] [--year2] [--force-recompute]
-                        [--nskip NSKIP] [--logs-dir LOGS_DIR]
+    usage: edx2bigquery [-h] [--course-base-dir COURSE_BASE_DIR]
+                        [--course-date-dir COURSE_DATE_DIR]
+                        [--start-date START_DATE] [--end-date END_DATE]
+                        [--tlfn TLFN] [-v] [--year2] [--clist CLIST]
+                        [--force-recompute] [--dataset-latest] [--skip-geoip]
+                        [--skip-if-exists] [--nskip NSKIP] [--logs-dir LOGS_DIR]
+                        [--dbname DBNAME] [--table TABLE] [--org ORG]
+                        [--collection COLLECTION]
                         [--output-project-id OUTPUT_PROJECT_ID]
                         [--output-dataset-id OUTPUT_DATASET_ID]
                         [--output-bucket OUTPUT_BUCKET]
@@ -59,6 +62,7 @@ Command help message:
     
     Examples of common commands:
     
+    edx2bigquery --clist=all_mitx logs2gs 
     edx2bigquery setup_sql MITx/24.00x/2013_SOND
     edx2bigquery --tlfn=DAILY/mitx-edx-events-2014-10-14.log.gz  --year2 daily_logs
     edx2bigquery --year2 person_course
@@ -88,6 +92,10 @@ Command help message:
                             
                                                           Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
                             
+                                                          Accepts the --dataset-latest flag, to use the latest directory date in the SQL data directory.
+                                                          Directories should be named YYYY-MM-DD.  When this flag is used, the course SQL dataset name has
+                                                          "_latest" appended to it.
+                            
                             daily_logs --tlfn=<path>    : Do all commands (split, logs2gs, logs2bq) to get one day's edX tracking logs into google storage 
                                        <course_id>        and import into BigQuery.  See more information about each of those commands, below.
                                        ...                This step is idempotent - it can be re-run multiple times, and the result should not change.
@@ -95,7 +103,27 @@ Command help message:
                             
                                                           Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
                             
+                            doall <course_id> ...       : run setup_sql, analyze_problems, logs2gs, logs2bq, axis2bq, person_day, enrollment_day,
+                                                          and person_course, for each of the specified courses.  This is idempotent, and can be run
+                                                          weekly when new SQL dumps come in.
+                            
+                            nightly <course_id> ...     : Run sequence of commands for common nightly update (based on having new tracking logs available).
+                                                          This includes logs2gs, logs2bq, person_day, enrollment_day
+                            
                             --- SQL DATA RELATED COMMANDS
+                            
+                            waldofy <sql_data_dir>      : Apply HarvardX Jim Waldo conventions to SQL data as received from edX, which renames files to be
+                                    <course_id> ...       more user friendly (e.g. courseware_studentmodule -> studentmodule) and converts the tab-separated
+                                                          values form (*.sql) to comma-separated values (*.csv).  Also compresses the resulting csv files.
+                                                          Does this only for the specified course's, because the edX SQL dump may contain a bunch of
+                                                          uknown courses, or scratch courses from the edge site, which should not be co-mingled with
+                                                          course data from the main production site.  
+                                                          
+                                                          It is assumed that <sql_data_dir> has a name which contains a date, e.g. xorg-2014-05-11 ;
+                                                          the resulting data are put into the course SQL base directory, into a subdirectory with
+                                                          name given by the course_id and date, YYYY-MM-DD.
+                            
+                                                          The SQL files from edX must already be decrypted (not *.gpg), before running this command.
                             
                             make_uic <course_id> ...    : make the "user_info_combo" file for the specified course_id, from edX's SQL dumps, and upload to google storage.
                                                           Does not import into BigQuery.
@@ -103,11 +131,27 @@ Command help message:
                             
                             sql2bq <course_id> ...      : load specified course_id SQL files into google storage, and import the user_info_combo and studentmodule
                                                           data into BigQuery.
+                                                          Also upload course_image.jpg images from the course SQL directories (if image exists) to
+                                                          google storage, and make them public-read.
                                                           Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
                             
                             load_forum <course_id> ...  : Rephrase the forum.mongo data from the edX SQL dump, to fit the schema used for forum
                                                           data in the course BigQuery tables.  Saves this to google storage, and imports into BigQuery.
                                                           Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
+                            
+                            makegeoip                   : Creates table of geoip information for IP addresses in person_course table missing country codes.
+                                                          Accepts the --table argument to specify the person_course table to use.
+                                                          Alternatively, provide the --org argument to specify the course_report_ORG dataset to look
+                                                          in for the latest person_course dataset.
+                            
+                            tsv2csv                     : filter, which takes lines of tab separated values and outputs lines of comma separated values.
+                                                          Useful when processing the *.sql files from edX dumps.
+                            
+                            analyze_problems <c_id> ... : Analyze capa problem data in studentmodule table, generating the problem_analysis table as a result.  
+                                                          Uploads the result to google cloud storage and to BigQuery.
+                                                          This table is necessary for the insights dashboard.
+                            
+                            staff2bq <staff.csv>        : load staff.csv file into BigQuery; put it in the "courses" dataset.
                             
                             --- TRACKING LOG DATA RELATED COMMANDS
                             
@@ -125,7 +169,7 @@ Command help message:
                                                           Does NOT import the log data into BigQuery.
                                                           Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
                             
-                            logs2bq <course_id> ...     : import daily tracking log files for the specified course_id's to BigQuery.
+                            logs2bq <course_id> ...     : import daily tracking log files for the specified course_id's to BigQuery, from Google cloud storage.
                                                           The import jobs are queued; this does not wait for the jobs to complete,
                                                           before exiting.
                                                           Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
@@ -136,6 +180,16 @@ Command help message:
                                                           Rephrases log file entries to be consistent with the schema used for tracking log file data in BigQuery.
                                                           Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
                             
+                            --- COURSE CONTENT DATA RELATED COMMANDS
+                            
+                            axis2bq <course_id> ...     : construct "course axis" table, upload to gs, and generate table in BigQuery dataset for the
+                                                          specified course_id's.  
+                                                          Accepts the "--clist" flag, to process specified list of courses in the config file's "courses" dict.
+                            
+                            make_cinfo listings.csv     : make the courses.listings table, which contains a listing of all the courses with metadata.
+                                                          The listings.csv file should contain the columns Institution, Semester, New or Rerun, Course Number,
+                                                          Short Title, Title, Instructors, Registration Open, Course Launch, Course Wrap, course_id
+                            
                             --- REPORTING COMMANDS
                             
                             person_day <course_id> ...  : Compute the person_course_day (pcday) for the specified course_id's, based on 
@@ -144,8 +198,17 @@ Command help message:
                                                           before exiting.
                                                           Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
                             
-                            person_course <course_id> ..: Compute the person-course table for the specified course_id's.
+                            enrollment_day <c_id> ...   : Compute the enrollment_day (enrollday2_*) tables for the specified course_id's, based on 
+                                                          processing the course's daily tracking log table data.
+                                                          The compute (query) jobs are queued; this does not wait for the jobs to complete,
+                                                          before exiting.
                                                           Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
+                            
+                            person_course <course_id> ..: Compute the person-course table for the specified course_id's.
+                                                          Needs person_day tables to be created first.
+                                                          Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
+                                                          Accepts the --force-recompute flag, to force recomputation of all pc_* tables in BigQuery.
+                                                          Accepts the --skip-if-exists flag, to skip computation of the table already exists in the course's dataset.
                             
                             report <course_id> ...      : Compute overall statistics, across all specified course_id's, based on the person_course tables.
                                                           Accepts the --nskip=XXX optional argument to determine how many report processing steps to skip.
@@ -173,19 +236,28 @@ Command help message:
     
     optional arguments:
       -h, --help            show this help message and exit
-      --course_base_dir COURSE_BASE_DIR
+      --course-base-dir COURSE_BASE_DIR
                             base directory where course SQL is stored, e.g. 'HarvardX-Year-2-data-sql'
-      --course_date_dir COURSE_DATE_DIR
+      --course-date-dir COURSE_DATE_DIR
                             date sub directory where course SQL is stored, e.g. '2014-09-21'
-      --start_date START_DATE
+      --start-date START_DATE
                             start date for person-course dataset generated, e.g. '2012-09-01'
-      --end_date END_DATE   end date for person-course dataset generated, e.g. '2014-09-21'
+      --end-date END_DATE   end date for person-course dataset generated, e.g. '2014-09-21'
       --tlfn TLFN           path to daily tracking log file to import, e.g. 'DAILY/mitx-edx-events-2014-10-14.log.gz'
       -v, --verbose         increase output verbosity
       --year2               increase output verbosity
+      --clist CLIST         specify name of list of courses to iterate command over
       --force-recompute     force recomputation
+      --dataset-latest      use the *_latest SQL dataset
+      --skip-geoip          skip geoip processing in person_course
+      --skip-if-exists      skip processing in person_course if table already exists
       --nskip NSKIP         number of steps to skip
       --logs-dir LOGS_DIR   directory to output split tracking logs into
+      --dbname DBNAME       mongodb db name to use for mongo2gs
+      --table TABLE         bigquery table to use, specified as dataset_id.table_id
+      --org ORG             organization ID to use
+      --collection COLLECTION
+                            mongodb collection name to use for mongo2gs
       --output-project-id OUTPUT_PROJECT_ID
                             project-id where the report output should go (used by the report and combinepc commands)
       --output-dataset-id OUTPUT_DATASET_ID
