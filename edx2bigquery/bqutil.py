@@ -14,6 +14,7 @@ import getpass
 from edx2bigquery_config import PROJECT_ID as DEFAULT_PROJECT_ID
 
 import auth
+from collections import OrderedDict
 
 service = auth.build_bq_client() 
 # project_id=auth.PROJECT_ID
@@ -95,22 +96,33 @@ def get_list_of_table_ids(dataset_id):
     table_id_list = [ x['tableReference']['tableId'] for x in tables_info ]
     return table_id_list
 
-def get_table_data(dataset_id, table_id, key=None, logger=None, project_id=DEFAULT_PROJECT_ID):
+def get_table_data(dataset_id, table_id, key=None, logger=None, project_id=DEFAULT_PROJECT_ID, 
+                   startIndex=None, maxResults=1000000):
     '''
     Retrieve data from a specific BQ table.  Return as a dict, with
-    fields = schema fields
+
+    fields      = schema fields
     field_names = name of top-level schema fields
-    data = list of data
+    data        = list of data
     data_by_key = dict of data, with key being the value of the fieldname specified as the key arg
 
     Arguments:
 
-      - key: dict with {'name': name_of_field_for_key}
-
+    key         = dict, e.g. {'name': field_name_for_index, 'keymap': function_on_key_values}
+    maxResults  = maximum number of results to return
+    startIndex  = zero-based index of starting row to read; make this negative to return from 
+                  end of table
     '''
-    table_ref = dict(datasetId=dataset_id, projectId=project_id, tableId=table_id)
-    table_ref['maxResults'] = 1000000
     table = get_bq_table_info(dataset_id, table_id)
+    nrows = int(table['numRows'])
+
+    table_ref = dict(datasetId=dataset_id, projectId=project_id, tableId=table_id)
+    table_ref['maxResults'] = maxResults
+    if startIndex is not None:
+        if startIndex < 0:
+            startIndex = nrows + startIndex
+        table_ref['startIndex'] = startIndex
+        
     data = tabledata.list(**table_ref).execute()
 
     fields = table['schema']['fields']
@@ -118,8 +130,11 @@ def get_table_data(dataset_id, table_id, key=None, logger=None, project_id=DEFAU
 
     ret = {'fields': fields,
            'field_names': field_names,
+           'numRows': nrows,
+           'creationTime': table['creationTime'],
+           'lastModifiedTime': table['lastModifiedTime'],
            'data': [],
-           'data_by_key': {}
+           'data_by_key': OrderedDict(),
            }
 
     rows = data.get('rows', [])
@@ -198,7 +213,7 @@ def get_bq_table(dataset, tablename, sql, key=None, allow_create=True, force_que
             raise
     return ret
 
-def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, wait=True, 
+def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=True, wait=True, 
                     logger=default_logger, project_id=DEFAULT_PROJECT_ID,
                     output_project_id=DEFAULT_PROJECT_ID):
     '''
@@ -208,12 +223,12 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
     project_ref = dict(projectId=project_id)
     table_ref = dict(datasetId=dataset_id, projectId=output_project_id, tableId=table_id)
 
-    if overwrite:
-        wd = "WRITE_TRUNCATE"
-    elif overwrite in ["append", 'APPEND']:
+    if overwrite in ["append", 'APPEND']:
         wd = "WRITE_APPEND"
-    else:
+    elif overwrite==True:
         wd = "WRITE_TRUNCATE"
+    else:
+        wd = "WRITE_EMPTY"	
 
     config = {'query': { 'query': sql,
                          'destinationTable': table_ref,
@@ -289,20 +304,21 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
         logger( "[bqutil] Job run time: %8.2f seconds" % dt)
 
         # Patch the table to add a description
-        me = getpass.getuser()
-        txt = 'Computed by %s / bqutil at %s processing %s bytes in %8.2f sec\nwith this SQL: %s' % (me, datetime.datetime.now(), 
-                                                                                                     nbytes,
-                                                                                                     dt,
-                                                                                                     sql)
-        project_name = get_project_name(project_id)
-        output_project_name = get_project_name(output_project_id)
-
-        txt += '\n'
-        txt += 'see job: https://bigquery.cloud.google.com/results/%s:%s\n' % (project_name, job_id)
-        txt += 'see table: https://bigquery.cloud.google.com/table/%s:%s.%s\n' % (output_project_name, dataset_id, table_id)
-        logger(txt)
-
-        add_description_to_table(dataset_id, table_id, txt, project_id=output_project_id)
+        if not wd=='WRITE_APPEND':
+            me = getpass.getuser()
+            txt = 'Computed by %s / bqutil at %s processing %s bytes in %8.2f sec\nwith this SQL: %s' % (me, datetime.datetime.now(), 
+                                                                                                         nbytes,
+                                                                                                         dt,
+                                                                                                         sql)
+            project_name = get_project_name(project_id)
+            output_project_name = get_project_name(output_project_id)
+    
+            txt += '\n'
+            txt += 'see job: https://bigquery.cloud.google.com/results/%s:%s\n' % (project_name, job_id)
+            txt += 'see table: https://bigquery.cloud.google.com/table/%s:%s.%s\n' % (output_project_name, dataset_id, table_id)
+            logger(txt)
+    
+            add_description_to_table(dataset_id, table_id, txt, project_id=output_project_id)
 
     return job
     
