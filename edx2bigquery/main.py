@@ -94,6 +94,19 @@ nightly <course_id> ...     : Run sequence of commands for common nightly update
 
 --- SQL DATA RELATED COMMANDS
 
+waldofy <sql_data_dir>      : Apply HarvardX Jim Waldo conventions to SQL data as received from edX, which renames files to be
+        <course_id> ...       more user friendly (e.g. courseware_studentmodule -> studentmodule) and converts the tab-separated
+                              values form (*.sql) to comma-separated values (*.csv).  Also compresses the resulting csv files.
+                              Does this only for the specified course's, because the edX SQL dump may contain a bunch of
+                              uknown courses, or scratch courses from the edge site, which should not be co-mingled with
+                              course data from the main production site.  
+                              
+                              It is assumed that <sql_data_dir> has a name which contains a date, e.g. xorg-2014-05-11 ;
+                              the resulting data are put into the course SQL base directory, into a subdirectory with
+                              name given by the course_id and date, YYYY-MM-DD.
+
+                              The SQL files from edX must already be decrypted (not *.gpg), before running this command.
+
 make_uic <course_id> ...    : make the "user_info_combo" file for the specified course_id, from edX's SQL dumps, and upload to google storage.
                               Does not import into BigQuery.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
@@ -287,7 +300,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             except Exception as err:
                 print err
                     
-    def daily_logs(args, steps, course_id=None, verbose=True):
+    def daily_logs(args, steps, course_id=None, verbose=True, wait=False):
         if steps=='daily_logs':
             # doing daily_logs, so run split once first, then afterwards logs2gs and logs2bq
             daily_logs(args, 'split', args.tlfn)
@@ -307,6 +320,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             if '*' in tlfn:
                 import glob
                 TODO = glob.glob(tlfn)
+                TODO.sort()
             else:
                 TODO = [tlfn]
             for the_tlfn in TODO:
@@ -328,7 +342,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             import load_daily_tracking_logs
             try:
                 load_daily_tracking_logs.load_all_daily_logs_for_course(course_id, edx2bigquery_config.GS_BUCKET,
-                                                                        verbose=verbose)
+                                                                        verbose=verbose, wait=wait)
             except Exception as err:
                 print err
                 raise
@@ -412,7 +426,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                 traceback.print_exc()
                 sys.stdout.flush()
         
-    def person_course(courses):
+    def person_course(courses, just_do_nightly=False, force_recompute=False):
         import make_person_course
         for course_id in get_course_ids(courses):
             try:
@@ -422,11 +436,12 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                                                       datedir=the_datedir,
                                                       start=(args.start_date or "2012-09-05"),
                                                       end=(args.end_date or "2014-09-21"),
-                                                      force_recompute=args.force_recompute,
+                                                      force_recompute=args.force_recompute or force_recompute,
                                                       nskip=(args.nskip or 0),
                                                       skip_geoip=args.skip_geoip,
                                                       skip_if_table_exists=args.skip_if_exists,
                                                       use_dataset_latest=use_dataset_latest,
+                                                      just_do_nightly=just_do_nightly,
                                                       )
             except Exception as err:
                 print err
@@ -458,17 +473,17 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             setup_sql(course_id, 'setup_sql')
             analyze_problems(course_id)
             axis2bq(course_id)
-            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose)
+            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
             person_day(course_id)
             enrollment_day(course_id)
             person_course(course_id)
 
     elif (args.command=='nightly'):
         for course_id in get_course_ids(args):
-            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose)
+            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
             person_day(course_id)
             enrollment_day(course_id)
-            person_course(course_id)
+            person_course(course_id, just_do_nightly=True, force_recompute=True)
 
     elif (args.command=='make_uic'):
         setup_sql(args, args.command)
@@ -481,6 +496,13 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
 
     elif (args.command=='setup_sql'):
         setup_sql(args, args.command)
+
+    elif (args.command=='waldofy'):
+        import do_waldofication_of_sql
+        dirname = args.courses[0]		# directory of unpacked SQL data from edX
+        args.courses = args.courses[1:]		# remove first element, which was dirname
+        courses = get_course_ids(args)
+        do_waldofication_of_sql.process_directory(dirname, courses, the_basedir)
 
     elif (args.command=='makegeoip'):
         import make_geoip_table

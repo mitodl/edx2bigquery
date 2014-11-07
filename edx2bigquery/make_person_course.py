@@ -353,10 +353,10 @@ class PersonCourse(object):
         datasets = bqutil.get_list_of_datasets()
         return (self.dataset_logs in datasets)
 
-    def compute_third_phase(self):
+    def compute_third_phase(self, skip_modal_ip=False):
     
         # -----------------------------------------------------------------------------
-        # person_course part 3: stuff which needs tracking log queries
+        # person_course part 3: activity metrics which need tracking log queries
         
         self.log("-"*20)
         self.log("Computing third phase based on tracking log table queries done in BigQuery")
@@ -368,7 +368,8 @@ class PersonCourse(object):
 
         self.load_last_event()
         self.load_pc_day_totals()	# person-course-day totals contains all the aggregate nevents, etc.
-        self.load_modal_ip()
+        if not skip_modal_ip:
+            self.load_modal_ip()
 
         pcd_fields = ['nevents', 'ndays_act', 'nprogcheck', 'nshow_answer', 'nvideo', 'nproblem_check', 
                       ['nforum', 'nforum_events'], 'ntranscript', 'nseq_goto',
@@ -388,7 +389,8 @@ class PersonCourse(object):
                     self.log('oops, last event cannot be turned into a time; le=%s, username=%s' % (le, username))
                 pcent['last_event'] = le
 
-            self.copy_from_bq_table(self.pc_modal_ip, pcent, username, 'modal_ip', new_field='ip')
+            if not skip_modal_ip:
+                self.copy_from_bq_table(self.pc_modal_ip, pcent, username, 'modal_ip', new_field='ip')
 
             for pcdf in pcd_fields:
                 self.copy_from_bq_table(self.pc_day_totals, pcent, username, pcdf)
@@ -782,6 +784,19 @@ class PersonCourse(object):
         self.output_table()
         self.upload_to_bigquery()
 
+    def nightly_update(self):
+        '''
+        Update person course assuming just tracking logs have changed; start from existing
+        person_course table, and don't change the number of rows.  Just update activity counts
+        (i.e. the third phase).  Skip computation of modal IP (expensive, won't change on
+        a daily basis).
+        '''
+        self.log("PersonCourse doing nightly update, just activity metrics from tracking logs")
+        self.reload_table()
+        self.compute_third_phase(skip_modal_ip=True)
+        self.output_table()
+        self.upload_to_bigquery()
+        
     def redo_second_phase(self):
         self.log("PersonCourse just re-doing second phase")
         self.reload_table()
@@ -800,6 +815,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                        skip_geoip=False,
                        use_dataset_latest=False,
                        skip_if_table_exists=False,
+                       just_do_nightly=False,
                        ):
     '''
     make one person course dataset
@@ -830,6 +846,8 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
     redo2 = 'redo2' in options
     if redo2:
         pc.redo_second_phase()
+    elif just_do_nightly:
+        pc.nightly_update()
     else:
         pc.make_all()
     print "Done processing person course for %s (end %s)" % (course_id, datetime.datetime.now())

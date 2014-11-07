@@ -28,7 +28,14 @@ import gsutil
 
 #-----------------------------------------------------------------------------
 
-def load_all_daily_logs_for_course(course_id, gsbucket="gs://x-data", verbose=True):
+def load_all_daily_logs_for_course(course_id, gsbucket="gs://x-data", verbose=True, wait=False):
+    '''
+    Load daily tracking logs for course from google storage into BigQuery.
+    
+    If wait=True then waits for loading jobs to be completed.  It's desirable to wait
+    if subsequent jobs which need these tables (like person_day) are to be run
+    immediately afterwards.
+    '''
 
     print "Loading daily tracking logs for course %s into BigQuery (start: %s)" % (course_id, datetime.datetime.now())
     sys.stdout.flush()
@@ -83,7 +90,7 @@ def load_all_daily_logs_for_course(course_id, gsbucket="gs://x-data", verbose=Tr
             print "start [%s]" % datetime.datetime.now()
         sys.stdout.flush()
         gsfn = fninfo['name']
-        ret = bqutil.load_data_to_table(dataset, tablename, gsfn, SCHEMA, wait=False, maxbad=1000)
+        ret = bqutil.load_data_to_table(dataset, tablename, gsfn, SCHEMA, wait=wait, maxbad=1000)
   
     if verbose:
         print "-" * 77
