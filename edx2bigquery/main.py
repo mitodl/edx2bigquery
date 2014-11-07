@@ -188,6 +188,9 @@ combinepc <course_id> ...   : Combine individual person_course tables from the s
                               Does NOT import the data into BigQuery.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
+problem_check <c_id> ...    : Create or update problem_check table, which has all the problem_check events from all the course's
+                              tracking logs.
+
 --- TESTING & DEBUGGING COMMANDS
 
 rephrase_logs               : process input tracking log lines one at a time from standard input, and rephrase them to fit the
@@ -340,6 +343,19 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
                                                        force_recompute=args.force_recompute,
                                                        use_dataset_latest=use_dataset_latest,
                                                        )
+            except Exception as err:
+                print err
+                traceback.print_exc()
+                sys.stdout.flush()
+        
+    def problem_check(courses):
+        import make_problem_analysis
+        for course_id in get_course_ids(courses):
+            try:
+                make_problem_analysis.problem_check_tables(course_id, 
+                                                           force_recompute=args.force_recompute,
+                                                           use_dataset_latest=use_dataset_latest,
+                                                           )
             except Exception as err:
                 print err
                 traceback.print_exc()
@@ -520,6 +536,9 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
 
     elif (args.command=='analyze_problems'):
         analyze_problems(args)
+
+    elif (args.command=='problem_check'):
+        problem_check(args)
 
     elif (args.command=='axis2bq'):
         axis2bq(args)

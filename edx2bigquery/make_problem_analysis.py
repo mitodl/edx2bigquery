@@ -17,6 +17,7 @@ import re
 import json
 import gsutil
 import bqutil
+import datetime
 
 from path import path
 from collections import defaultdict
@@ -135,4 +136,71 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
     gsutil.upload_file_to_gs(ofn, gsfn)
 
     bqutil.load_data_to_table(dataset, table, gsfn, the_schema, wait=True)
+        
+#-----------------------------------------------------------------------------
+
+def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    make problem_check table for specified course_id.
+
+    The master table holds all the problem_check events extracted from
+    the tracking logs for a course.  It isn't split into separate
+    days.  It is ordered in time, however.  To update it, a new day's logs
+    are processed, then the results appended to this table.
+
+    If the problem_check table doesn't exist, then run it once on all
+    the existing tracking logs.  
+
+    If it already exists, then run a query on it to see what dates have
+    already been done.  Then do all tracking logs except those which
+    have already been done.  Append the results to the existing table.
+    '''
+    
+    SQL = """
+               SELECT 
+                   time, 
+                   context.user_id as user_id,
+                   '{course_id}' as course_id,
+                   module_id,
+                   event_struct.answers as student_answers,
+                   event_struct.attempts as attempts,
+                   event_struct.success as success,
+                   event_struct.grade as grade,
+               from {DATASETS}
+               where event_type = "problem_check"
+                  and event_source = "server"
+               order by time;
+            """
+
+    table = 'problem_check'
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest)
+    log_dataset = bqutil.course_id2dataset(course_id, dtype="logs")
+
+    existing = bqutil.get_list_of_table_ids(dataset)
+    if table in existing:
+        '--> %s already exists, code for extending TBD' % table
+        return
+
+    log_tables = [x for x in bqutil.get_list_of_table_ids(log_dataset) if x.startswith('tracklog_20')]
+    log_dates = [x[9:] for x in log_tables]
+    min_date = min(log_dates)
+    max_date = max(log_dates)
+
+    from_datasets = """(
+                  TABLE_QUERY({dataset},
+                       "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) BETWEEN {start} and {end}"
+                     )
+                  )
+         """.format(dataset=log_dataset, start=min_date, end=max_date)
+
+    the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets)
+
+    print "Making new problem_check table for course %s (start=%s, end=%s) [%s]"  % (course_id, min_date, max_date, datetime.datetime.now())
+    sys.stdout.flush()
+
+    bqutil.create_bq_table(dataset, table, the_sql, wait=True)
+    
+    print "Done with course %s (end %s)"  % (course_id, datetime.datetime.now())
+    print "="*77
+    sys.stdout.flush()
         
