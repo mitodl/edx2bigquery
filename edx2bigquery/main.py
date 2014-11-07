@@ -86,11 +86,11 @@ daily_logs --tlfn=<path>    : Do all commands (split, logs2gs, logs2bq) to get o
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
 doall <course_id> ...       : run setup_sql, analyze_problems, logs2gs, logs2bq, axis2bq, person_day, enrollment_day,
-                              and person_course, for each of the specified courses.  This is idempotent, and can be run
+                              person_course, and problem_check for each of the specified courses.  This is idempotent, and can be run
                               weekly when new SQL dumps come in.
 
 nightly <course_id> ...     : Run sequence of commands for common nightly update (based on having new tracking logs available).
-                              This includes logs2gs, logs2bq, person_day, enrollment_day
+                              This includes logs2gs, logs2bq, person_day, enrollment_day, problem_check
 
 --- SQL DATA RELATED COMMANDS
 
@@ -477,6 +477,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             person_day(course_id)
             enrollment_day(course_id)
             person_course(course_id)
+            problem_check(course_id)
 
     elif (args.command=='nightly'):
         for course_id in get_course_ids(args):
@@ -484,6 +485,7 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
             person_day(course_id)
             enrollment_day(course_id)
             person_course(course_id, just_do_nightly=True, force_recompute=True)
+            problem_check(course_id)
 
     elif (args.command=='make_uic'):
         setup_sql(args, args.command)
