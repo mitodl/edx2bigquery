@@ -174,7 +174,7 @@ def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=Fa
             """
 
     table = 'problem_check'
-    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest)
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     log_dataset = bqutil.course_id2dataset(course_id, dtype="logs")
 
     existing = bqutil.get_list_of_table_ids(dataset)
