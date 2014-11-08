@@ -425,7 +425,9 @@ delete_empty_tables         : delete empty tables form the tracking logs dataset
         import make_enrollment_day
         for course_id in get_course_ids(courses):
             try:
-                make_enrollment_day.process_course(course_id, force_recompute=args.force_recompute)
+                make_enrollment_day.process_course(course_id, 
+                                                   force_recompute=args.force_recompute,
+                                                   use_dataset_latest=use_dataset_latest)
             except Exception as err:
                 print err
                 traceback.print_exc()
@@ -601,6 +603,7 @@ delete_empty_tables         : delete empty tables form the tracking logs dataset
                                                output_project_id=args.output_project_id or edx2bigquery_config.PROJECT_ID,
                                                output_dataset_id=args.output_dataset_id,
                                                output_bucket=args.output_bucket or edx2bigquery_config.GS_BUCKET,
+                                               use_dataset_latest=use_dataset_latest,
                                                )
 
     elif (args.command=='combinepc'):

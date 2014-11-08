@@ -285,6 +285,7 @@ class PersonCourse(object):
                               'grade': 'certificate_grade',
                               'start_time': 'enrollment_created',
                               'mode': 'enrollment_mode',
+                              'is_active': 'enrollment_is_active',
                               })
         
             pcent['registered'] = True	# by definition

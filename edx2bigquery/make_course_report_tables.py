@@ -10,15 +10,22 @@ import bqutil
 import gsutil
 
 class CourseReport(object):
-    def __init__(self, course_id_set, output_project_id=None, nskip=0, output_dataset_id=None, output_bucket=None):
+    def __init__(self, course_id_set, output_project_id=None, nskip=0, 
+                 output_dataset_id=None, 
+                 output_bucket=None,
+                 use_dataset_latest=use_dataset_latest,
+                 ):
         
         org = course_id_set[0].split('/',1)[0]	# extract org from first course_id
 
         self.gsbucket = gsutil.gs_path_from_course_id('course_report_%s' % org, gsbucket=output_bucket)
         self.output_project_id = output_project_id
 
-        self.dataset = output_dataset_id or ('course_report_%s' % org)
-        course_datasets = [ bqutil.course_id2dataset(x) for x in course_id_set]
+        crname = ('course_report_%s' % org)
+        if use_dataset_latest:
+            crname = 'course_report_latest'
+        self.dataset = output_dataset_id or crname
+        course_datasets = [ bqutil.course_id2dataset(x, use_dataset_latest=use_dataset_latest) for x in course_id_set]
         pc_tables = ',\n'.join(['[%s.person_course]' % x for x in course_datasets])
 
         self.parameters = {'dataset': self.dataset,

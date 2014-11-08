@@ -168,7 +168,12 @@
         {
             "type": "STRING",
             "name": "mode",
-	    "description": "Mode of registrant, e.g. instructor, course_staff, learner"
+	    "description": "Mode of registrant, e.g. honor, audit, verified"
+        },
+        {
+            "type": "INTEGER",
+            "name": "is_active",
+	    "description": "1 if enrollment active on date of this data, else 0"
         },
         {
             "type": "INTEGER",
