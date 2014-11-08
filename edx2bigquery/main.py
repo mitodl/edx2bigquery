@@ -213,10 +213,14 @@ testbq                      : test authentication to BigQuery, by listing access
 
 get_tables <dataset>        : dump information about the tables in the specified BigQuery dataset.
 
-get_table_info <dataset> <table_id>   : dump meta-data information about the specified dataset.table_id from BigQuery.
+get_table_data <dataset>    : dump table data as JSON text to stdout
+               <table_id>
 
-delete_empty_tables <course_id> ...   : delete empty tables form the tracking logs dataset for the specified course_id's, from BigQuery.
-                                        Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
+get_table_info <dataset>    : dump meta-data information about the specified dataset.table_id from BigQuery.
+               <table_id>
+
+delete_empty_tables         : delete empty tables form the tracking logs dataset for the specified course_id's, from BigQuery.
+            <course_id> ...   Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 """
 
     parser.add_argument("command", help=cmd_help)
@@ -525,6 +529,11 @@ delete_empty_tables <course_id> ...   : delete empty tables form the tracking lo
     elif (args.command=='get_tables'):
         import bqutil
         print json.dumps(bqutil.get_tables(args.courses[0]), indent=4)
+
+    elif (args.command=='get_table_data'):
+        import bqutil
+        dataset = args.courses[0].replace('/', '__').replace('.', '_')
+        print json.dumps(bqutil.get_table_data(dataset, args.courses[1]), indent=4)
 
     elif (args.command=='get_table_info'):
         import bqutil
