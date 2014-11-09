@@ -179,6 +179,32 @@ def get_bq_table_size_rows(dataset_id, table_id):
         return int(tinfo['numRows'])
     return None
 
+def bq_timestamp_milliseconds_to_datetime(timestamp):
+    '''
+    Convert a millisecond timestamp to a python datetime object
+    '''
+    if timestamp:
+        return datetime.datetime.utcfromtimestamp(float(timestamp)/1000.0)
+    return None
+
+def get_bq_table_creation_datetime(dataset_id, table_id):
+    '''
+    Retrieve datetime of table creation
+    '''
+    tinfo = get_bq_table_info(dataset_id, table_id)
+    if tinfo is not None:
+        return tinfo['creationTime']
+    return None
+
+def get_bq_table_last_modified_datetime(dataset_id, table_id):
+    '''
+    Retrieve datetime of table creation
+    '''
+    tinfo = get_bq_table_info(dataset_id, table_id)
+    if tinfo is not None:
+        return tinfo['lastModifiedTime']
+    return None
+
 def get_bq_table_info(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
     '''
     Retrieve metadata about a specific BQ table.
@@ -190,6 +216,8 @@ def get_bq_table_info(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
         if 'Not Found' in str(err):
             raise
         table = None
+    table['lastModifiedTime'] = bq_timestamp_milliseconds_to_datetime(table['lastModifiedTime'])
+    table['creationTime'] = bq_timestamp_milliseconds_to_datetime(table['creationTime'])
     return table
 
 def default_logger(msg):

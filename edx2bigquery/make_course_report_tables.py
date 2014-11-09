@@ -6,44 +6,72 @@
 #
 # compute tables for annual course report
 
+import sys
 import bqutil
 import gsutil
+import datetime
 
 class CourseReport(object):
     def __init__(self, course_id_set, output_project_id=None, nskip=0, 
                  output_dataset_id=None, 
                  output_bucket=None,
-                 use_dataset_latest=use_dataset_latest,
+                 use_dataset_latest=False,
                  ):
         
         org = course_id_set[0].split('/',1)[0]	# extract org from first course_id
 
-        self.gsbucket = gsutil.gs_path_from_course_id('course_report_%s' % org, gsbucket=output_bucket)
         self.output_project_id = output_project_id
 
         crname = ('course_report_%s' % org)
         if use_dataset_latest:
             crname = 'course_report_latest'
         self.dataset = output_dataset_id or crname
+
+        self.gsbucket = gsutil.gs_path_from_course_id(crname, gsbucket=output_bucket)
+
         course_datasets = [ bqutil.course_id2dataset(x, use_dataset_latest=use_dataset_latest) for x in course_id_set]
-        pc_tables = ',\n'.join(['[%s.person_course]' % x for x in course_datasets])
+
+        # check to see which datasets have person_course tables
+        datasets_with_pc = []
+        self.all_pc_tables = {}
+        for cd in course_datasets:
+            try:
+                table = bqutil.get_bq_table_info(cd, 'person_course')
+            except Exception as err:
+                print "[make-course_report_tables] Err: %s" % str(err)
+                continue
+            if table is None:
+                continue
+            self.all_pc_tables[cd] = table
+            datasets_with_pc.append(cd)
+
+        pc_tables = ',\n'.join(['[%s.person_course]' % x for x in datasets_with_pc])
 
         self.parameters = {'dataset': self.dataset,
                            'pc_tables': pc_tables,
                            }
+        print "[make_course_report_tables] ==> Using these datasets (with person_course tables): %s" % datasets_with_pc
+
+        self.course_datasets = course_datasets
     
-        print "="*77
+        print "="*100
         print "Generating course report tables -> dataset=%s, project=%s" % (self.dataset, self.output_project_id)
+        sys.stdout.flush()
 
         bqutil.create_dataset_if_nonexistent(self.dataset, project_id=output_project_id)
 
         self.nskip = nskip
+        self.make_enrollment_by_day()
         self.make_totals_by_course()
         self.make_total_populations_by_course()
         self.make_table_of_n_courses_registered()
         self.make_geographic_distributions()
         self.make_overall_totals()
     
+        print "="*100
+        print "Done with course report tables"
+        sys.stdout.flush()
+
     def do_table(self, the_sql, tablename):
         if self.nskip:
             self.nskip += -1
@@ -119,6 +147,75 @@ class CourseReport(object):
         '''.format(**self.parameters)
         
         self.do_table(the_sql, 'broad_stats_by_course')
+
+    def make_enrollment_by_day(self):
+
+        # check creation dates on all the person course tables
+        recent_pc_tables = []
+        for cd, table in self.all_pc_tables.items():
+            try:
+                cdt = table['lastModifiedTime']
+            except Exception as err:
+                print "Error getting %s person_course table creation time, table info = %s" % (cd, table)
+                raise
+            # print "--> %s: %s" % (cd, cdt)
+            if cdt > datetime.datetime(2014, 11, 8):
+                recent_pc_tables.append('[%s.person_course]' % cd)
+
+        if not recent_pc_tables:
+            msg = "[make_course_report_tables] ==> enrollday_sql ERROR! no recent person_course tables found!"
+            print msg
+            raise Exception(msg)
+            
+        the_pc_tables = ',\n'.join(recent_pc_tables)
+        print "[make_course_report_tables] ==> enrollday_sql being computed on these tables: %s" % the_pc_tables
+
+        the_sql = '''
+            SELECT course_id,
+                 date, 
+                 SUM(registered) as nregistered_ever,
+                 SUM(un_registered) as n_unregistered,
+                 -SUM(un_registered) + nregistered_ever as nregistered_net,
+                 SUM(nregistered_ever) over (order by date) as nregistered_ever_cum,
+                 SUM(nregistered_net) over (order by date) as nregistered_net_cum,
+               
+                 SUM(verified) as nverified_ever,
+                 SUM(verified_un_registered) as nverified_un_registered,
+                 -SUM(verified_un_registered) + nverified_ever as nverified_net,
+                 SUM(nverified_ever) over (order by date) as nverified_ever_cum,
+                 SUM(nverified_net) over (order by date) as nverified_net_cum,
+               
+               FROM (
+                   SELECT  
+                     course_id,
+                     date(last_event) as date,
+                     INTEGER(0) as registered,
+                     INTEGER(count(*)) un_registered,
+                     INTEGER(0) as verified,
+                     INTEGER(sum(case when mode = "verified" then 1 else 0 end)) as verified_un_registered,
+                   FROM {pc_tables}
+                   where is_active = 0
+                   and  last_event is not null
+                   group by date, course_id
+                   order by date, course_id
+                 ),(
+                   SELECT  
+                     course_id,
+                     date(start_time) as date,
+                     INTEGER(count(*)) registered,
+                     INTEGER(0) as un_registered,
+                     INTEGER(sum(case when mode = "verified" then 1 else 0 end)) as verified,
+                     INTEGER(0) as verified_un_registered,
+                   FROM {pc_tables}
+                   where start_time is not null
+                   group by date, course_id
+                   order by date, course_id
+                 )
+               group by date, course_id
+               order by date, course_id;
+        '''.format(pc_tables = the_pc_tables)
+        
+        self.do_table(the_sql, 'enrollday_sql')
     
     def make_table_of_n_courses_registered(self):
         the_sql = '''

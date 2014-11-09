@@ -477,22 +477,38 @@ delete_empty_tables         : delete empty tables form the tracking logs dataset
 
     elif (args.command=='doall'):
         for course_id in get_course_ids(args):
-            setup_sql(course_id, 'setup_sql')
-            analyze_problems(course_id)
-            axis2bq(course_id)
-            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
-            person_day(course_id)
-            enrollment_day(course_id)
-            person_course(course_id)
-            problem_check(course_id)
+            try:
+                print "-"*100
+                print "DOALL PROCESSING %s" % course_id
+                print "-"*100
+                setup_sql(course_id, 'setup_sql')
+                analyze_problems(course_id)
+                axis2bq(course_id)
+                daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
+                person_day(course_id)
+                enrollment_day(course_id)
+                person_course(course_id)
+                problem_check(course_id)
+            except Exception as err:
+                print "="*100
+                print "ERROR: %s" % str(err)
+                traceback.print_exc()
 
     elif (args.command=='nightly'):
         for course_id in get_course_ids(args):
-            daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
-            person_day(course_id)
-            enrollment_day(course_id)
-            person_course(course_id, just_do_nightly=True, force_recompute=True)
-            problem_check(course_id)
+            print "-"*100
+            print "NIGHTLY PROCESSING %s" % course_id
+            print "-"*100
+            try:
+                daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
+                person_day(course_id)
+                enrollment_day(course_id)
+                person_course(course_id, just_do_nightly=True, force_recompute=True)
+                problem_check(course_id)
+            except Exception as err:
+                print "="*100
+                print "ERROR: %s" % str(err)
+                traceback.print_exc()
 
     elif (args.command=='make_uic'):
         setup_sql(args, args.command)
