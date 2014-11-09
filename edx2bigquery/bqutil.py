@@ -10,14 +10,21 @@ import sys
 import time
 import json
 import datetime
-import getpass
-from edx2bigquery_config import PROJECT_ID as DEFAULT_PROJECT_ID
+
+try:
+    import getpass
+except:
+    pass
+
+try:
+    from edx2bigquery_config import PROJECT_ID as DEFAULT_PROJECT_ID
+except:
+    from local_config import PROJECT_ID as DEFAULT_PROJECT_ID
 
 import auth
 from collections import OrderedDict
 
 service = auth.build_bq_client() 
-# project_id=auth.PROJECT_ID
 
 projects = service.projects()
 datasets = service.datasets()
@@ -51,6 +58,9 @@ def course_id2dataset(course_id, dtype=None, use_dataset_latest=False):
         dataset += "_latest"
     return dataset		# default dataset for SQL data
 
+def delete_dataset(dataset, project_id=DEFAULT_PROJECT_ID, delete_contents=False):
+      datasets.delete(datasetId=dataset, projectId=project_id, deleteContents=delete_contents).execute()
+
 def create_dataset_if_nonexistent(dataset, project_id=DEFAULT_PROJECT_ID):
 
   if dataset not in get_list_of_datasets():
@@ -76,23 +86,17 @@ def get_projects(project_id=DEFAULT_PROJECT_ID):
         if (project['id'] == project_id):
             print 'Found %s: %s' % (project_id, project['friendlyName'])
 
-# project_ref = {'projectId': project_id}
-# dataset_ref = {'datasetId': dataset_id,
-#                'projectId': project_id}
-# table_id = 'pc_nevents'
-# table_ref = {'tableId': table_id,
-#              'datasetId': dataset_id,
-#              'projectId': project_id}
-
-def get_tables(dataset_id, project_id=DEFAULT_PROJECT_ID):
+def get_tables(dataset_id, project_id=DEFAULT_PROJECT_ID, verbose=False):
     table_list = tables.list(datasetId=dataset_id, projectId=project_id, maxResults=1000).execute()
-    if 0:
+    if verbose:
         for current in table_list['tables']:
             print "table: ", current
+    if 'tables' not in table_list:
+        print "[bqutil] get_tables: oops! dataset=%s, no table info in %s" % (dataset_id, json.dumps(table_list, indent=4))
     return table_list
 
 def get_list_of_table_ids(dataset_id):
-    tables_info = get_tables(dataset_id)['tables']
+    tables_info = get_tables(dataset_id).get('tables', [])
     table_id_list = [ x['tableReference']['tableId'] for x in tables_info ]
     return table_id_list
 
@@ -122,7 +126,7 @@ def get_table_data(dataset_id, table_id, key=None, logger=None, project_id=DEFAU
         if startIndex < 0:
             startIndex = nrows + startIndex
         table_ref['startIndex'] = startIndex
-        
+
     data = tabledata.list(**table_ref).execute()
 
     fields = table['schema']['fields']
@@ -139,7 +143,7 @@ def get_table_data(dataset_id, table_id, key=None, logger=None, project_id=DEFAU
 
     rows = data.get('rows', [])
     for row in rows:
-        values = {}
+        values = OrderedDict()
         for i in xrange(0, len(fields)):
             cell = row['f'][i]
             values[field_names[i]] = cell['v']
@@ -148,7 +152,8 @@ def get_table_data(dataset_id, table_id, key=None, logger=None, project_id=DEFAU
             the_key = values[key['name']]
             if 'keymap' in key:
                 the_key = key['keymap'](the_key)
-            ret['data_by_key'][the_key] = values
+            if the_key not in ret['data_by_key']:
+                ret['data_by_key'][the_key] = values
 
     return ret
 
@@ -198,7 +203,7 @@ def get_bq_table_creation_datetime(dataset_id, table_id):
 
 def get_bq_table_last_modified_datetime(dataset_id, table_id):
     '''
-    Retrieve datetime of table creation
+    Retrieve datetime of table last modification
     '''
     tinfo = get_bq_table_info(dataset_id, table_id)
     if tinfo is not None:
@@ -223,25 +228,29 @@ def get_bq_table_info(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
 def default_logger(msg):
     print msg
 
-def get_bq_table(dataset, tablename, sql, key=None, allow_create=True, force_query=False, logger=default_logger):
+def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, force_query=False, logger=default_logger,
+                 startIndex=None, maxResults=1000000):
     '''
     Retrieve data for the specified BQ table if it exists.
     If it doesn't exist, create it, using the provided SQL.
     '''
     if force_query:
         create_bq_table(dataset, tablename, sql, logger=logger)
-        return get_table_data(dataset, tablename, key=key, logger=logger)
+        return get_table_data(dataset, tablename, key=key, logger=logger,
+                              startIndex=startIndex, maxResults=maxResults)
     try:
-        ret = get_table_data(dataset, tablename, key=key, logger=logger)
+        ret = get_table_data(dataset, tablename, key=key, logger=logger,
+                             startIndex=startIndex, maxResults=maxResults)
     except Exception as err:
-        if 'Not Found' in str(err) and allow_create:
+        if 'Not Found' in str(err) and allow_create and (sql is not None) and sql:
             create_bq_table(dataset, tablename, sql, logger=logger)
-            return get_table_data(dataset, tablename, key=key, logger=logger)
+            return get_table_data(dataset, tablename, key=key, logger=logger,
+                                  startIndex=startIndex, maxResults=maxResults)
         else:
             raise
     return ret
 
-def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=True, wait=True, 
+def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, wait=True, 
                     logger=default_logger, project_id=DEFAULT_PROJECT_ID,
                     output_project_id=DEFAULT_PROJECT_ID):
     '''
@@ -336,7 +345,10 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=True, wa
 
         # Patch the table to add a description
         if not wd=='WRITE_APPEND':
-            me = getpass.getuser()
+            try:
+                me = getpass.getuser()
+            except Exception as err:
+                me = "gae"
             txt = 'Computed by %s / bqutil at %s processing %s bytes in %8.2f sec\nwith this SQL: %s' % (me, datetime.datetime.now(), 
                                                                                                          nbytes,
                                                                                                          dt,
@@ -537,3 +549,73 @@ def extract_table_to_gs(dataset_id, table_id, gsfn, format=None, do_gzip=False, 
         print "[bqutil] ERROR!  ", status['errors']
         print "job = ", json.dumps(job, indent=4)
         raise Exception('BQ Error creating table')
+
+#-----------------------------------------------------------------------------
+# unit tests, using py.test
+#
+# assumes live credentials are available (may need GAE stubs)
+
+def test_get_project_name():
+    name = get_project_name()
+    print name
+    assert(name is not None and type(name)==unicode)
+
+def test_course_id2dataset():
+    dataset = course_id2dataset('the/course.123', use_dataset_latest=True)
+    assert(dataset=='the__course_123_latest')
+    dataset = course_id2dataset('the/course.123', use_dataset_latest=False)
+    assert(dataset=='the__course_123')
+    dataset = course_id2dataset('the/course.123', 'logs', use_dataset_latest=True)
+    assert(dataset=='the__course_123_logs')
+
+def test_create_dataset():
+    dataset = "test_dataset"
+    create_dataset_if_nonexistent(dataset)
+    dlist = get_list_of_datasets()
+    assert(dataset in dlist)
+    delete_dataset(dataset, delete_contents=True)
+    dlist = get_list_of_datasets()
+    assert(dataset not in dlist)
+    
+def test_create_table():
+    dataset = "test_dataset"
+    create_dataset_if_nonexistent(dataset)
+
+    table = "test_table"
+    sql = "select word, corpus from [publicdata:samples.shakespeare]"
+    data = get_bq_table(dataset, table, sql=sql, key={'name': 'corpus'})
+    print 'data_by_key len: ', len(data['data_by_key'])
+    print 'data len: ', len(data['data'])
+    assert(type(data['creationTime'])==datetime.datetime)
+    assert(len(data['data'])>0)
+    assert(len(data['data_by_key'])>0 and len(data['data_by_key'])<100)	# multiple words in a single corpus
+
+    tinfo = get_tables(dataset)
+    print "tinfo = ", tinfo
+    assert('tables' in tinfo)
+
+    tables = get_list_of_table_ids(dataset)
+    assert(table in tables)
+    
+    cdt = get_bq_table_creation_datetime(dataset, table)
+    assert((cdt - datetime.datetime.now()).days < 1)
+
+    cdt = get_bq_table_last_modified_datetime(dataset, table)
+    assert((cdt - datetime.datetime.now()).days < 1)
+
+    add_description_to_table(dataset, table, 'hello world')
+    tinfo = get_bq_table_info(dataset, table)
+    desc = tinfo['description']
+    assert(desc.count('hello world')==1)
+
+    add_description_to_table(dataset, table, 'hello world', append=True)
+    tinfo = get_bq_table_info(dataset, table)
+    desc = tinfo['description']
+    assert(desc.count('hello world')==2)
+
+    delete_bq_table(dataset, table)
+    tables = get_list_of_table_ids(dataset)
+    assert(table not in tables)
+    
+    
+
