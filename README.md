@@ -7,10 +7,13 @@ BigQuery for research and analysis.
 To get started, install the Google Cloud SDK first:
 
   https://cloud.google.com/sdk/
+
+Then generate authentication tokens using "gcloud auth login". Make sure
+that "bq" and "gsutil" work properly.
   
 To install:
 
-  python setup.py install
+  python setup.py develop
   
 Also, setup the file edx2bigquery_config.py in your current working directory.  Example:
 
@@ -22,6 +25,13 @@ Also, setup the file edx2bigquery_config.py in your current working directory.  
             "MITx/2.03x/3T2013",
     ]
     
+    courses = {
+        'year2': course_id_list,
+        'all_harvardx': [
+            "HarvardX/AI12.1x/2013_SOND",
+        ],
+    }
+
     # google cloud project access
     auth_key_file = "USE_GCLOUD_AUTH"
     auth_service_acct = None
@@ -36,6 +46,7 @@ Also, setup the file edx2bigquery_config.py in your current working directory.  
     COURSE_SQL_BASE_DIR = "X-Year-1-data-sql"
     COURSE_SQL_DATE_DIR = '2013-09-08'
     TRACKING_LOGS_DIRECTORY = "TRACKING_LOGS"
+    ORG = 'X-university'
     
     #-----------------------------------------------------------------------------
 
