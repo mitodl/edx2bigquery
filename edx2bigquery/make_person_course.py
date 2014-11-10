@@ -308,7 +308,12 @@ class PersonCourse(object):
 
         self.load_nchapters()
         self.load_pc_forum()
-        nchapters = self.get_nchapters_from_course_structure()
+        try:
+            nchapters = self.get_nchapters_from_course_structure()
+        except Exception as err:
+            print "Error %s getting nchapters!" % str(err)
+            nchapters = None
+            self.pc_nchapters = None
 
         for key, pcent in self.pctab.iteritems():
 
