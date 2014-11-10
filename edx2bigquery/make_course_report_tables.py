@@ -79,7 +79,9 @@ class CourseReport(object):
             return
 
         print("Computing %s in BigQuery" % tablename)
-        ret = bqutil.create_bq_table(self.dataset, tablename, the_sql, output_project_id=self.output_project_id)
+        ret = bqutil.create_bq_table(self.dataset, tablename, the_sql, 
+                                     overwrite=True,
+                                     output_project_id=self.output_project_id)
         gsfn = "%s/%s.csv" % (self.gsbucket, tablename)
         bqutil.extract_table_to_gs(self.dataset, tablename, gsfn, 
                                    format='csv', 
@@ -176,14 +178,14 @@ class CourseReport(object):
                  SUM(registered) as nregistered_ever,
                  SUM(un_registered) as n_unregistered,
                  -SUM(un_registered) + nregistered_ever as nregistered_net,
-                 SUM(nregistered_ever) over (order by date) as nregistered_ever_cum,
-                 SUM(nregistered_net) over (order by date) as nregistered_net_cum,
+                 SUM(nregistered_ever) over (partition by course_id order by date) as nregistered_ever_cum,
+                 SUM(nregistered_net) over (partition by course_id order by date) as nregistered_net_cum,
                
                  SUM(verified) as nverified_ever,
                  SUM(verified_un_registered) as nverified_un_registered,
                  -SUM(verified_un_registered) + nverified_ever as nverified_net,
-                 SUM(nverified_ever) over (order by date) as nverified_ever_cum,
-                 SUM(nverified_net) over (order by date) as nverified_net_cum,
+                 SUM(nverified_ever) over (partition by course_id order by date) as nverified_ever_cum,
+                 SUM(nverified_net) over (partition by course_id order by date) as nverified_net_cum,
                
                FROM (
                    SELECT  
