@@ -235,7 +235,7 @@ def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, forc
     If it doesn't exist, create it, using the provided SQL.
     '''
     if force_query:
-        create_bq_table(dataset, tablename, sql, logger=logger)
+        create_bq_table(dataset, tablename, sql, logger=logger, overwrite=True)
         return get_table_data(dataset, tablename, key=key, logger=logger,
                               startIndex=startIndex, maxResults=maxResults)
     try:
