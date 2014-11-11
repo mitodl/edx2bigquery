@@ -90,7 +90,8 @@ doall <course_id> ...       : run setup_sql, analyze_problems, logs2gs, logs2bq,
                               weekly when new SQL dumps come in.
 
 nightly <course_id> ...     : Run sequence of commands for common nightly update (based on having new tracking logs available).
-                              This includes logs2gs, logs2bq, person_day, enrollment_day, problem_check
+                              This includes logs2gs, logs2bq, person_day, enrollment_day, person_course (forced recompute),
+                              and problem_check.
 
 --- SQL DATA RELATED COMMANDS
 
@@ -198,7 +199,7 @@ report <course_id> ...      : Compute overall statistics, across all specified c
 
 combinepc <course_id> ...   : Combine individual person_course tables from the specified course_id's, uploads CSV to
                               google storage.
-                              Does NOT import the data into BigQuery.
+                              Also imports the data into BigQuery.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
 problem_check <c_id> ...    : Create or update problem_check table, which has all the problem_check events from all the course's
@@ -630,6 +631,7 @@ delete_empty_tables         : delete empty tables form the tracking logs dataset
                                                output_project_id=args.output_project_id or edx2bigquery_config.PROJECT_ID,
                                                output_dataset_id=args.output_dataset_id,
                                                output_bucket=args.output_bucket or edx2bigquery_config.GS_BUCKET,
+                                               use_dataset_latest=use_dataset_latest,
                                                )
 
     else:

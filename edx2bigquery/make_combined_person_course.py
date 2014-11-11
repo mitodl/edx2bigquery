@@ -8,7 +8,9 @@ import gsutil
 import bqutil
 
 def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
-               output_project_id=None, output_dataset_id=None, output_bucket=None):
+               output_project_id=None, output_dataset_id=None, output_bucket=None,
+               use_dataset_latest=False,
+               ):
 
     print "="*77
     print "Concatenating person course datasets from the following courses:"
@@ -22,7 +24,7 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
     ofnset = []
     cnt = 0
     for course_id in course_id_set:
-        gb = gsutil.gs_path_from_course_id(course_id)
+        gb = gsutil.gs_path_from_course_id(course_id, use_dataset_latest=use_dataset_latest)
         ofn = outdir / ('person_course_%s.csv.gz' % (course_id.replace('/', '__')))
         ofnset.append(ofn)
 
@@ -72,7 +74,10 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
     print "Combined person_course dataset CSV download link: %s" % gsutil.gs_download_link(gsfn)
 
     # import into BigQuery
-    dataset = output_dataset_id or ('course_report_%s' % org)
+    crname = ('course_report_%s' % org)
+    if use_dataset_latest:
+        crname = 'course_report_latest'
+    dataset = output_dataset_id or crname
     table = ofn[:-4].replace('-','_')
     
     print "Importing into BigQuery as %s:%s.%s" % (project_id, dataset, table)
