@@ -7,9 +7,16 @@ import os, sys
 import dateutil.parser
 from path import path
 from collections import OrderedDict
+import datetime
+import pytz
 
 sys.path.append(os.path.abspath(os.curdir))
-import edx2bigquery_config
+try:
+    import edx2bigquery_config
+except:
+    print "Warning: could not import edx2bigquery_config"
+    class edx2bigquery_config(object):
+        GS_BUCKET = "gs://dummy-gs-bucket"
 
 def path_from_course_id(course_id):
     return path(course_id.replace('/', '__'))
@@ -52,3 +59,25 @@ def upload_file_to_gs(src, dst, options='', verbose=False):
         sys.stdout.flush()
     os.system(cmd)
 
+def get_local_file_mtime_in_utc(fn, make_tz_unaware=False):
+    statbuf = os.stat(fn)
+    mt = datetime.datetime.fromtimestamp(statbuf.st_mtime)
+
+    local = pytz.timezone ("America/New_York")
+
+    # do some date checking to upload files which have changed, and are newer than that on google cloud storage
+    local_dt = local.localize(mt, is_dst=None)
+    utc_dt = local_dt.astimezone (pytz.utc)
+    if make_tz_unaware:
+        utc_dt = utc_dt.replace(tzinfo=None)
+    return utc_dt
+
+#-----------------------------------------------------------------------------
+
+def test_path_from_cid():
+    x = path_from_course_id('MITx/8.05/2_T2018')
+    assert(x=='MITx__8.05__2_T2018')
+
+def test_local_file_mtime():
+    x = get_local_file_mtime_in_utc('/etc/passwd')
+    assert(x.year==2014)

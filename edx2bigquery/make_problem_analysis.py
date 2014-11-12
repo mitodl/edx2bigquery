@@ -48,14 +48,35 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
     print "[analyze_problems] processing %s for course %s" % (smfn, course_id)
     sys.stdout.flush()
 
+    if smfp.name.endswith('.gz'):
+        smfn += '.gz'
+    sm_moddate = gsutil.get_local_file_mtime_in_utc(smfn, make_tz_unaware=True)
+
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = 'problem_analysis'
 
-    # if table already exists, then assume we've already done analysis for this course
+    # if table already exists, then check its modification time to see if it's older
     if not force_recompute:
-        tables = bqutil.get_list_of_table_ids(dataset)
-        if table in tables:
-            print "--> %s.%s already exists in BigQuery...skipping (use --force-recompute to not skip)" % (dataset, table)
+        try:
+            table_moddate = bqutil.get_bq_table_last_modified_datetime(dataset, table)
+        except Exception as err:
+            if "Not Found" in str(err):
+                table_moddate = None
+            else:
+                raise
+        
+        try:
+            is_up_to_date = table_moddate > sm_moddate
+        except Exception as err:
+            print "oops, cannot compare %s with %s to get is_up_to_date" % (table_moddate, sm_moddate)
+            raise
+
+        if is_up_to_date:
+            print "--> %s.%s already exists in BigQuery-date=%s (sm date=%s)...skipping (use --force-recompute to not skip)" % (dataset, 
+                                                                                                                                table,
+                                                                                                                                table_moddate,
+                                                                                                                                sm_moddate,
+                                                                                                                                )
             return
 
     data = []
