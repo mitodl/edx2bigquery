@@ -20,7 +20,22 @@ if os.path.exists(CURDIR / 'edx2bigquery_config.py'):
 else:
     print "WARNING: edx2bigquery needs a configuration file, ./edx2bigquery_config.py, to operate properly"
 
+def is_valid_course_id(course_id):
+    if not course_id.count('/')==2:
+        return False
+    return True
+
 def get_course_ids(args):
+    courses = get_course_ids_no_check(args)
+    if not all(map(is_valid_course_id, courses)):
+        print "Error!  Invalid course_id:"
+        for cid in courses:
+            if not is_valid_course_id(cid):
+                print "  BAD --> %s " % cid
+        sys.exit(-1)
+    return courses
+
+def get_course_ids_no_check(args):
     if type(args)==str:		# special case: a single course, already specified
         return [ args ]
     if args.clist:
@@ -384,6 +399,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
                 make_problem_analysis.problem_check_tables(course_id, 
                                                            force_recompute=args.force_recompute,
                                                            use_dataset_latest=use_dataset_latest,
+                                                           end_date=args.end_date,
                                                            )
             except Exception as err:
                 print err
