@@ -65,19 +65,20 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
             else:
                 raise
         
-        try:
-            is_up_to_date = table_moddate > sm_moddate
-        except Exception as err:
-            print "oops, cannot compare %s with %s to get is_up_to_date" % (table_moddate, sm_moddate)
-            raise
-
-        if is_up_to_date:
-            print "--> %s.%s already exists in BigQuery-date=%s (sm date=%s)...skipping (use --force-recompute to not skip)" % (dataset, 
-                                                                                                                                table,
-                                                                                                                                table_moddate,
-                                                                                                                                sm_moddate,
-                                                                                                                                )
-            return
+        if table_moddate is not None:
+            try:
+                is_up_to_date = table_moddate > sm_moddate
+            except Exception as err:
+                print "oops, cannot compare %s with %s to get is_up_to_date" % (table_moddate, sm_moddate)
+                raise
+    
+            if is_up_to_date:
+                print "--> %s.%s already exists in BigQuery-date=%s (sm date=%s)...skipping (use --force-recompute to not skip)" % (dataset, 
+                                                                                                                                    table,
+                                                                                                                                    table_moddate,
+                                                                                                                                    sm_moddate,
+                                                                                                                                    )
+                return
 
     data = []
     nlines = 0
