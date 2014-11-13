@@ -10,6 +10,7 @@ import sys
 import bqutil
 import gsutil
 import datetime
+import json
 
 class CourseReport(object):
     def __init__(self, course_id_set, output_project_id=None, nskip=0, 
@@ -154,6 +155,7 @@ class CourseReport(object):
 
         # check creation dates on all the person course tables
         recent_pc_tables = []
+        old_pc_tables = []
         for cd, table in self.all_pc_tables.items():
             try:
                 cdt = table['lastModifiedTime']
@@ -163,6 +165,8 @@ class CourseReport(object):
             # print "--> %s: %s" % (cd, cdt)
             if cdt > datetime.datetime(2014, 11, 8):
                 recent_pc_tables.append('[%s.person_course]' % cd)
+            else:
+                old_pc_tables.append('[%s.person_course]' % cd)
 
         if not recent_pc_tables:
             msg = "[make_course_report_tables] ==> enrollday_sql ERROR! no recent person_course tables found!"
@@ -171,6 +175,7 @@ class CourseReport(object):
             
         the_pc_tables = ',\n'.join(recent_pc_tables)
         print "[make_course_report_tables] ==> enrollday_sql being computed on these tables: %s" % the_pc_tables
+        print "==> old person_course tables which should be updated: %s" % json.dumps(old_pc_tables, indent=4)
 
         the_sql = '''
             SELECT course_id,

@@ -458,6 +458,8 @@ delete_stats_tables         : delete stats_activity_by_day tables
                 print err
                 if ('no user_info_combo' in str(err)) or ('aborting - no dataset' in str(err)):
                     continue
+                if ('Internal Error' in str(err)):
+                    continue
                 raise
 
     #-----------------------------------------------------------------------------            
