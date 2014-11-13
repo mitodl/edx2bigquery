@@ -222,6 +222,9 @@ get_table_info <dataset>    : dump meta-data information about the specified dat
 
 delete_empty_tables         : delete empty tables form the tracking logs dataset for the specified course_id's, from BigQuery.
             <course_id> ...   Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
+
+delete_stats_tables         : delete stats_activity_by_day tables 
+            <course_id> ...   Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 """
 
     parser.add_argument("command", help=cmd_help)
@@ -565,6 +568,16 @@ delete_empty_tables         : delete empty tables form the tracking logs dataset
             try:
                 dataset = bqutil.course_id2dataset(course_id, dtype="logs")
                 bqutil.delete_zero_size_tables(dataset, verbose=True)
+            except Exception as err:
+                print err
+                raise
+
+    elif (args.command=='delete_stats_tables'):
+        import bqutil
+        for course_id in get_course_ids(args):
+            try:
+                dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+                bqutil.delete_bq_table(dataset, 'stats_activity_by_day')
             except Exception as err:
                 print err
                 raise
