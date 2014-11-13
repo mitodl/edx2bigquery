@@ -161,7 +161,7 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
         
 #-----------------------------------------------------------------------------
 
-def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=False):
+def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=False, end_date=None):
     '''
     make problem_check table for specified course_id.
 
@@ -176,6 +176,10 @@ def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=Fa
     If it already exists, then run a query on it to see what dates have
     already been done.  Then do all tracking logs except those which
     have already been done.  Append the results to the existing table.
+
+    If the query fails because of "Resources exceeded during query execution"
+    then try setting the end_date, to do part at a time.
+
     '''
     
     SQL = """
@@ -205,6 +209,10 @@ def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=Fa
     log_dates = [x[9:] for x in log_tables]
     min_date = min(log_dates)
     max_date = max(log_dates)
+
+    if end_date is not None:
+        print "[problem_check_tables] Using end_date=%s for max_date cutoff" % end_date
+        max_date = end_date.replace('-','')
 
     overwrite = False
     if table in existing:
