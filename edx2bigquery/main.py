@@ -262,6 +262,12 @@ delete_stats_tables         : delete stats_activity_by_day tables
     the_datedir = args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None)
     use_dataset_latest = args.dataset_latest
 
+    # default end date for person_course
+    try:
+        DEFAULT_END_DATE =  getattr(edx2bigquery_config, "DEFAULT_END_DATE", "2014-09-21")
+    except:
+        DEFAULT_END_DATE = "2014-09-21"
+
     def setup_sql(args, steps, course_id=None):
         sqlall = steps=='setup_sql'
         if course_id is None:
@@ -439,6 +445,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
         
     def person_course(courses, just_do_nightly=False, force_recompute=False):
         import make_person_course
+        print "[person_course]: for end date, using %s" % (args.end_date or DEFAULT_END_DATE)
         for course_id in get_course_ids(courses):
             try:
                 make_person_course.make_person_course(course_id,
@@ -446,7 +453,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
                                                       basedir=the_basedir,
                                                       datedir=the_datedir,
                                                       start=(args.start_date or "2012-09-05"),
-                                                      end=(args.end_date or "2014-09-21"),
+                                                      end=(args.end_date or DEFAULT_END_DATE),
                                                       force_recompute=args.force_recompute or force_recompute,
                                                       nskip=(args.nskip or 0),
                                                       skip_geoip=args.skip_geoip,
@@ -460,6 +467,8 @@ delete_stats_tables         : delete stats_activity_by_day tables
                     continue
                 if ('Internal Error' in str(err)):
                     continue
+                if ('BQ Error creating table' in str(err)):
+                    continue
                 raise
 
     #-----------------------------------------------------------------------------            
@@ -469,7 +478,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
         for course_id in get_course_ids(args):
             extract_logs_mongo2gs(course_id, verbose=args.verbose,
                                   start=(args.start_date or "2012-09-05"),
-                                  end=(args.end_date or "2014-09-21"),
+                                  end=(args.end_date or DEFAULT_END_DATE),
                                   dbname=args.dbname,
                                   collection=args.collection or 'tracking_log',
                                   tracking_logs_directory=args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY,
