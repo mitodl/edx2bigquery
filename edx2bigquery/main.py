@@ -25,14 +25,15 @@ def is_valid_course_id(course_id):
         return False
     return True
 
-def get_course_ids(args):
+def get_course_ids(args, do_check=True):
     courses = get_course_ids_no_check(args)
-    if not all(map(is_valid_course_id, courses)):
-        print "Error!  Invalid course_id:"
-        for cid in courses:
-            if not is_valid_course_id(cid):
-                print "  BAD --> %s " % cid
-        sys.exit(-1)
+    if do_check:
+        if not all(map(is_valid_course_id, courses)):
+            print "Error!  Invalid course_id:"
+            for cid in courses:
+                if not is_valid_course_id(cid):
+                    print "  BAD --> %s " % cid
+            sys.exit(-1)
     return courses
 
 def get_course_ids_no_check(args):
@@ -339,7 +340,8 @@ delete_stats_tables         : delete stats_activity_by_day tables
             return
 
         if course_id is None:
-            for course_id in get_course_ids(args):
+            do_check = not (steps=='split')
+            for course_id in get_course_ids(args, do_check=do_check):
                 print "---> Processing %s on course_id=%s" % (steps, course_id)
                 daily_logs(args, steps, course_id)
             return
