@@ -372,7 +372,9 @@ delete_stats_tables         : delete stats_activity_by_day tables
             import load_daily_tracking_logs
             try:
                 load_daily_tracking_logs.load_all_daily_logs_for_course(course_id, edx2bigquery_config.GS_BUCKET,
-                                                                        verbose=verbose, wait=wait)
+                                                                        verbose=verbose, wait=wait,
+                                                                        check_dates= (not wait),
+                                                                        )
             except Exception as err:
                 print err
                 raise
@@ -501,10 +503,17 @@ delete_stats_tables         : delete stats_activity_by_day tables
                                   )
         
     elif (args.command=='rephrase_logs'):
-        from rephrase_tracking_logs import do_rephrase_line
-        for line in sys.stdin:
-            newline = do_rephrase_line(line)
-            sys.stdout.write(newline)
+        if args.courses:
+            # if arguments are provided, they are taken as filenames of files to be rephrased IN PLACE
+            from rephrase_tracking_logs import do_rephrase_file
+            files = args.courses
+            for fn in files:
+                do_rephrase_file(fn)
+        else:
+            from rephrase_tracking_logs import do_rephrase_line
+            for line in sys.stdin:
+                newline = do_rephrase_line(line)
+                sys.stdout.write(newline)
 
     elif (args.command=='doall'):
         for course_id in get_course_ids(args):

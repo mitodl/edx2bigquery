@@ -31,6 +31,7 @@ import gzip
 import string
 import datetime
 import traceback
+from path import path
 from addmoduleid import add_module_id
 from check_schema_tracking_log import check_schema
 
@@ -94,9 +95,15 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                    'speed_change_video',
                    ]
 
-    if type(event)==dict and (('problem' in event_type)
-                              or event_type in KNOWN_TYPES):
+    if (type(event)==dict and (('problem' in event_type)
+                              or event_type in KNOWN_TYPES)
+        and not ('video_embedded' in event_type
+                 or 'harvardx.button' in event_type
+                 )):
         data['event_struct'] = event
+    else:
+        if 'event_struct' in data:
+            data.pop('event_struct')
 
     #----------------------------------------
     # special cases
@@ -118,8 +125,8 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
             event = {'data': json.dumps(event)}
 
     if type(event) in [str, unicode]:
-        if event and data['event_js']:
-            sys.stderr.write('unexpected STRING event: ' + json.dumps(data, indent=4) + '\n')
+        #if event and data['event_js']:
+        #    sys.stderr.write('unexpected STRING event: ' + json.dumps(data, indent=4) + '\n')
         event = {'data': json.dumps(event)}
 
     if type(event) in [list]:
@@ -239,3 +246,31 @@ def do_rephrase_line(line, linecnt=0):
             
     return json.dumps(data)+'\n'
 
+
+def do_rephrase_file(fn):
+    '''
+    rephrase lines in filename fn, and overwrite original file when done.
+    '''
+
+    from load_course_sql import openfile	# only needed in this function
+
+    fn = path(fn)
+
+    print "Rephrasing tracking log file %s" % fn
+    sys.stdout.flush()
+
+    ofn = fn.dirname() / ("tmp-" + fn.basename())
+    ofp = openfile(ofn, 'w')
+
+    for line in openfile(fn):
+        newline = do_rephrase_line(line)
+        ofp.write(newline)
+
+    ofp.close()
+    
+    oldfilename = fn.dirname() / ("old-" + fn.basename())
+    print "  --> Done; renaming %s -> %s" % (fn, oldfilename)
+    os.rename(fn, oldfilename)
+    print "  --> renaming %s -> %s" % (ofn, fn)
+    os.rename(ofn, fn)
+    sys.stdout.flush()
