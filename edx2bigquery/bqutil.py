@@ -125,6 +125,8 @@ def get_table_data(dataset_id, table_id, key=None, logger=None, project_id=DEFAU
     if startIndex is not None:
         if startIndex < 0:
             startIndex = nrows + startIndex
+        if startIndex < 0:			# cannot be negative
+            startIndex = 0
         table_ref['startIndex'] = startIndex
 
     data = tabledata.list(**table_ref).execute()

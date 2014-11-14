@@ -193,19 +193,20 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False):
         # find out what the end date is of the current table
         ct_last = bqutil.get_table_data(dataset, table, startIndex=-10, maxResults=100)
         last_dates = [datetime.datetime.utcfromtimestamp(float(x['time'])) for x in ct_last['data']]
-        table_max_date = max(last_dates).strftime('%Y%m%d')
-        if max_date <= table_max_date:
-            print '--> %s already exists, max_date=%s, but tracking log data min=%s, max=%s, nothing new!' % (table, 
-                                                                                                              table_max_date,
-                                                                                                              min_date,
-                                                                                                              max_date)
-            return
-        min_date = (max(last_dates) + datetime.timedelta(days=1)).strftime('%Y%m%d')
-        print '--> %s already exists, max_date=%s, adding tracking log data from %s to max=%s' % (table, 
-                                                                                                  table_max_date,
-                                                                                                  min_date,
-                                                                                                  max_date)
-        overwrite = 'append'
+        if last_dates:
+            table_max_date = max(last_dates).strftime('%Y%m%d')
+            if max_date <= table_max_date:
+                print '--> %s already exists, max_date=%s, but tracking log data min=%s, max=%s, nothing new!' % (table, 
+                                                                                                                  table_max_date,
+                                                                                                                  min_date,
+                                                                                                                  max_date)
+                return
+            min_date = (max(last_dates) + datetime.timedelta(days=1)).strftime('%Y%m%d')
+            print '--> %s already exists, max_date=%s, adding tracking log data from %s to max=%s' % (table, 
+                                                                                                      table_max_date,
+                                                                                                      min_date,
+                                                                                                      max_date)
+            overwrite = 'append'
 
     from_datasets = """(
                   TABLE_QUERY({dataset},
