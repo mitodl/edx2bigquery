@@ -91,7 +91,7 @@ def load_all_daily_logs_for_course(course_id, gsbucket="gs://x-data", verbose=Tr
                 if verbose:
                     print "Already have table %s, skipping file %s" % (tablename, fn)
                     sys.stdout.flush()
-                    continue
+                continue
 
         #if date < '2014-07-27':
         #  continue
