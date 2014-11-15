@@ -123,6 +123,10 @@
             "name": "commentable_id"
         }, 
         {
+            "type": "INTEGER", 
+            "name": "group_id"
+        }, 
+        {
             "type": "STRING", 
             "name": "tags_array"
         }, 
