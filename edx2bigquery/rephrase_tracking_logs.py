@@ -93,12 +93,16 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                    'edx.course.enrollment.activated',
                    'edx.course.enrollment.deactivated',
                    'speed_change_video',
+                   'problem_check', 
+                   'problem_save', 
+                   'problem_reset'
                    ]
 
-    if (type(event)==dict and (('problem' in event_type)
+    if (type(event)==dict and (('problem_' in event_type)
                               or event_type in KNOWN_TYPES)
         and not ('video_embedded' in event_type
                  or 'harvardx.button' in event_type
+                 or 'harvardx.' in event_type
                  )):
         data['event_struct'] = event
     else:
