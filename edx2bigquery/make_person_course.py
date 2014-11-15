@@ -359,7 +359,7 @@ class PersonCourse(object):
         datasets = bqutil.get_list_of_datasets()
         return (self.dataset_logs in datasets)
 
-    def compute_third_phase(self, skip_modal_ip=False):
+    def compute_third_phase(self, skip_modal_ip=False, skip_last_event=False):
     
         # -----------------------------------------------------------------------------
         # person_course part 3: activity metrics which need tracking log queries
@@ -372,7 +372,8 @@ class PersonCourse(object):
             print "--> Missing tracking logs dataset %s_logs, skipping third phase of person_course" % self.dataset
             return
 
-        self.load_last_event()
+        if not skip_last_event:
+            self.load_last_event()
         self.load_pc_day_totals()	# person-course-day totals contains all the aggregate nevents, etc.
         if not skip_modal_ip:
             self.load_modal_ip()
@@ -387,13 +388,14 @@ class PersonCourse(object):
 
             # pcent['nevents'] = self.pc_nevents['data_by_key'].get(username, {}).get('nevents', None)
 
-            le = self.pc_last_event['data_by_key'].get(username, {}).get('last_event', None)
-            if le is not None and le:
-                try:
-                    le = str(datetime.datetime.utcfromtimestamp(float(le)))
-                except Exception as err:
-                    self.log('oops, last event cannot be turned into a time; le=%s, username=%s' % (le, username))
-                pcent['last_event'] = le
+            if not skip_last_event:
+                le = self.pc_last_event['data_by_key'].get(username, {}).get('last_event', None)
+                if le is not None and le:
+                    try:
+                        le = str(datetime.datetime.utcfromtimestamp(float(le)))
+                    except Exception as err:
+                        self.log('oops, last event cannot be turned into a time; le=%s, username=%s' % (le, username))
+                    pcent['last_event'] = le
 
             if not skip_modal_ip:
                 self.copy_from_bq_table(self.pc_modal_ip, pcent, username, 'modal_ip', new_field='ip')
@@ -799,7 +801,7 @@ class PersonCourse(object):
         '''
         self.log("PersonCourse doing nightly update, just activity metrics from tracking logs")
         self.reload_table()
-        self.compute_third_phase(skip_modal_ip=True)
+        self.compute_third_phase(skip_modal_ip=True, skip_last_event=True)
         self.output_table()
         self.upload_to_bigquery()
         
