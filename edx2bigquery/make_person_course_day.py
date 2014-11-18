@@ -199,13 +199,15 @@ def obsolete_process_course(course_id, force_recompute=False, check_dates=True):
 
 #-----------------------------------------------------------------------------
 
-def process_course(course_id, force_recompute=False, use_dataset_latest=False, end_date=None):
+def process_course(course_id, force_recompute=False, use_dataset_latest=False, end_date=None, check_dates=True):
     '''
     Make {course_id}.person_course_day table for specified course_id.
 
     This is a single course-specific table, which contains all day's data.
     It is incrementally updated when new tracking logs data comes in,
     by appending rows to the end.  The rows are kept in time order.
+
+    check_dates is disregarded.
     '''
 
     PCDAY_SQL = """
