@@ -62,7 +62,7 @@ from gsutil import get_gs_file_list
 
 #-----------------------------------------------------------------------------
 
-def process_course(course_id, force_recompute=False):
+def process_course(course_id, force_recompute=False, check_dates=True):
     '''
     make person_course_day tables for specified course_id
     '''
@@ -160,9 +160,19 @@ def process_course(course_id, force_recompute=False):
         table_out = 'pcday_%s' % date
     
         if (table_out in pcday_tables) and not force_recompute:
-            print "%s...already done, skipping" % table_id
-            sys.stdout.flush()
-            continue
+            skip = True
+            if check_dates:
+                table_out_date = bqutil.get_bq_table_last_modified_datetime(pcd_dataset, table_out)
+                log_table_date = bqutil.get_bq_table_last_modified_datetime(log_dataset, table_id)
+                if log_table_date > table_out_date:
+                    skip = False
+                    print "%s...already exists, but table_out date=%s and log_table date=%s, so re-computing" % (table_out,
+                                                                                                                 table_out_date,
+                                                                                                                 log_table_date)
+            if skip:
+                print "%s...already done, skipping" % table_out
+                sys.stdout.flush()
+                continue
 
         if bqutil.get_bq_table_size_rows(log_dataset, table_id)==0:
             print "...zero size table %s, skipping" % table_id

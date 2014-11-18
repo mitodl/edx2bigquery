@@ -440,11 +440,12 @@ delete_stats_tables         : delete stats_activity_by_day tables
                 # raise
             
 
-    def person_day(courses):
+    def person_day(courses, check_dates=True):
         import make_person_course_day
         for course_id in get_course_ids(courses):
             try:
-                make_person_course_day.process_course(course_id, force_recompute=args.force_recompute)
+                make_person_course_day.process_course(course_id, force_recompute=args.force_recompute,
+                                                      check_dates=check_dates)
             except Exception as err:
                 print err
                 traceback.print_exc()
@@ -543,7 +544,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
             print "-"*100
             try:
                 daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
-                person_day(course_id)
+                person_day(course_id, check_dates=False)
                 enrollment_day(course_id)
                 person_course(course_id, just_do_nightly=True, force_recompute=True)
                 problem_check(course_id)
