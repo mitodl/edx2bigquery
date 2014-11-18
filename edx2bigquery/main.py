@@ -195,6 +195,14 @@ pcday_ip <course_id> ...    : Compute the pcday_ip_counts table for specified co
                               the tracking logs.  This is a single table stored in the course's main table,
                               which is incrementally updated (by appending) when new tracking logs are found.
 
+                              This table stores one line per (person, course_id, date, ip address) value from the
+                              tracking logs.  Aggregation of these rows is then done to compute modal IP addresses,
+                              for geolocation.
+
+                              The "report" command aggregates the individual course_id's pcday_ip tables to produce
+                              the courses.global_modal_ip table, which is the modal IP address of each username across 
+                              all the courses.
+
 person_day <course_id> ...  : Compute the person_course_day (pcday) for the specified course_id's, based on 
                               processing the course's daily tracking log table data.
                               The compute (query) jobs are queued; this does not wait for the jobs to complete,

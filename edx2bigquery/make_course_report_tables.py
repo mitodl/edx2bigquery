@@ -74,7 +74,6 @@ class CourseReport(object):
 
         self.nskip = nskip
         self.make_global_modal_ip_table()
-        return
         self.make_enrollment_by_day()
         self.make_totals_by_course()
         self.make_total_populations_by_course()
