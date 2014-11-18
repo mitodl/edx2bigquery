@@ -448,7 +448,11 @@ delete_stats_tables         : delete stats_activity_by_day tables
         import make_person_course_day
         for course_id in get_course_ids(courses):
             try:
-                make_person_course_day.process_course(course_id, force_recompute=args.force_recompute)
+                make_person_course_day.process_course(course_id, 
+                                                      force_recompute=args.force_recompute,
+                                                      use_dataset_latest=use_dataset_latest,
+                                                      end_date=args.end_date,
+                                                      )
             except Exception as err:
                 print err
                 traceback.print_exc()

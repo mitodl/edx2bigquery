@@ -374,8 +374,9 @@ class PersonCourse(object):
             print "--> Missing tracking logs dataset %s_logs, skipping third phase of person_course" % self.dataset
             return
 
-        if not skip_last_event:
-            self.load_last_event()
+        if False:
+            self.load_last_event()	# this now comes from pc_day_totals
+
         self.load_pc_day_totals()	# person-course-day totals contains all the aggregate nevents, etc.
         if not skip_modal_ip:
             self.load_modal_ip()
@@ -392,7 +393,8 @@ class PersonCourse(object):
             # pcent['nevents'] = self.pc_nevents['data_by_key'].get(username, {}).get('nevents', None)
 
             if not skip_last_event:
-                le = self.pc_last_event['data_by_key'].get(username, {}).get('last_event', None)
+                # le = self.pc_last_event['data_by_key'].get(username, {}).get('last_event', None)
+                le = self.pc_day_totals['data_by_key'].get(username, {}).get('last_event', None)
                 if le is not None and le:
                     try:
                         le = str(datetime.datetime.utcfromtimestamp(float(le)))
@@ -486,8 +488,8 @@ class PersonCourse(object):
             if (nnew%100==0):
                 sys.stdout.write('.')
                 sys.stdout.flush()
-        print "Done: %d new geoip entries added to person_course for %s" % (nnew, self.course_id)
-        print "--> # missing_ip = %d, # missing_geo = %d" % (nmissing_ip, nmissing_geo)
+        self.log("Done: %d new geoip entries added to person_course for %s" % (nnew, self.course_id))
+        self.log("--> # missing_ip = %d, # missing_geo = %d" % (nmissing_ip, nmissing_geo))
         sys.stdout.flush()
         gid.write_geoip_table()
         
@@ -578,8 +580,56 @@ class PersonCourse(object):
         self.log("Loading %s from BigQuery" % tablename)
         self.pc_nchapters = bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'user_id'}, logger=self.log)
 
+
     def load_pc_day_totals(self):
         '''
+        Compute a single table aggregating all the person_course_day table data, into a single place.
+        This uses the new person_course_day table within the {course_id} dataset, if it exists.
+        '''
+        tables = bqutil.get_list_of_table_ids(self.dataset)
+        
+        table = 'person_course_day'
+        if not table in tables:
+            self.log("===> WARNING: computing pc_day_totals using obsolete *_pcday dataset; please create the person_course_day dataset for %s" % self.course_id)
+            return self.obsolete_load_pc_day_totals()
+        
+        the_sql = '''
+            select username, 
+                "{course_id}" as course_id,
+                count(*) as ndays_act,
+                sum(nevents) as nevents,
+                sum(nprogcheck) as nprogcheck,
+                sum(nshow_answer) as nshow_answer,
+                sum(nvideo) as nvideo,
+                sum(nproblem_check) as nproblem_check,
+                sum(nforum) as nforum,
+                sum(ntranscript) as ntranscript,
+                sum(nseq_goto) as nseq_goto,
+                sum(nseek_video) as nseek_video,
+                sum(npause_video) as npause_video,
+                MAX(last_event) as last_event,
+                AVG(avg_dt) as avg_dt,
+                sqrt(sum(sdv_dt*sdv_dt * n_dt)/sum(n_dt)) as sdv_dt,
+                MAX(max_dt) as max_dt,
+                sum(n_dt) as n_dt,
+                sum(sum_dt) as sum_dt
+            from
+                [{dataset}.person_course_day]
+            group by username
+            order by sum_dt desc
+        '''.format(**self.sql_parameters)
+        
+        tablename = 'pc_day_totals'
+
+        self.log("Loading %s from BigQuery" % tablename)
+        setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'username'},
+                                                     depends_on=[ '%s.person_course_day' % self.dataset ],
+                                                     force_query=self.force_recompute_from_logs, logger=self.log))
+
+
+    def obsolete_load_pc_day_totals(self):
+        '''
+        This is an old procedure, which uses the old *_pcday dataset.  
         Compute a single table aggregating all the person_course_day table data, into a single place.
         '''
         
@@ -782,8 +832,8 @@ class PersonCourse(object):
                                 cmi.ip_count as course_ip_count,
                                 gmi.modal_ip as global_modal_ip,
                                 gmi.ip_count as global_ip_count,
-                         FROM [{dataset}.course_modal_ip] as cmi
-                         JOIN [courses.global_modal_ip] as gmi
+                         FROM [courses.global_modal_ip] as gmi
+                         JOIN [{dataset}.course_modal_ip] as cmi
                          ON cmi.username = gmi.username
                   ) as mip
                   ON uic.username = mip.username

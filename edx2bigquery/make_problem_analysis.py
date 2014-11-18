@@ -180,6 +180,8 @@ def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=Fa
     If the query fails because of "Resources exceeded during query execution"
     then try setting the end_date, to do part at a time.
 
+    TBD: update this to use process_tracking_logs.run_query_on_tracking_logs
+
     '''
     
     SQL = """
