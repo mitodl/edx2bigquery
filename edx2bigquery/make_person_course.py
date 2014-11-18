@@ -102,6 +102,8 @@ class PersonCourse(object):
         self.dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
         self.dataset_logs = bqutil.course_id2dataset(course_id, 'logs')
         self.dataset_pcday = bqutil.course_id2dataset(course_id, 'pcday')
+        self.dataset_courses = 'courses'
+
         self.tableid = "person_course"
         self.log("dataset=%s" % self.dataset)
 
@@ -383,6 +385,7 @@ class PersonCourse(object):
                       ['nvideo', 'nplay_video'],
                       'nseek_video', 'npause_video', 'avg_dt', 'sdv_dt', 'max_dt', 'n_dt', 'sum_dt']
 
+        nmissing_ip = 0
         for key, pcent in self.pctab.iteritems():
             username = pcent['username']
 
@@ -399,9 +402,13 @@ class PersonCourse(object):
 
             if not skip_modal_ip:
                 self.copy_from_bq_table(self.pc_modal_ip, pcent, username, 'modal_ip', new_field='ip')
+                if self.pc_modal_ip['data_by_key'].get(username, {}).get('source', None)=='missing':
+                    nmissing_ip += 1
 
             for pcdf in pcd_fields:
                 self.copy_from_bq_table(self.pc_day_totals, pcent, username, pcdf)
+
+        print "--> modal_ip's number missing = %d" % nmissing_ip
 
     def compute_fourth_phase(self):
     
@@ -457,15 +464,19 @@ class PersonCourse(object):
         gfields = ['city', 'countryLabel', 'latitude', 'longitude']
 
         nnew = 0
+        nmissing_geo = 0
+        nmissing_ip = 0
         for key, pcent in self.pctab.iteritems():
             cc = pcent.get('cc_by_ip', None)
             if cc is not None:
                 continue
             ip = pcent.get('ip', None)
             if ip is None:
+                nmissing_ip += 1
                 continue
             gdat = gid.lookup_ip(ip)
             if gdat is None:
+                nmissing_geo += 1
                 continue
             pcent['cc_by_ip'] = gdat['country']
             for field in gfields:
@@ -476,6 +487,8 @@ class PersonCourse(object):
                 sys.stdout.write('.')
                 sys.stdout.flush()
         print "Done: %d new geoip entries added to person_course for %s" % (nnew, self.course_id)
+        print "--> # missing_ip = %d, # missing_geo = %d" % (nmissing_ip, nmissing_geo)
+        sys.stdout.flush()
         gid.write_geoip_table()
         
 
@@ -632,6 +645,7 @@ class PersonCourse(object):
 
         self.log("Loading %s from BigQuery" % tablename)
         setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'user_id'},
+                                                     depends_on=[ '%s.forum' % self.dataset ],
                                                      force_query=self.force_recompute_from_logs, logger=self.log))
         
     def load_last_event(self):
@@ -689,7 +703,7 @@ class PersonCourse(object):
                 raise Exception(msg)
         return
 
-    def load_nevents(self):
+    def obsolete_load_nevents(self):
         '''
         '''
         
@@ -711,8 +725,110 @@ class PersonCourse(object):
 
     def load_modal_ip(self):
         '''
-        '''
+        Compute the modal IP (the IP address most used by the learner), based on the tracking logs.
         
+        Actually, this is done from several different data sources.
+
+        If pcday_ip_counts exists, then use that to create a modal_ips table, then use that. 
+
+        If the modal_ips table for this course exists, then use that.
+
+        Else use the (to be deprecated) person-course-day pcday_* tables.
+        '''
+        tables = bqutil.get_list_of_table_ids(self.dataset)
+        
+        table = 'pcday_ip_counts'
+        if not table in tables:
+            return self.load_modal_ip_from_old_multiple_person_course_day_tables()
+        
+        # pcday_ip_counts exists!
+
+        self.make_course_specific_modal_ip_table()	# make course-specific modal ip table
+        
+        # does the global_pcday_ip_counts table exist in the 'courses' dataset?
+
+        depends_on = [ '%s.course_modal_ip' % self.dataset, '%s.user_info_combo' % self.dataset ]
+        ctables = bqutil.get_list_of_table_ids(self.dataset_courses)
+        gtable = 'global_modal_ip'
+        if gtable not in ctables:
+            print "---> WARNING: Table %s.%s is missing, so global modal IP's won't be included!" % (self.dataset_courses, gtable)
+
+            the_sql = """
+              SELECT uic.username as username, 
+                     mip.modal_ip as course_modal_ip,
+                     mip.ip_count as course_ip_count,
+                     "" as global_modal_ip,
+                     CASE when course_modal_ip !="" then 'course' else 'missing' end as source,
+              FROM [{dataset}.user_info_combo] as uic
+              JOIN [{dataset}.course_modal_ip] as mip
+              ON uic.username = mip.username
+              """.format(**self.sql_parameters)
+        else:
+            # make modal ip table which includes global modal ip's for those missing from course-specific modal ip table
+            # do only usernames in user_info_combo table
+            the_sql = """
+                  SELECT uic.username as username, 
+                         mip.course_modal_ip as course_modal_ip,
+                         mip.course_ip_count as course_ip_count,
+                         mip.global_modal_ip as global_modal_ip,
+                         mip.global_ip_count as global_ip_count,
+                         CASE when course_modal_ip !="" then course_modal_ip else global_modal_ip end as modal_ip,
+                         CASE when course_modal_ip !="" then 'course' 
+                              when global_modal_ip !="" then 'global'
+                              else 'missing' end as source,
+                  FROM [{dataset}.user_info_combo] as uic
+                  JOIN ( SELECT cmi.username as username, 
+                                cmi.modal_ip as course_modal_ip,
+                                cmi.ip_count as course_ip_count,
+                                gmi.modal_ip as global_modal_ip,
+                                gmi.ip_count as global_ip_count,
+                         FROM [{dataset}.course_modal_ip] as cmi
+                         JOIN [courses.global_modal_ip] as gmi
+                         ON cmi.username = gmi.username
+                  ) as mip
+                  ON uic.username = mip.username
+              """.format(**self.sql_parameters)
+            depends_on.append('courses.global_modal_ip')
+
+        tablename = 'pc_modal_ip'
+
+        self.log("Loading %s from BigQuery" % tablename)
+        setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'username'},
+                                                     depends_on=depends_on,
+                                                     force_query=self.force_recompute_from_logs, logger=self.log))
+
+
+    def make_course_specific_modal_ip_table(self):
+        '''
+        Make a course-specific modal IP table, based on local pcday_ip_counts table
+        '''
+        SQL = """
+              SELECT username, IP as modal_ip, ip_count, n_different_ip,
+              FROM
+                  ( SELECT username, ip, ip_count,
+                          RANK() over (partition by username order by ip_count ASC) n_different_ip,
+                          RANK() over (partition by username order by ip_count DESC) rank,
+                    from ( select username, ip, sum(ipcount) as ip_count
+                           from [{dataset}.pcday_ip_counts] 
+                           GROUP BY username, ip
+                    )
+                  )
+                  where rank=1
+                  order by username
+        """.format(**self.sql_parameters)
+
+        tablename = 'course_modal_ip'
+
+        self.log("Loading %s from BigQuery" % tablename)
+        setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, SQL, key={'name': 'username'},
+                                                     force_query=self.force_recompute_from_logs, 
+                                                     depends_on=[ '%s.pcday_ip_counts' % self.dataset ],
+                                                     logger=self.log))
+
+    def load_modal_ip_from_old_multiple_person_course_day_tables(self):
+        '''
+        Compute modal IP the old fashioned way, from the pcday_* tables
+        '''
         the_sql = '''
         SELECT username, IP as modal_ip, ip_count from
         ( SELECT username, IP, ip_count, 
@@ -763,6 +879,7 @@ class PersonCourse(object):
 
         self.log("Loading %s from BigQuery" % tablename)
         setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'username'},
+                                                     depends_on=[ '%s.pc_modal_ip' % self.dataset ],
                                                      force_query=self.force_recompute_from_logs, logger=self.log))
 
     def load_cwsm(self):

@@ -191,6 +191,10 @@ make_cinfo listings.csv     : make the courses.listings table, which contains a 
 
 --- REPORTING COMMANDS
 
+pcday_ip <course_id> ...    : Compute the pcday_ip_counts table for specified course_id's, based on ingesting
+                              the tracking logs.  This is a single table stored in the course's main table,
+                              which is incrementally updated (by appending) when new tracking logs are found.
+
 person_day <course_id> ...  : Compute the person_course_day (pcday) for the specified course_id's, based on 
                               processing the course's daily tracking log table data.
                               The compute (query) jobs are queued; this does not wait for the jobs to complete,
@@ -449,6 +453,20 @@ delete_stats_tables         : delete stats_activity_by_day tables
                 print err
                 traceback.print_exc()
                 sys.stdout.flush()
+            
+
+    def pcday_ip(courses):
+        import make_person_course_day
+        for course_id in get_course_ids(courses):
+            try:
+                make_person_course_day.compute_person_course_day_ip_table(course_id, force_recompute=args.force_recompute,
+                                                                          use_dataset_latest=use_dataset_latest,
+                                                                          end_date=args.end_date,
+                                                                          )
+            except Exception as err:
+                print err
+                traceback.print_exc()
+                sys.stdout.flush()
 
 
     def enrollment_day(courses):
@@ -654,6 +672,9 @@ delete_stats_tables         : delete stats_activity_by_day tables
     elif (args.command=='make_cinfo'):
         import make_cinfo
         make_cinfo.do_course_listings(args.courses[0])
+
+    elif (args.command=='pcday_ip'):
+        pcday_ip(args)
 
     elif (args.command=='person_day'):
         person_day(args)

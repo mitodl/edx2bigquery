@@ -35,6 +35,7 @@ class CourseReport(object):
         # check to see which datasets have person_course tables
         datasets_with_pc = []
         self.all_pc_tables = {}
+        self.all_pcday_ip_counts_tables = {}
         for cd in course_datasets:
             try:
                 table = bqutil.get_bq_table_info(cd, 'person_course')
@@ -46,10 +47,20 @@ class CourseReport(object):
             self.all_pc_tables[cd] = table
             datasets_with_pc.append(cd)
 
+            try:
+                table = bqutil.get_bq_table_info(cd, 'pcday_ip_counts')
+            except Exception as err:
+                continue
+            if table is None:
+                continue
+            self.all_pcday_ip_counts_tables[cd] = table
+
         pc_tables = ',\n'.join(['[%s.person_course]' % x for x in datasets_with_pc])
+        pcday_ip_counts_tables = ',\n'.join(['[%s.pcday_ip_counts]' % x for x in self.all_pcday_ip_counts_tables])
 
         self.parameters = {'dataset': self.dataset,
                            'pc_tables': pc_tables,
+                           'pcday_ip_counts_tables': pcday_ip_counts_tables,
                            }
         print "[make_course_report_tables] ==> Using these datasets (with person_course tables): %s" % datasets_with_pc
 
@@ -62,6 +73,8 @@ class CourseReport(object):
         bqutil.create_dataset_if_nonexistent(self.dataset, project_id=output_project_id)
 
         self.nskip = nskip
+        self.make_global_modal_ip_table()
+        return
         self.make_enrollment_by_day()
         self.make_totals_by_course()
         self.make_total_populations_by_course()
@@ -73,25 +86,28 @@ class CourseReport(object):
         print "Done with course report tables"
         sys.stdout.flush()
 
-    def do_table(self, the_sql, tablename):
+    def do_table(self, the_sql, tablename, the_dataset=None):
         if self.nskip:
             self.nskip += -1
             print "Skipping %s" % tablename
             return
 
+        if the_dataset is None:
+            the_dataset = self.dataset
+
         print("Computing %s in BigQuery" % tablename)
-        ret = bqutil.create_bq_table(self.dataset, tablename, the_sql, 
+        ret = bqutil.create_bq_table(the_dataset, tablename, the_sql, 
                                      overwrite=True,
                                      output_project_id=self.output_project_id)
         gsfn = "%s/%s.csv" % (self.gsbucket, tablename)
-        bqutil.extract_table_to_gs(self.dataset, tablename, gsfn, 
+        bqutil.extract_table_to_gs(the_dataset, tablename, gsfn, 
                                    format='csv', 
                                    do_gzip=False,
                                    wait=False)
 
         msg = "CSV download link: %s" % gsutil.gs_download_link(gsfn)
         print msg
-        bqutil.add_description_to_table(self.dataset, tablename, msg, append=True, project_id=self.output_project_id)
+        bqutil.add_description_to_table(the_dataset, tablename, msg, append=True, project_id=self.output_project_id)
 
 
     def make_totals_by_course(self):
@@ -254,6 +270,28 @@ class CourseReport(object):
         
         self.do_table(the_sql, 'geographic_distributions')
         
+    def make_global_modal_ip_table(self):
+        '''
+        Make table of global modal ip addresses, based on each course's IP address counts, found in 
+        individual course's pcday_ip_counts tables.
+        '''
+        the_sql = '''
+              SELECT username, IP as modal_ip, ip_count, n_different_ip,
+              FROM
+                  ( SELECT username, ip, ip_count,
+                          RANK() over (partition by username order by ip_count ASC) n_different_ip,
+                          RANK() over (partition by username order by ip_count DESC) rank,
+                    from ( select username, ip, sum(ipcount) as ip_count
+                           from {pcday_ip_counts_tables}
+                           GROUP BY username, ip
+                    )
+                  )
+                  where rank=1
+                  order by username
+        '''.format(**self.parameters)
+        
+        self.do_table(the_sql, 'global_modal_ip', the_dataset='courses')
+
     def make_overall_totals(self):
         the_sql = '''
 

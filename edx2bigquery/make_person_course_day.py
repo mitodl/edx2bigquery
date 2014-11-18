@@ -60,6 +60,8 @@ import datetime
 from path import path
 from gsutil import get_gs_file_list
 
+import process_tracking_logs
+
 #-----------------------------------------------------------------------------
 
 def process_course(course_id, force_recompute=False):
@@ -183,3 +185,50 @@ def process_course(course_id, force_recompute=False):
     print "="*77
     sys.stdout.flush()
         
+#-----------------------------------------------------------------------------
+
+def compute_person_course_day_ip_table(course_id, force_recompute=False, use_dataset_latest=False, end_date=None):
+    '''
+    make pcday_ip_counts table for specified course_id.
+
+    The master table holds all the (username, course_id, date, ip_addr, nip_count)
+    data for a course.  It isn't split into separate
+    days.  It is ordered in time, however.  To update it, a new day's logs
+    are processed, then the results appended to this table.
+
+    This is used in computing the modal IP address of users.
+
+    If the pcday_ip_counts table doesn't exist, then run it once on all
+    the existing tracking logs.  
+
+    If it already exists, then run a query on it to see what dates have
+    already been done.  Then do all tracking logs except those which
+    have already been done.  Append the results to the existing table.
+
+    If the query fails because of "Resources exceeded during query execution"
+    then try setting the end_date, to do part at a time.
+    '''
+
+    SQL = """
+                    SELECT username, ip, 
+                       date(time) as date, 
+                       count(*) as ipcount,
+                       '{course_id}' as course_id,
+                    FROM {DATASETS}
+                    where username != ""
+                    group by username, ip, date
+                    order by date 
+          """
+
+    table = 'pcday_ip_counts'
+
+    def gdf(row):
+        return datetime.datetime.strptime(row['date'], '%Y-%m-%d')
+
+    process_tracking_logs.run_query_on_tracking_logs(SQL, table, course_id, force_recompute=force_recompute,
+                                                     use_dataset_latest=use_dataset_latest,
+                                                     end_date=end_date,
+                                                     get_date_function=gdf)
+
+
+    
