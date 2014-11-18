@@ -46,7 +46,9 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
 
     if end_date is not None:
         print "[run_query_on_tracking_logs] %s: Using end_date=%s for max_date cutoff" % (table, end_date)
-        max_date = end_date.replace('-','')	# end_date should be YYYY-MM-DD
+        the_end_date = end_date.replace('-','')	# end_date should be YYYY-MM-DD
+        if the_end_date < max_date:
+            max_date = the_end_date
 
     if force_recompute:
         overwrite = True

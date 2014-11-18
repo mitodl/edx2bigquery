@@ -558,6 +558,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
                 analyze_problems(course_id)
                 axis2bq(course_id)
                 daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
+                pcday_ip(course_id)	# needed for modal IP
                 person_day(course_id)
                 enrollment_day(course_id)
                 person_course(course_id)
@@ -576,6 +577,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
                 daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
                 person_day(course_id, check_dates=False)
                 enrollment_day(course_id)
+                pcday_ip(course_id)	# needed for modal IP
                 person_course(course_id, just_do_nightly=True, force_recompute=True)
                 problem_check(course_id)
             except Exception as err:

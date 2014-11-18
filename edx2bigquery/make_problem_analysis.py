@@ -18,6 +18,7 @@ import json
 import gsutil
 import bqutil
 import datetime
+import process_tracking_logs
 
 from path import path
 from collections import defaultdict
@@ -179,9 +180,6 @@ def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=Fa
 
     If the query fails because of "Resources exceeded during query execution"
     then try setting the end_date, to do part at a time.
-
-    TBD: update this to use process_tracking_logs.run_query_on_tracking_logs
-
     '''
     
     SQL = """
@@ -202,58 +200,12 @@ def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=Fa
             """
 
     table = 'problem_check'
-    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
-    log_dataset = bqutil.course_id2dataset(course_id, dtype="logs")
 
-    existing = bqutil.get_list_of_table_ids(dataset)
+    def gdf(row):
+        return datetime.datetime.utcfromtimestamp(float(row['time']))
 
-    log_tables = [x for x in bqutil.get_list_of_table_ids(log_dataset) if x.startswith('tracklog_20')]
-    log_dates = [x[9:] for x in log_tables]
-    min_date = min(log_dates)
-    max_date = max(log_dates)
-
-    if end_date is not None:
-        print "[problem_check_tables] Using end_date=%s for max_date cutoff" % end_date
-        max_date = end_date.replace('-','')
-
-    overwrite = False
-    if table in existing:
-        # find out what the end date is of the current problem_check table
-        pc_last = bqutil.get_table_data(dataset, table, startIndex=-10, maxResults=100)
-        last_dates = [datetime.datetime.utcfromtimestamp(float(x['time'])) for x in pc_last['data']]
-        table_max_date = max(last_dates).strftime('%Y%m%d')
-        if max_date <= table_max_date:
-            print '--> %s already exists, max_date=%s, but tracking log data min=%s, max=%s, nothing new!' % (table, 
-                                                                                                              table_max_date,
-                                                                                                              min_date,
-                                                                                                              max_date)
-            return
-        min_date = (max(last_dates) + datetime.timedelta(days=1)).strftime('%Y%m%d')
-        print '--> %s already exists, max_date=%s, adding tracking log data from %s to max=%s' % (table, 
-                                                                                                  table_max_date,
-                                                                                                  min_date,
-                                                                                                  max_date)
-        overwrite = 'append'
-
-    from_datasets = """(
-                  TABLE_QUERY({dataset},
-                       "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) BETWEEN {start} and {end}"
-                     )
-                  )
-         """.format(dataset=log_dataset, start=min_date, end=max_date)
-
-    the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets)
-
-    print "Making new problem_check table for course %s (start=%s, end=%s) [%s]"  % (course_id, min_date, max_date, datetime.datetime.now())
-    sys.stdout.flush()
-
-    bqutil.create_bq_table(dataset, table, the_sql, wait=True, overwrite=overwrite)
-
-    if overwrite=='append':
-        txt = '[%s] added tracking log data from %s to %s' % (datetime.datetime.now(), min_date, max_date)
-        bqutil.add_description_to_table(dataset, table, txt, append=True)
-    
-    print "Done with course %s (end %s)"  % (course_id, datetime.datetime.now())
-    print "="*77
-    sys.stdout.flush()
+    process_tracking_logs.run_query_on_tracking_logs(SQL, table, course_id, force_recompute=force_recompute,
+                                                     use_dataset_latest=use_dataset_latest,
+                                                     end_date=end_date,
+                                                     get_date_function=gdf)
         
