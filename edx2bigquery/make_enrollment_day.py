@@ -139,6 +139,8 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False):
     If it already exists, then run a query on it to see what dates have
     already been done.  Then do all tracking logs except those which
     have already been done.  Append the results to the existing table.
+
+    TBD: update this to use process_tracking_logs.run_query_on_tracking_logs
     '''
 
     SQL = """

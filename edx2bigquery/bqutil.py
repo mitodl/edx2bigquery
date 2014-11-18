@@ -231,11 +231,41 @@ def default_logger(msg):
     print msg
 
 def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, force_query=False, logger=default_logger,
+                 depends_on=None,
                  startIndex=None, maxResults=1000000):
     '''
     Retrieve data for the specified BQ table if it exists.
     If it doesn't exist, create it, using the provided SQL.
+
+    depends_on may be provided as a list of "dataset.table" strings, which specify which table(s)
+    the desired table depends on.  If the desired table exists, but is older than any of the 
+    depends_on table(s), then it is recomputed from the sql (assuming the sql was provided).
     '''
+    if (depends_on is not None) and (sql is not None) and (not force_query):
+
+        # get the mod time of the computed table, if it exists
+        try:
+            table_date = get_bq_table_last_modified_datetime(dataset, tablename)
+        except Exception as err:
+            if 'Not Found' in str(err):
+                table_date = None
+            else:
+                raise
+
+        if table_date:
+            # get the latest mod time of tables in depends_on:
+            modtimes = [ get_bq_table_last_modified_datetime(*(x.split('.',1))) for x in depends_on]
+            latest = max([x for x in modtimes if x is not None])
+        
+            if not latest:
+                raise Exception("[get_bq_table] Cannot get last mod time for %s (got %s), needed by %s.%s" % (depends_on, modtimes, dataset, tablename))
+
+            if table_date < latest:
+                force_query = True
+                logger("[get_bq_table] Forcing query recomputation of %s.%s, table_date=%s, latest=%s" % (dataset, tablename,
+                                                                                                          table_date, latest))
+
+
     if force_query:
         create_bq_table(dataset, tablename, sql, logger=logger, overwrite=True)
         return get_table_data(dataset, tablename, key=key, logger=logger,
@@ -281,7 +311,10 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
     
     job = {'jobReference': job_ref, 'configuration': config}
 
-    logger("[bqutil] Creating table %s, running job %s" % (table_id, job_id))
+    if 'APPEND' in wd:
+        logger("[bqutil] Appending to table %s, running job %s" % (table_id, job_id))
+    else:
+        logger("[bqutil] Creating table %s, running job %s" % (table_id, job_id))
     sys.stdout.flush()
 
     if verbose:

@@ -41,7 +41,7 @@ import glob
 import datetime
 import xbundle
 import tempfile
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from lxml import etree
 from path import path
 from fix_unicode import fix_bad_unicode
@@ -453,6 +453,35 @@ def save_data_to_bigquery(cid, cdat, caset, xbundle=None, datadir=None, log_msg=
 
 #-----------------------------------------------------------------------------
 
+def fix_duplicate_url_name_vertical(axis):
+    '''
+    1. Look for duplicate url_name values
+    2. If a vertical has a duplicate url_name with anything else, rename that url_name
+       to have a "_vert" suffix.  
+
+    axis = list of Axel objects
+    '''
+    axis_by_url_name = defaultdict(list)
+    for idx in range(len(axis)):
+        ael = axis[idx]
+        axis_by_url_name[ael.url_name].append(idx)
+    
+    for url_name, idxset in axis_by_url_name.items():
+        if len(idxset)==1:
+            continue
+        print "--> Duplicate url_name %s shared by:" % url_name
+        vert = None
+        for idx in idxset:
+            ael = axis[idx]
+            print "       %s" % str(ael)
+            if ael.category=='vertical':
+                nun = "%s_vertical" % url_name
+                print "          --> renaming url_name to become %s" % nun
+                new_ael = ael._replace(url_name=nun)
+                axis[idx] = new_ael
+
+#-----------------------------------------------------------------------------
+
 def process_course(dir, use_dataset_latest=False):
     ret = make_axis(dir)
 
@@ -475,6 +504,8 @@ def process_course(dir, use_dataset_latest=False):
             os.system('mv %s.new %s' % (bfn, bfn))
 
         print "saving data for %s" % cid
+
+        fix_duplicate_url_name_vertical(cdat['axis'])
 
         header = ("index", "url_name", "category", "gformat", "start", 'due', "name", "path", "module_id", "data", "chapter_mid")
         caset = [{ x: getattr(ae,x) for x in header } for ae in cdat['axis']]
