@@ -24,6 +24,7 @@ except:
 import auth
 from collections import OrderedDict
 
+#service = auth.build_bq_client(timeout=120) 
 service = auth.build_bq_client() 
 
 projects = service.projects()
@@ -356,6 +357,7 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
         else:
             ecnt = 0
         try:
+            time.sleep(5)
             job = jobs.get(**job_ref).execute()
         except Exception as err:
             print "[bqutil] oops!  Failed to execute jobs.get=%s" % (job_ref)
@@ -366,7 +368,9 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
     if 'errors' in status:
         logger( "[bqutil] ERROR!  %s" % str(status['errors']) )
         logger( "job = %s" % json.dumps(job, indent=4))
-        raise Exception('BQ Error creating table')
+        emsg = 'BQ Error creating table '
+        emsg += status.get('errorResult', {}).get('message', '')
+        raise Exception(emsg)
 
     elif status['state']=='DONE':
 

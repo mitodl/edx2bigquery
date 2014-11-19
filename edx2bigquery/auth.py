@@ -117,10 +117,10 @@ def print_creds(credentials=None):
   else:
     print 'creds: %s' % (cred_dict,)
 
-def build_bq_client():
+def build_bq_client(**args):
   '''Constructs a bigquery client object.'''
   return discovery.build('bigquery', 'v2',
-                         http=get_creds().authorize(httplib2.Http()))
+                         http=get_creds().authorize(httplib2.Http(**args)))
 
 def main():
   print_creds(get_creds())
