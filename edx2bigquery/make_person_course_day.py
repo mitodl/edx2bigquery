@@ -213,6 +213,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
     PCDAY_SQL = """
     select username, 
            "{course_id}" as course_id,
+           date(time) as date,
            sum(bevent) as nevents,
            sum(bprogress) as nprogcheck,
            sum(bshow_answer) as nshow_answer,
@@ -224,7 +225,6 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
            sum(bseek_video) as nseek_video,
            sum(bpause_video) as npause_video,
            MAX(time) as last_event,
-           date(MAX(time)) as date,
            AVG(
                case when (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 then null
                else (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 end
@@ -266,8 +266,8 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
         NOT event_type contains "/xblock/"
         AND username != ""
     )
-    group by course_id, username
-    order by last_event
+    group by course_id, username, date
+    order by date
     """
 
     table = 'person_course_day'
