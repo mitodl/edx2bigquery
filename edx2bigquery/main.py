@@ -94,6 +94,12 @@ setup_sql <course_id> ...   : Do all commands (make_uic, sql2bq, load_forum) to 
                               Directories should be named YYYY-MM-DD.  When this flag is used, the course SQL dataset name has
                               "_latest" appended to it.
 
+                              Also accepts the "--clist=XXX" option, to specify which list of courses to act upon.
+
+                              Before running this command, make sure your SQL files are converted and formatted according to the 
+                              "Waldo" convention established by Harvard.  Use the "waldofy" command (see below) for this, 
+                              if necessary.
+
 daily_logs --tlfn=<path>    : Do all commands (split, logs2gs, logs2bq) to get one day's edX tracking logs into google storage 
            <course_id>        and import into BigQuery.  See more information about each of those commands, below.
            ...                This step is idempotent - it can be re-run multiple times, and the result should not change.
@@ -123,6 +129,9 @@ waldofy <sql_data_dir>      : Apply HarvardX Jim Waldo conventions to SQL data a
                               name given by the course_id and date, YYYY-MM-DD.
 
                               The SQL files from edX must already be decrypted (not *.gpg), before running this command.
+
+                              Be sure to specify which course_id's to act upon.  Courses which are not explicitly specified
+                              are put in a subdirectory named "UNKNOWN".
 
 make_uic <course_id> ...    : make the "user_info_combo" file for the specified course_id, from edX's SQL dumps, and upload to google storage.
                               Does not import into BigQuery.
@@ -238,7 +247,8 @@ problem_check <c_id> ...    : Create or update problem_check table, which has al
 rephrase_logs               : process input tracking log lines one at a time from standard input, and rephrase them to fit the
                               schema used for tracking log file data in BigQuery.  Used for testing.
 
-testbq                      : test authentication to BigQuery, by listing accessible datasets.
+testbq                      : test authentication to BigQuery, by listing accessible datasets.  This is a good command to start with,
+                              to make sure your authentication is configured properly.
 
 get_tables <dataset>        : dump information about the tables in the specified BigQuery dataset.
 
