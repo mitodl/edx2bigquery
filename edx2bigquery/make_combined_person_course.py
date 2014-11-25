@@ -30,7 +30,20 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
 
         if (nskip>0) and ofn.exists():
             print "%s already exists, not downloading" % ofn
+            sys.stdout.flush()
             continue
+
+        if ofn.exists():
+            fnset = gsutil.get_gs_file_list(gb)
+            local_dt = gsutil.get_local_file_mtime_in_utc(ofn)
+            fnb = 'person_course.csv.gz'
+            if local_dt >= fnset[fnb]['date']:
+                print "%s already exists with date %s (gs file date %s), not re-downloading" % (ofn, local_dt, fnset[fnb]['date'])
+                sys.stdout.flush()
+                continue
+            else:
+                print "%s already exists but has date %s (gs file date %s), so re-downloading" % (ofn, local_dt, fnset[fnb]['date'])
+                sys.stdout.flush()
 
         cmd = 'gsutil cp %s/person_course.csv.gz %s' % (gb, ofn)
         print "Retrieving %s via %s" % (course_id, cmd)
@@ -66,7 +79,7 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
     print "="*77
     print "Uploading combined CSV file to google cloud storage in bucket: %s" % gb
     sys.stdout.flush()
-    cmd = "gsutil cp -z csv %s %s/" % (ofn, gb)
+    cmd = "TMPDIR=/var/tmp gsutil cp -z csv %s %s/" % (ofn, gb)
     print cmd
     os.system(cmd)
 
