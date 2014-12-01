@@ -827,14 +827,16 @@ class PersonCourse(object):
                               when global_modal_ip !="" then 'global'
                               else 'missing' end as source,
                   FROM [{dataset}.user_info_combo] as uic
-                  JOIN ( SELECT cmi.username as username, 
+                  LEFT JOIN ( 
+                         SELECT (case when cmi.username != "" then cmi.username else gmi.username end) as username,
                                 cmi.modal_ip as course_modal_ip,
                                 cmi.ip_count as course_ip_count,
                                 gmi.modal_ip as global_modal_ip,
                                 gmi.ip_count as global_ip_count,
                          FROM [courses.global_modal_ip] as gmi
-                         JOIN [{dataset}.course_modal_ip] as cmi
+                         LEFT JOIN [MITx__3_086x__2013_SOND.course_modal_ip] as cmi
                          ON cmi.username = gmi.username
+                         order by username
                   ) as mip
                   ON uic.username = mip.username
               """.format(**self.sql_parameters)
@@ -845,6 +847,7 @@ class PersonCourse(object):
         self.log("Loading %s from BigQuery" % tablename)
         setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'username'},
                                                      depends_on=depends_on,
+                                                     newer_than=datetime.datetime(2014, 12, 1),
                                                      force_query=self.force_recompute_from_logs, logger=self.log))
 
 
