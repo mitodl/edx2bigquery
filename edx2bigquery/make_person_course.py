@@ -795,6 +795,12 @@ class PersonCourse(object):
 
         self.make_course_specific_modal_ip_table()	# make course-specific modal ip table
         
+        use_each = ""
+        # check to see if the course_modal_ip table is too large; if so, must do JOIN EACH
+        cmi_size = bqutil.get_bq_table_size_rows(self.dataset, "course_modal_ip")        
+        if cmi_size > 5e6:
+            use_each = "EACH"
+
         # does the global_pcday_ip_counts table exist in the 'courses' dataset?
 
         depends_on = [ '%s.course_modal_ip' % self.dataset, '%s.user_info_combo' % self.dataset ]
@@ -810,9 +816,9 @@ class PersonCourse(object):
                      "" as global_modal_ip,
                      CASE when course_modal_ip !="" then 'course' else 'missing' end as source,
               FROM [{dataset}.user_info_combo] as uic
-              LEFT JOIN [{dataset}.course_modal_ip] as mip
+              LEFT JOIN {each} [{dataset}.course_modal_ip] as mip
               ON uic.username = mip.username
-              """.format(**self.sql_parameters)
+              """.format(each=use_each, **self.sql_parameters)
         else:
             # make modal ip table which includes global modal ip's for those missing from course-specific modal ip table
             # do only usernames in user_info_combo table
@@ -827,19 +833,19 @@ class PersonCourse(object):
                               when global_modal_ip !="" then 'global'
                               else 'missing' end as source,
                   FROM [{dataset}.user_info_combo] as uic
-                  LEFT JOIN ( 
+                  LEFT JOIN EACH ( 
                          SELECT (case when cmi.username != "" then cmi.username else gmi.username end) as username,
                                 cmi.modal_ip as course_modal_ip,
                                 cmi.ip_count as course_ip_count,
                                 gmi.modal_ip as global_modal_ip,
                                 gmi.ip_count as global_ip_count,
                          FROM [courses.global_modal_ip] as gmi
-                         LEFT JOIN [{dataset}.course_modal_ip] as cmi
+                         LEFT JOIN {each} [{dataset}.course_modal_ip] as cmi
                          ON cmi.username = gmi.username
                          order by username
                   ) as mip
                   ON uic.username = mip.username
-              """.format(**self.sql_parameters)
+              """.format(each=use_each, **self.sql_parameters)
             depends_on.append('courses.global_modal_ip')
 
         tablename = 'pc_modal_ip'
