@@ -161,6 +161,10 @@ analyze_problems <c_id> ... : Analyze capa problem data in studentmodule table, 
 
 staff2bq <staff.csv>        : load staff.csv file into BigQuery; put it in the "courses" dataset.
 
+mongo2user_info <course_id> : dump users, profiles, enrollment, certificates CSV files from mongodb for specified course_id's.
+                              Use this to address missing users issue in pre-early-2014 edX course dumps, which had the problem
+                              that learners who un-enrolled were removed from the enrollment table.
+
 --- TRACKING LOG DATA RELATED COMMANDS
 
 split <daily_log_file> ...  : split single-day tracking log files (should be named something like mitx-edx-events-2014-10-17.log.gz),
@@ -302,9 +306,14 @@ delete_stats_tables         : delete stats_activity_by_day tables
 
     # default end date for person_course
     try:
-        DEFAULT_END_DATE =  getattr(edx2bigquery_config, "DEFAULT_END_DATE", "2014-09-21")
+        DEFAULT_END_DATE = getattr(edx2bigquery_config, "DEFAULT_END_DATE", "2014-09-21")
     except:
         DEFAULT_END_DATE = "2014-09-21"
+
+    try:
+        DEFAULT_MONGO_DB = getattr(edx2bigquery_config, "DEFAULT_MONGO_DB", None)
+    except:
+        DEFAULT_MONGO_DB = None
 
     def setup_sql(args, steps, course_id=None):
         sqlall = steps=='setup_sql'
@@ -613,6 +622,16 @@ delete_stats_tables         : delete stats_activity_by_day tables
         args.courses = args.courses[1:]		# remove first element, which was dirname
         courses = get_course_ids(args)
         do_waldofication_of_sql.process_directory(dirname, courses, the_basedir)
+
+    elif (args.command=='mongo2user_info'):
+        import fix_missing_user_info
+        for course_id in get_course_ids(args):
+            fix_missing_user_info.mongo_dump_user_info_files(course_id, 
+                                                             basedir=the_basedir, 
+                                                             datedir=the_datedir,
+                                                             dbname=args.dbname or DEFAULT_MONGO_DB,
+                                                             use_dataset_latest=use_dataset_latest,
+                                                             )
 
     elif (args.command=='makegeoip'):
         import make_geoip_table

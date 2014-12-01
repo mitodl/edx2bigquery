@@ -78,8 +78,10 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     
     uic = defaultdict(dict)		# dict with key = user_id, and val = dict to be written out as JSON line
     
-    def copy_elements(src, dest, fields, prefix=""):
+    def copy_elements(src, dest, fields, prefix="", skip_empty=False):
         for key in fields:
+            if skip_empty and (not key in src):
+                src[key] = None
             if src[key]=='NULL':
                 continue
             dest[prefix + key] = src[key]
@@ -129,32 +131,94 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
             return outfn
         return False
 
+    nusers = 0
+    fields = ['username', 'email', 'is_staff', 'last_login', 'date_joined']
     for line in csv.DictReader(openfile('users.csv')):
         uid = int(line['id'])
-        fields = ['username', 'email', 'is_staff', 'last_login', 'date_joined']
         copy_elements(line, uic[uid], fields)
         uic[uid]['user_id'] = uid
+        nusers += 1
     
+    print "  %d users loaded from users.csv" % nusers
+
     fp = openfile('profiles.csv')
     if fp is None:
         print "--> Skipping profiles.csv, file does not exist"
     else:
+        nprofiles = 0
+        fields = ['name', 'language', 'location', 'meta', 'courseware', 
+                  'gender', 'mailing_address', 'year_of_birth', 'level_of_education', 'goals', 
+                  'allow_certificate', 'country', 'city']
         for line in csv.DictReader(fp):
             uid = int(line['user_id'])
-            fields = ['name', 'language', 'location', 'meta', 'courseware', 
-                       'gender', 'mailing_address', 'year_of_birth', 'level_of_education', 'goals', 
-                       'allow_certificate', 'country', 'city']
             copy_elements(line, uic[uid], fields, prefix="profile_")
+            nprofiles += 1
+        print "  %d profiles loaded from profiles.csv" % nprofiles
     
     fp = openfile('enrollment.csv')
     if fp is None:
         print "--> Skipping enrollment.csv, file does not exist"
     else:
+        nenrollments = 0
+        fields = ['course_id', 'created', 'is_active', 'mode', ]
         for line in csv.DictReader(fp):
             uid = int(line['user_id'])
-            fields = ['course_id', 'created', 'is_active', 'mode', ]
             copy_elements(line, uic[uid], fields, prefix="enrollment_")
+            nenrollments += 1
+        print "  %d enrollments loaded from profiles.csv" % nenrollments
     
+    # see if from_mongodb files are present for this course; if so, merge in that data
+    mongodir = cdir.dirname() / 'from_mongodb'
+    if mongodir.exists():
+        print "--> %s exists, merging in users, profile, and enrollment data from mongodb" % mongodir
+        sys.stdout.flush()
+        fp = gzip.GzipFile(mongodir / "users.json.gz")
+        fields = ['username', 'email', 'is_staff', 'last_login', 'date_joined']
+        nadded = 0
+        for line in fp:
+            pdata = json.loads(line)
+            uid = int(pdata['_id'])
+            if not uid in uic:
+                copy_elements(pdata, uic[uid], fields, skip_empty=True)
+                uic[uid]['user_id'] = uid
+                nadded += 1
+        fp.close()
+        print "  %d additional users loaded from %s/users.json.gz" % (nadded, mongodir)
+                
+        fp = gzip.GzipFile(mongodir / "profiles.json.gz")
+        fields = ['name', 'language', 'location', 'meta', 'courseware', 
+                  'gender', 'mailing_address', 'year_of_birth', 'level_of_education', 'goals', 
+                  'allow_certificate', 'country', 'city']
+        nadd_profiles = 0
+        def fix_unicode(elem, fields):
+            for k in fields:
+                elem[k] = elem[k].encode('utf8')
+
+        for line in fp:
+            pdata = json.loads(line.decode('utf8'))
+            uid = int(pdata['user_id'])
+            if not uic[uid].get('profile_name', None):
+                copy_elements(pdata, uic[uid], fields, prefix="profile_", skip_empty=True)
+                fix_unicode(uic[uid], ['profile_name', 'profile_mailing_address', 'profile_goals', 'profile_location', 'profile_language'])
+                nadd_profiles += 1
+        fp.close()
+        print "  %d additional profiles loaded from %s/profiles.json.gz" % (nadd_profiles, mongodir)
+                
+        fp = gzip.GzipFile(mongodir / "enrollment.json.gz")
+        fields = ['course_id', 'created', 'is_active', 'mode', ]
+        nadd_enrollment = 0
+        for line in fp:
+            pdata = json.loads(line.decode('utf8'))
+            uid = int(pdata['user_id'])
+            if not uic[uid].get('enrollment_course_id', None):
+                copy_elements(pdata, uic[uid], fields, prefix="enrollment_", skip_empty=True)
+                nadd_enrollment += 1
+        fp.close()
+        print "  %d additional enrollments loaded from %s/enrollment.json.gz" % (nadd_enrollment, mongodir)
+
+        print "     from mongodb files, added %s new users (%s profiles, %s enrollments)" % (nadded, nadd_profiles, nadd_enrollment)
+        sys.stdout.flush()
+
     fp = openfile('certificates.csv')
     if fp is None:
         print "--> Skipping certificates.csv, file does not exist"
@@ -200,5 +264,9 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
             print "Suppressing this row"
             continue
         ofp.write(json.dumps(data) + '\n')
-        ocsv.writerow(data)
+        try:
+            ocsv.writerow(data)
+        except Exception as err:
+            print "failed to write data=%s" % data
+            raise
     
