@@ -233,6 +233,7 @@ def default_logger(msg):
 
 def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, force_query=False, logger=default_logger,
                  depends_on=None,
+                 newer_than=None,
                  startIndex=None, maxResults=1000000):
     '''
     Retrieve data for the specified BQ table if it exists.
@@ -241,6 +242,9 @@ def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, forc
     depends_on may be provided as a list of "dataset.table" strings, which specify which table(s)
     the desired table depends on.  If the desired table exists, but is older than any of the 
     depends_on table(s), then it is recomputed from the sql (assuming the sql was provided).
+
+    newer_than may be provided, as a datetime, specifying that if the desired table exists,
+    it must be newer than the specified datetime, else it should be recomputed.
     '''
     if (depends_on is not None) and (sql is not None) and (not force_query):
 
@@ -265,7 +269,19 @@ def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, forc
                 force_query = True
                 logger("[get_bq_table] Forcing query recomputation of %s.%s, table_date=%s, latest=%s" % (dataset, tablename,
                                                                                                           table_date, latest))
-
+    if (not force_query) and newer_than and (sql is not None):
+        # get the mod time of the computed table, if it exists
+        try:
+            table_date = get_bq_table_last_modified_datetime(dataset, tablename)
+        except Exception as err:
+            if 'Not Found' in str(err):
+                table_date = None
+            else:
+                raise
+        if table_date < newer_than:
+            force_query = True
+            logger("[get_bq_table] Forcing query recomputation of %s.%s, table_date=%s, newer_than=%s" % (dataset, tablename,
+                                                                                                          table_date, newer_than))
 
     if force_query:
         create_bq_table(dataset, tablename, sql, logger=logger, overwrite=True)
