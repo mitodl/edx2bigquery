@@ -63,7 +63,18 @@ def mongo_dump_user_info_files(course_id, basedir=None, datedir=None, dbname=Non
               udoc = db.auth_user.find({_id: doc.user_id})[0];
               print(JSON.stringify(udoc));
           }
-         """ % (dbname, course_id)
+          var course = '%s';
+          var cursor = db.certificates_generatedcertificate.find({'course_id': course});
+          while (cursor.hasNext()) {
+              var doc = cursor.next();
+              usc = db.student_courseenrollment.find({'course_id': course, 'user_id': doc.user_id });
+              if (usc.length()==0){
+                  udoc = db.auth_user.find({_id: doc.user_id})[0];
+                  db.auth_userprofile.update({'user_id' : doc.user_id}, {\$addToSet : {courses: course }});
+                  print(JSON.stringify(udoc));
+              }
+          }
+         """ % (dbname, course_id, course_id)
 
     ofn = mongodir / "users.json.gz"
     cmd = 'echo "%s" | mongo --quiet | tail -n +3 | gzip -9 > %s' % (js.replace('\n',''), ofn)

@@ -192,7 +192,8 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         nadd_profiles = 0
         def fix_unicode(elem, fields):
             for k in fields:
-                elem[k] = elem[k].encode('utf8')
+                if (k in elem) and elem[k]:
+                    elem[k] = elem[k].encode('utf8')
 
         for line in fp:
             pdata = json.loads(line.decode('utf8'))
@@ -228,7 +229,28 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
             fields = ['download_url', 'grade', 'course_id', 'key', 'distinction', 'status', 
                       'verify_uuid', 'download_uuid', 'name', 'created_date', 'modified_date', 'error_reason', 'mode',]
             copy_elements(line, uic[uid], fields, prefix="certificate_")
+            if 'user_id' not in uic[uid]:
+                uic[uid]['user_id'] = uid
     
+    # sanity check for entries with user_id but missing username
+    nmissing_uname = 0
+    for uid, entry in uic.iteritems():
+        if (not 'username' in entry) or (not entry['username']):
+            nmissing_uname += 1
+            if nmissing_uname < 10:
+                print "missing username: %s" % entry
+    print "--> %d entries missing username" % nmissing_uname
+    sys.stdout.flush()
+    
+    # sanity check for entries missing course_id
+    nmissing_cid = 0
+    for uid, entry in uic.iteritems():
+        if (not 'enrollment_course_id' in entry) or (not entry['enrollment_course_id']):
+            nmissing_cid += 1
+            entry['enrollment_course_id'] = course_id
+    print "--> %d entries missing enrollment_course_id (all fixed by setting to %s)" % (nmissing_cid, course_id)
+    sys.stdout.flush()
+
     fp = openfile('user_id_map.csv')
     if fp is None:
         print "--> Skipping user_id_map.csv, file does not exist"
@@ -270,3 +292,5 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
             print "failed to write data=%s" % data
             raise
     
+    print "Done with make_user_info_combo for %s" % course_id
+    sys.stdout.flush()
