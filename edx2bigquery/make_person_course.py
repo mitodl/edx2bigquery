@@ -514,9 +514,16 @@ class PersonCourse(object):
             cnt += 1
             check_schema(cnt, pcent, the_ds=self.the_dict_schema, coerce=True)
             ofp.write(json.dumps(pcent) + '\n')
+        ofp.close()
 
         # now write CSV file (may have errors due to unicode)
         for key, pcent in self.pctab.iteritems():
+            try:
+                if 'countryLabel' in pcent:
+                    pcent['countryLabel'] = pcent['countryLabel'].decode('utf8').encode('utf8')
+            except Exception as err:
+                self.log("Error handling country code unicode row=%s" % pcent)
+                raise
             try:
                 ocsv.writerow(pcent)
             except Exception as err:
