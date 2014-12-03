@@ -284,6 +284,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
     parser.add_argument("--skip-geoip", help="skip geoip processing in person_course", action="store_true")
     parser.add_argument("--skip-if-exists", help="skip processing in person_course if table already exists", action="store_true")
     parser.add_argument("--just-do-nightly", help="for person_course, just update activity stats for new logs", action="store_true")
+    parser.add_argument("--just-do-geoip", help="for person_course, just update geoip using local db", action="store_true")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
     parser.add_argument("--dbname", type=str, help="mongodb db name to use for mongo2gs")
@@ -530,6 +531,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
                                                       skip_if_table_exists=args.skip_if_exists,
                                                       use_dataset_latest=use_dataset_latest,
                                                       just_do_nightly=just_do_nightly or args.just_do_nightly,
+                                                      just_do_geoip=args.just_do_geoip,
                                                       )
             except Exception as err:
                 print err

@@ -11,20 +11,29 @@ import codecs
 import gsutil
 import bqutil
 import pygeoip
+import pygeoip
+import geoip2.database
 from collections import OrderedDict
 
 GIPDATASET = 'geocode'
 GIPTABLE = 'extra_geoip'
 
 class GeoIPData(object):
-    def __init__(self, gipdataset=GIPDATASET, giptable=GIPTABLE, geoipdat='GeoIPCity.dat'):
+    def __init__(self, gipdataset=GIPDATASET, giptable=GIPTABLE, geoipdat='GeoIP2-City.mmdb', version=2):
+
+        # geoip version 1: GeoIPCity.dat
+        # geoip version 2: GeoIP2-City.mmdb
 
         if not os.path.exists(geoipdat):
             raise Exception("---> [make_geoip_table] Error! Missing file %s for local geoip" % geoipdat)
         self.gipdataset = gipdataset
         self.giptable = giptable
         self.gipfn = self.giptable + ".json"
-        self.gi = pygeoip.GeoIP(geoipdat, pygeoip.MEMORY_CACHE)
+        self.version = version
+        if version==1:
+            self.gi = pygeoip.GeoIP(geoipdat, pygeoip.MEMORY_CACHE)
+        else:
+            self.gi = geoip2.database.Reader(geoipdat)
         self.nchanged = 0
 
     def load_geoip(self):
@@ -51,7 +60,10 @@ class GeoIPData(object):
         if ip in self.geoipdat:
             return self.geoipdat[ip]
         try:
-            rec = self.gi.record_by_addr(ip)
+            if self.version==1:
+                rec = self.gi.record_by_addr(ip)
+            else:
+                rec = self.gi.city(ip)
         except Exception as err:
             print "--> Cannot get geoip for %s, skipping" % ip
             return
@@ -61,15 +73,24 @@ class GeoIPData(object):
             return
     
         try:
-            self.geoipdat[ip] = {'ip': ip, 
-                                 'city': rec['city'].decode('latin1'),	# maxmind geoip data city encoded as latin1
-                                 'countryLabel': rec['country_name'],
-                                 'country': rec['country_code'],
-                                 'latitude': rec['latitude'],
-                                 'longitude': rec['longitude'],
-                                 }
+            if self.version==1:
+                self.geoipdat[ip] = {'ip': ip, 
+                                     'city': rec['city'].decode('latin1'),	# maxmind geoip data city encoded as latin1
+                                     'countryLabel': rec['country_name'],
+                                     'country': rec['country_code'],
+                                     'latitude': rec['latitude'],
+                                     'longitude': rec['longitude'],
+                                     }
+            else:
+                self.geoipdat[ip] = {'ip': ip, 
+                                     'city': rec.city.names.get('en', ''),	# already unicode
+                                     'countryLabel': rec.country.names['en'],
+                                     'country': rec.country.iso_code,
+                                     'latitude': rec.location.latitude,
+                                     'longitude': rec.location.longitude,
+                                     }
         except Exception as err:
-            print "Oops, bad geoip record for ip=%s, got rec=%s" % (ip, rec)
+            print "Oops, bad geoip record for ip=%s, error=%s, got rec=%s" % (ip, str(err), rec)
             return None
     
         # In [3]: gi.record_by_addr('217.212.231.57')

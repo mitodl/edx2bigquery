@@ -988,6 +988,13 @@ class PersonCourse(object):
         self.output_table()
         self.upload_to_bigquery()
         
+    def redo_extra_geoip(self):
+        self.log("PersonCourse just re-doing extra geoip (fifth phase)")
+        self.reload_table()
+        self.compute_fifth_phase()
+        self.output_table()
+        self.upload_to_bigquery()
+        
 #-----------------------------------------------------------------------------
 
 def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-21", options='', 
@@ -1000,6 +1007,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                        use_dataset_latest=False,
                        skip_if_table_exists=False,
                        just_do_nightly=False,
+                       just_do_geoip=False,
                        ):
     '''
     make one person course dataset
@@ -1030,6 +1038,8 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
     redo2 = 'redo2' in options
     if redo2:
         pc.redo_second_phase()
+    elif just_do_geoip:
+        pc.redo_extra_geoip()
     elif just_do_nightly:
         pc.nightly_update()
     else:
