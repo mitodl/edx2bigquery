@@ -131,6 +131,18 @@ def get_table_data(dataset_id, table_id, key=None, logger=None, project_id=DEFAU
         table_ref['startIndex'] = startIndex
 
     data = tabledata.list(**table_ref).execute()
+    if not 'rows' in data:
+        print '[bqutil.get_table_data] No rows in data!  data=%s' % data
+        return None
+
+    dataRows = int(len(data['rows']))
+    totalRows = int(data['totalRows'])
+    while (dataRows < totalRows):
+       table_ref['startIndex'] = dataRows
+       data_append = tabledata.list(**table_ref).execute()
+       data['rows'] += data_append['rows']
+       dataRows = int(len(data['rows']))
+    print "[bqutil] Total Rows Retrieved: %s" % dataRows
 
     fields = table['schema']['fields']
     field_names = [x['name'] for x in fields]
