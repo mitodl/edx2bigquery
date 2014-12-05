@@ -278,7 +278,7 @@ def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, forc
                 table_date = None
             else:
                 raise
-        if table_date < newer_than:
+        if table_date and (table_date < newer_than):
             force_query = True
             logger("[get_bq_table] Forcing query recomputation of %s.%s, table_date=%s, newer_than=%s" % (dataset, tablename,
                                                                                                           table_date, newer_than))
