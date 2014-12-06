@@ -468,6 +468,7 @@ class PersonCourse(object):
         nnew = 0
         nmissing_geo = 0
         nmissing_ip = 0
+        nmissing_ip_but_have_events = 0
         for key, pcent in self.pctab.iteritems():
             cc = pcent.get('cc_by_ip', None)
             if cc is not None:
@@ -475,6 +476,8 @@ class PersonCourse(object):
             ip = pcent.get('ip', None)
             if ip is None:
                 nmissing_ip += 1
+                if pcent.get('nevents'):
+                    nmissing_ip_but_have_events += 1
                 continue
             gdat = gid.lookup_ip(ip)
             if gdat is None:
@@ -489,7 +492,7 @@ class PersonCourse(object):
                 sys.stdout.write('.')
                 sys.stdout.flush()
         self.log("Done: %d new geoip entries added to person_course for %s" % (nnew, self.course_id))
-        self.log("--> # missing_ip = %d, # missing_geo = %d" % (nmissing_ip, nmissing_geo))
+        self.log("--> # missing_ip = %d, # missing_geo = %d, # missing_ip_but_have_events = %d" % (nmissing_ip, nmissing_geo, nmissing_ip_but_have_events))
         sys.stdout.flush()
         gid.write_geoip_table()
         
