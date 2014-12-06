@@ -8,6 +8,7 @@ import sys
 import re
 import json
 import codecs
+import time
 import gsutil
 import bqutil
 import pygeoip
@@ -17,6 +18,37 @@ from collections import OrderedDict
 
 GIPDATASET = 'geocode'
 GIPTABLE = 'extra_geoip'
+
+def lock_file(fn, release=False):
+    lockfn = '%s.lock' % fn
+
+    if release:
+        try:
+            os.rmdir(lockfn)
+        except Exception as err:
+            print "[lock_file] in releasing lock %s, err=%s" % (lockfn, err)
+            return False
+        return True
+
+    cnt = 0
+    have_lock = False
+    while not have_lock:
+        if not os.exists(lockfn):
+            try:
+                os.mkdir(lockfn)
+                return True
+            except Exception as err:
+                print "[lock_file] in acquiring lock %s, err=%s" % (lockfn, err)
+        cnt += 1
+        if (cnt > 1000):
+            print "[lock_file] Aborting!"
+            break
+        print "[lock_file] waiting for %s..." % lockfn
+        time.slep(10)
+    if not have_lock:
+        msg = "[lock_file] Aborting - could not acquire %s" % lockfn
+        raise Exception(msg)
+    return False
 
 class GeoIPData(object):
     def __init__(self, gipdataset=GIPDATASET, giptable=GIPTABLE, geoipdat='GeoIP2-City.mmdb', version=2):
@@ -40,9 +72,14 @@ class GeoIPData(object):
         if os.path.exists(self.gipfn):
             print "Retrieving existing geoipdat from local file %s" % (self.gipfn)
             geoipdat = OrderedDict()
+            lock_file(self.gipfn)
             for k in open(self.gipfn):
-                data = json.loads(k)
+                try:
+                    data = json.loads(k)
+                except Exception as err:
+                    print "[GeoIpData] in loading '%s' from %s err %s" % (k, self.gipfn, err)
                 geoipdat[data['ip']] = data
+            lock_file(self.gipfn, release=True)
         else:
             try:
                 print "--> Trying to retrieve geoipdat from BigQuery %s.%s" % (self.gipdataset, self.giptable)
@@ -133,9 +170,11 @@ class GeoIPData(object):
                 raise
         ofp.close()
 
+        lock_file(self.gipfn)
         print "--> renaming %s to %s" % (ofn, self.gipfn)
         sys.stdout.flush()
         os.rename(ofn, self.gipfn)
+        lock_file(self.gipfn, release=True)
         
         mypath = os.path.dirname(os.path.realpath(__file__))
         the_schema = json.loads(open('%s/schemas/schema_extra_geoip.json' % mypath).read())['extra_geoip']
