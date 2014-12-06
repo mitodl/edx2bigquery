@@ -15,8 +15,6 @@ from path import path
 
 from argparse import RawTextHelpFormatter
 
-MAXIMUM_PARALLEL_PROCESSES = 5
-
 CURDIR = path(os.path.abspath(os.curdir))
 if os.path.exists(CURDIR / 'edx2bigquery_config.py'):
     sys.path.append(CURDIR)
@@ -592,7 +590,10 @@ delete_stats_tables         : delete stats_activity_by_day tables
     except:
         param.DEFAULT_MONGO_DB = None
 
-                    
+    try:
+        MAXIMUM_PARALLEL_PROCESSES = getattr(edx2bigquery_config, "MAXIMUM_PARALLEL_PROCESSES", None)
+    except:
+        MAXIMUM_PARALLEL_PROCESSES = 5
 
     #-----------------------------------------------------------------------------            
 
