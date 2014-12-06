@@ -24,7 +24,7 @@ except:
 import auth
 from collections import OrderedDict
 
-#service = auth.build_bq_client(timeout=120) 
+#service = auth.build_bq_client(timeout=360)
 service = auth.build_bq_client() 
 
 projects = service.projects()
@@ -380,6 +380,9 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
 
     if not wait:
         return
+
+    timeoutMs = 5000
+    job_ref['timeoutMs'] = timeoutMs
 
     ecnt = 0
     while job.get('status', {}).get('state', None) <> 'DONE':
