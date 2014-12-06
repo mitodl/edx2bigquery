@@ -33,7 +33,7 @@ def lock_file(fn, release=False):
     cnt = 0
     have_lock = False
     while not have_lock:
-        if not os.exists(lockfn):
+        if not os.path.exists(lockfn):
             try:
                 os.mkdir(lockfn)
                 return True
