@@ -35,6 +35,9 @@ jobs = service.jobs()
 
 PROJECT_NAMES = {}				# used to cache project names, key=project_id
 
+def default_logger(msg):
+    print msg
+
 def get_project_name(project_id=DEFAULT_PROJECT_ID):
     if project_id in PROJECT_NAMES:		# lookup in cache, first
         return PROJECT_NAMES[project_id]
@@ -101,7 +104,8 @@ def get_list_of_table_ids(dataset_id):
     table_id_list = [ x['tableReference']['tableId'] for x in tables_info ]
     return table_id_list
 
-def get_table_data(dataset_id, table_id, key=None, logger=None, project_id=DEFAULT_PROJECT_ID, 
+def get_table_data(dataset_id, table_id, key=None, logger=default_logger, 
+                   project_id=DEFAULT_PROJECT_ID, 
                    startIndex=None, maxResults=1000000):
     '''
     Retrieve data from a specific BQ table.  Return as a dict, with
@@ -245,9 +249,6 @@ def get_bq_table_info(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
     table['lastModifiedTime'] = bq_timestamp_milliseconds_to_datetime(table['lastModifiedTime'])
     table['creationTime'] = bq_timestamp_milliseconds_to_datetime(table['creationTime'])
     return table
-
-def default_logger(msg):
-    print msg
 
 def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, force_query=False, logger=default_logger,
                  depends_on=None,
