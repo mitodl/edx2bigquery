@@ -24,8 +24,8 @@ except:
 import auth
 from collections import OrderedDict
 
-#service = auth.build_bq_client(timeout=360)
-service = auth.build_bq_client() 
+service = auth.build_bq_client(timeout=480)
+#service = auth.build_bq_client() 
 
 projects = service.projects()
 datasets = service.datasets()
@@ -142,9 +142,10 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
 
     dataRows = int(len(data['rows']))
     totalRows = int(data['totalRows'])
+    num_rows_expected = (totalRows-(startIndex or 0))
     multiple_reads = 0
 
-    while (dataRows < totalRows):
+    while (dataRows < num_rows_expected):
        table_ref['startIndex'] = dataRows
        data_append = tabledata.list(**table_ref).execute()
        data['rows'] += data_append['rows']
@@ -152,7 +153,7 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
        multiple_reads += 1
 
     if multiple_reads:
-        logger("[bqutil] Total Rows Retrieved: %s (%d read requests)" % (dataRows, multiple_reads))
+        logger("[bqutil] Total Rows Retrieved: %s (%d read requests, expected %d)" % (dataRows, multiple_reads+1, num_rows_expected))
 
     fields = table['schema']['fields']
     field_names = [x['name'] for x in fields]
@@ -381,16 +382,16 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
     if not wait:
         return
 
-    timeoutMs = 5000
-    job_ref['timeoutMs'] = timeoutMs
+    # timeoutMs = 5000
+    # job_ref['timeoutMs'] = timeoutMs
 
     ecnt = 0
     while job.get('status', {}).get('state', None) <> 'DONE':
         if 'status' not in job:
             ecnt += 1
-            if (ecnt > 2):
+            if (ecnt == 10):
                 logger("[bqutil] Error!  no job status?  job ret = %s" % job)
-            if (ecnt > 40):
+            if (ecnt > 200):
                 raise Exception('BQ Error getting job status')
         else:
             ecnt = 0
@@ -399,6 +400,7 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
             job = jobs.get(**job_ref).execute()
         except Exception as err:
             print "[bqutil] oops!  Failed to execute jobs.get=%s" % (job_ref)
+            print "[bqutil] err=%s" % str(err)
 
     status = job['status']
     logger( "[bqutil] job status: %s" % status )
