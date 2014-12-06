@@ -390,7 +390,7 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
             ecnt += 1
             if (ecnt > 2):
                 logger("[bqutil] Error!  no job status?  job ret = %s" % job)
-            if (ecnt > 5):
+            if (ecnt > 40):
                 raise Exception('BQ Error getting job status')
         else:
             ecnt = 0
