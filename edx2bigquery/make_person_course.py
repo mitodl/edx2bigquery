@@ -520,7 +520,11 @@ class PersonCourse(object):
         for key, pcent in self.pctab.iteritems():
             try:
                 if 'countryLabel' in pcent:
-                    pcent['countryLabel'] = pcent['countryLabel'].decode('utf8').encode('utf8')
+                    if pcent['countryLabel'] == u'R\xe9union':
+                        pcent['countryLabel'] = 'Reunion'
+                    else:
+                        #pcent['countryLabel'] = pcent['countryLabel'].decode('utf8').encode('utf8')
+                        pcent['countryLabel'] = pcent['countryLabel'].encode('ascii', 'ignore')
             except Exception as err:
                 self.log("Error handling country code unicode row=%s" % pcent)
                 raise

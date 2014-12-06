@@ -84,7 +84,7 @@ class GeoIPData(object):
             else:
                 self.geoipdat[ip] = {'ip': ip, 
                                      'city': rec.city.names.get('en', ''),	# already unicode
-                                     'countryLabel': rec.country.names['en'],
+                                     'countryLabel': rec.country.names.get('en', ''),
                                      'country': rec.country.iso_code,
                                      'latitude': rec.location.latitude,
                                      'longitude': rec.location.longitude,
