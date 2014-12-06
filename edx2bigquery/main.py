@@ -318,7 +318,7 @@ def doall(param, course_id, args, stdout=None):
     end = datetime.datetime.now()
     ret = {'start': start, 'end': end, 'dt' : end-start, 'success': success, 'course_id': course_id, 'stdout': stdout}
     print "-"*100
-    print "DOALL DONE WITH %s, success=%s, dt=%s" % (course_id, ret['dt'], ret['success'])
+    print "DOALL DONE WITH %s, success=%s, dt=%s" % (course_id, ret['success'], ret['dt'])
     print "-"*100
     sys.stdout.flush()
     return ret
