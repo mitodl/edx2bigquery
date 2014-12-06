@@ -44,7 +44,7 @@ def lock_file(fn, release=False):
             print "[lock_file] Aborting!"
             break
         print "[lock_file] waiting for %s..." % lockfn
-        time.slep(10)
+        time.sleep(10)
     if not have_lock:
         msg = "[lock_file] Aborting - could not acquire %s" % lockfn
         raise Exception(msg)
