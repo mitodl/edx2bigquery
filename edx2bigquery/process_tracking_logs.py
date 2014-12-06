@@ -36,6 +36,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
 
     if existing is None:
         existing = bqutil.get_list_of_table_ids(dataset)
+        print "[run_query_on_tracking_logs] got %s existing tables in dataset %s" % (len(existing or []), dataset)
 
     if log_dates is None:
         log_tables = [x for x in bqutil.get_list_of_table_ids(log_dataset) if x.startswith('tracklog_20')]
@@ -46,6 +47,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
 
     if end_date is not None:
         print "[run_query_on_tracking_logs] %s: Using end_date=%s for max_date cutoff" % (table, end_date)
+        sys.stdout.flush()
         the_end_date = end_date.replace('-','')	# end_date should be YYYY-MM-DD
         if the_end_date < max_date:
             max_date = the_end_date
@@ -65,12 +67,14 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                                                                                                               table_max_date,
                                                                                                               min_date,
                                                                                                               max_date)
+            sys.stdout.flush()
             return
         min_date = (max(last_dates) + datetime.timedelta(days=1)).strftime('%Y%m%d')
         print '--> %s already exists, max_date=%s, adding tracking log data from %s to max=%s' % (table, 
                                                                                                   table_max_date,
                                                                                                   min_date,
                                                                                                   max_date)
+        sys.stdout.flush()
         overwrite = 'append'
 
     from_datasets = """(
@@ -98,6 +102,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
             (max_year, max_month, max_day) = get_ym(max_date)
             nmonths = max_month - min_month + 12 * (max_year - min_year)
             print "====> ERROR with resources exceeded during query execution; re-trying based on one month's data at a time"
+            sys.stdout.flush()
             (end_year, end_month) = (min_year, min_month)
             for dm in range(nmonths):
                 end_month += 1
