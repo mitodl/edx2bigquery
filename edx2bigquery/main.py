@@ -8,10 +8,14 @@ import sys
 import argparse
 import json
 import traceback
+import datetime
+import multiprocessing as mp
 
 from path import path
 
 from argparse import RawTextHelpFormatter
+
+MAXIMUM_PARALLEL_PROCESSES = 5
 
 CURDIR = path(os.path.abspath(os.curdir))
 if os.path.exists(CURDIR / 'edx2bigquery_config.py'):
@@ -52,6 +56,275 @@ def get_course_ids_no_check(args):
     if args.year2:
         return edx2bigquery_config.course_id_list
     return args.courses
+
+class Parameters(object):
+    '''
+    Handy empty class for storing option settings; needed to make analysis functions global, so they can be parallelized.
+    '''
+    def __init__(self):
+        return
+
+class SubProcessStdout(object):
+    def __init__(self, label):
+        self.label = label
+        self.output = ""
+
+    def write(self,msg):
+        msg = msg.replace('\n', '\n[%s] ' % self.label)
+        self.output += msg
+        sys.__stdout__.write(msg)
+        self.flush()
+
+    def flush(self):
+        sys.__stdout__.flush()
+
+#-----------------------------------------------------------------------------
+# main functions for performing analysis
+
+def setup_sql(param, args, steps, course_id=None):
+    sqlall = steps=='setup_sql'
+    if course_id is None:
+        for course_id in get_course_ids(args):
+            print "="*100
+            print "Processing setup_sql for %s" % course_id
+            sys.stdout.flush()
+            try:
+                setup_sql(param, args, steps, course_id)
+            except Exception as err:
+                print "===> Error completing setup_sql on %s, err=%s" % (course_id, str(err))
+                traceback.print_exc()
+                sys.stdout.flush()
+        return
+
+    if sqlall or 'make_uic' in steps:
+        import make_user_info_combo
+        make_user_info_combo.process_file(course_id, 
+                                          basedir=param.the_basedir,
+                                          datedir=param.the_datedir,
+                                          use_dataset_latest=param.use_dataset_latest,
+                                          )
+    if sqlall or 'sql2bq' in steps:
+        import load_course_sql
+        try:
+            load_course_sql.load_sql_for_course(course_id, 
+                                                gsbucket=edx2bigquery_config.GS_BUCKET,
+                                                basedir=param.the_basedir,
+                                                datedir=param.the_datedir,
+                                                do_gs_copy=True,
+                                                use_dataset_latest=param.use_dataset_latest,
+                                                )
+        except Exception as err:
+            print err
+        
+    if sqlall or 'load_forum' in steps:
+        import rephrase_forum_data
+        try:
+            rephrase_forum_data.rephrase_forum_json_for_course(course_id,
+                                                               gsbucket=edx2bigquery_config.GS_BUCKET,
+                                                               basedir=param.the_basedir,
+                                                               datedir=param.the_datedir,
+                                                               use_dataset_latest=param.use_dataset_latest,
+                                                               )
+        except Exception as err:
+            print err
+
+
+def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
+    if steps=='daily_logs':
+        # doing daily_logs, so run split once first, then afterwards logs2gs and logs2bq
+        daily_logs(param, args, 'split', args.tlfn)
+        for course_id in get_course_ids(args):
+            daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose)
+        return
+
+    if course_id is None:
+        do_check = not (steps=='split')
+        for course_id in get_course_ids(args, do_check=do_check):
+            print "---> Processing %s on course_id=%s" % (steps, course_id)
+            daily_logs(param, args, steps, course_id)
+        return
+
+    if 'split' in steps:
+        import split_and_rephrase
+        tlfn = course_id		# tracking log filename
+        if '*' in tlfn:
+            import glob
+            TODO = glob.glob(tlfn)
+            TODO.sort()
+        else:
+            TODO = [tlfn]
+        for the_tlfn in TODO:
+            print "--> Splitting tracking logs in %s" % the_tlfn
+            split_and_rephrase.do_file(the_tlfn, args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY)
+
+    if 'logs2gs' in steps:
+        import transfer_logs_to_gs
+        try:
+            transfer_logs_to_gs.process_dir(course_id, 
+                                            edx2bigquery_config.GS_BUCKET,
+                                            args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY,
+                                            verbose=verbose,
+                                            )
+        except Exception as err:
+            print err
+
+    if 'logs2bq' in steps:
+        import load_daily_tracking_logs
+        try:
+            load_daily_tracking_logs.load_all_daily_logs_for_course(course_id, edx2bigquery_config.GS_BUCKET,
+                                                                    verbose=verbose, wait=wait,
+                                                                    check_dates= (not wait),
+                                                                    )
+        except Exception as err:
+            print err
+            raise
+
+def analyze_problems(param, courses, args):
+    import make_problem_analysis
+    for course_id in get_course_ids(courses):
+        try:
+            make_problem_analysis.analyze_problems(course_id, 
+                                                   basedir=param.the_basedir, 
+                                                   datedir=param.the_datedir,
+                                                   force_recompute=args.force_recompute,
+                                                   use_dataset_latest=param.use_dataset_latest,
+                                                   )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+    
+def problem_check(param, courses, args):
+    import make_problem_analysis
+    for course_id in get_course_ids(courses):
+        try:
+            make_problem_analysis.problem_check_tables(course_id, 
+                                                       force_recompute=args.force_recompute,
+                                                       use_dataset_latest=param.use_dataset_latest,
+                                                       end_date=args.end_date,
+                                                       )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+    
+def axis2bq(param, courses, args):
+    import make_course_axis
+
+    for course_id in get_course_ids(courses):
+        if args.skip_if_exists and axis2bigquery.already_exists(course_id, use_dataset_latest=param.use_dataset_latest):
+            print "--> course_axis for %s already exists, skipping" % course_id
+            sys.stdout.flush()
+            continue
+        make_course_axis.process_course(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose)
+        
+
+def person_day(param, courses, args, check_dates=True):
+    import make_person_course_day
+    for course_id in get_course_ids(courses):
+        try:
+            make_person_course_day.process_course(course_id, 
+                                                  force_recompute=args.force_recompute,
+                                                  use_dataset_latest=param.use_dataset_latest,
+                                                  check_dates=check_dates,
+                                                  end_date=args.end_date,
+                                                  )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+        
+
+def pcday_ip(param, courses, args):
+    import make_person_course_day
+    for course_id in get_course_ids(courses):
+        try:
+            make_person_course_day.compute_person_course_day_ip_table(course_id, force_recompute=args.force_recompute,
+                                                                      use_dataset_latest=param.use_dataset_latest,
+                                                                      end_date=args.end_date,
+                                                                      )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+
+
+def enrollment_day(param, courses, args):
+    import make_enrollment_day
+    for course_id in get_course_ids(courses):
+        try:
+            make_enrollment_day.process_course(course_id, 
+                                               force_recompute=args.force_recompute,
+                                               use_dataset_latest=param.use_dataset_latest)
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+
+def person_course(param, courses, args, just_do_nightly=False, force_recompute=False):
+    import make_person_course
+    print "[person_course]: for end date, using %s" % (args.end_date or param.DEFAULT_END_DATE)
+    for course_id in get_course_ids(courses):
+        try:
+            make_person_course.make_person_course(course_id,
+                                                  gsbucket=edx2bigquery_config.GS_BUCKET,
+                                                  basedir=param.the_basedir,
+                                                  datedir=param.the_datedir,
+                                                  start=(args.start_date or "2012-09-05"),
+                                                  end=(args.end_date or param.DEFAULT_END_DATE),
+                                                  force_recompute=args.force_recompute or force_recompute,
+                                                  nskip=(args.nskip or 0),
+                                                  skip_geoip=args.skip_geoip,
+                                                  skip_if_table_exists=args.skip_if_exists,
+                                                  use_dataset_latest=param.use_dataset_latest,
+                                                  just_do_nightly=just_do_nightly or args.just_do_nightly,
+                                                  just_do_geoip=args.just_do_geoip,
+                                                  )
+        except Exception as err:
+            print err
+            if ('no user_info_combo' in str(err)) or ('aborting - no dataset' in str(err)):
+                continue
+            if ('Internal Error' in str(err)):
+                continue
+            if ('BQ Error creating table' in str(err)):
+                continue
+            raise
+    
+def doall(param, course_id, args, stdout=None):
+    start = datetime.datetime.now()
+    success = False
+    if stdout:
+        sys.stdout = stdout			# overload for multiprocessing, so that we can unravel output streams
+    try:
+        print "-"*100
+        print "DOALL PROCESSING %s" % course_id
+        print "-"*100
+        setup_sql(param, course_id, 'setup_sql')
+        analyze_problems(param, course_id, args)
+        axis2bq(param, course_id, args)
+        daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
+        pcday_ip(param, course_id, args)	# needed for modal IP
+        person_day(param, course_id, args)
+        enrollment_day(param, course_id, args)
+        person_course(param, course_id, args)
+        problem_check(param, course_id, args)
+        success = True
+
+    except Exception as err:
+        print "="*100
+        print "ERROR: %s" % str(err)
+        traceback.print_exc()
+
+    end = datetime.datetime.now()
+    ret = {'start': start, 'end': end, 'dt' : end-start, 'success': success, 'course_id': course_id, 'stdout': stdout}
+    print "-"*100
+    print "DOALL DONE WITH %s, success=%s, dt=%s" % (course_id, ret['dt'], ret['success'])
+    print "-"*100
+    sys.stdout.flush()
+    return ret
+
+#-----------------------------------------------------------------------------
+# command line processing
 
 def CommandLine():
     help_text = """usage: %prog [command] [options] [arguments]
@@ -277,6 +550,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
     parser.add_argument("--end-date", type=str, help="end date for person-course dataset generated, e.g. '2014-09-21'")
     parser.add_argument("--tlfn", type=str, help="path to daily tracking log file to import, e.g. 'DAILY/mitx-edx-events-2014-10-14.log.gz'")
     parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
+    parser.add_argument("--parallel", help="run separate course_id's in parallel", action="store_true")
     parser.add_argument("--year2", help="increase output verbosity", action="store_true")
     parser.add_argument("--clist", type=str, help="specify name of list of courses to iterate command over")
     parser.add_argument("--force-recompute", help="force recomputation", action="store_true")
@@ -301,247 +575,24 @@ delete_stats_tables         : delete stats_activity_by_day tables
         sys.stderr.write("command = %s\n" % args.command)
         sys.stderr.flush()
 
-    the_basedir = args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None)
-    the_datedir = args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None)
-    use_dataset_latest = args.dataset_latest
+    param = Parameters()
+
+    param.the_basedir = args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None)
+    param.the_datedir = args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None)
+    param.use_dataset_latest = args.dataset_latest
 
     # default end date for person_course
     try:
-        DEFAULT_END_DATE = getattr(edx2bigquery_config, "DEFAULT_END_DATE", "2014-09-21")
+        param.DEFAULT_END_DATE = getattr(edx2bigquery_config, "DEFAULT_END_DATE", "2014-09-21")
     except:
-        DEFAULT_END_DATE = "2014-09-21"
+        param.DEFAULT_END_DATE = "2014-09-21"
 
     try:
-        DEFAULT_MONGO_DB = getattr(edx2bigquery_config, "DEFAULT_MONGO_DB", None)
+        param.DEFAULT_MONGO_DB = getattr(edx2bigquery_config, "DEFAULT_MONGO_DB", None)
     except:
-        DEFAULT_MONGO_DB = None
+        param.DEFAULT_MONGO_DB = None
 
-    def setup_sql(args, steps, course_id=None):
-        sqlall = steps=='setup_sql'
-        if course_id is None:
-            for course_id in get_course_ids(args):
-                print "="*100
-                print "Processing setup_sql for %s" % course_id
-                sys.stdout.flush()
-                try:
-                    setup_sql(args, steps, course_id)
-                except Exception as err:
-                    print "===> Error completing setup_sql on %s, err=%s" % (course_id, str(err))
-                    traceback.print_exc()
-                    sys.stdout.flush()
-            return
-
-        if sqlall or 'make_uic' in steps:
-            import make_user_info_combo
-            make_user_info_combo.process_file(course_id, 
-                                              basedir=the_basedir,
-                                              datedir=the_datedir,
-                                              use_dataset_latest=use_dataset_latest,
-                                              )
-        if sqlall or 'sql2bq' in steps:
-            import load_course_sql
-            try:
-                load_course_sql.load_sql_for_course(course_id, 
-                                                    gsbucket=edx2bigquery_config.GS_BUCKET,
-                                                    basedir=the_basedir,
-                                                    datedir=the_datedir,
-                                                    do_gs_copy=True,
-                                                    use_dataset_latest=use_dataset_latest,
-                                                    )
-            except Exception as err:
-                print err
-            
-        if sqlall or 'load_forum' in steps:
-            import rephrase_forum_data
-            try:
-                rephrase_forum_data.rephrase_forum_json_for_course(course_id,
-                                                                   gsbucket=edx2bigquery_config.GS_BUCKET,
-                                                                   basedir=the_basedir,
-                                                                   datedir=the_datedir,
-                                                                   use_dataset_latest=use_dataset_latest,
-                                                                   )
-            except Exception as err:
-                print err
                     
-    def daily_logs(args, steps, course_id=None, verbose=True, wait=False):
-        if steps=='daily_logs':
-            # doing daily_logs, so run split once first, then afterwards logs2gs and logs2bq
-            daily_logs(args, 'split', args.tlfn)
-            for course_id in get_course_ids(args):
-                daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose)
-            return
-
-        if course_id is None:
-            do_check = not (steps=='split')
-            for course_id in get_course_ids(args, do_check=do_check):
-                print "---> Processing %s on course_id=%s" % (steps, course_id)
-                daily_logs(args, steps, course_id)
-            return
-
-        if 'split' in steps:
-            import split_and_rephrase
-            tlfn = course_id		# tracking log filename
-            if '*' in tlfn:
-                import glob
-                TODO = glob.glob(tlfn)
-                TODO.sort()
-            else:
-                TODO = [tlfn]
-            for the_tlfn in TODO:
-                print "--> Splitting tracking logs in %s" % the_tlfn
-                split_and_rephrase.do_file(the_tlfn, args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY)
-
-        if 'logs2gs' in steps:
-            import transfer_logs_to_gs
-            try:
-                transfer_logs_to_gs.process_dir(course_id, 
-                                                edx2bigquery_config.GS_BUCKET,
-                                                args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY,
-                                                verbose=verbose,
-                                                )
-            except Exception as err:
-                print err
-
-        if 'logs2bq' in steps:
-            import load_daily_tracking_logs
-            try:
-                load_daily_tracking_logs.load_all_daily_logs_for_course(course_id, edx2bigquery_config.GS_BUCKET,
-                                                                        verbose=verbose, wait=wait,
-                                                                        check_dates= (not wait),
-                                                                        )
-            except Exception as err:
-                print err
-                raise
-                
-    def analyze_problems(courses):
-        import make_problem_analysis
-        for course_id in get_course_ids(courses):
-            try:
-                make_problem_analysis.analyze_problems(course_id, 
-                                                       basedir=the_basedir, 
-                                                       datedir=the_datedir,
-                                                       force_recompute=args.force_recompute,
-                                                       use_dataset_latest=use_dataset_latest,
-                                                       )
-            except Exception as err:
-                print err
-                traceback.print_exc()
-                sys.stdout.flush()
-        
-    def problem_check(courses):
-        import make_problem_analysis
-        for course_id in get_course_ids(courses):
-            try:
-                make_problem_analysis.problem_check_tables(course_id, 
-                                                           force_recompute=args.force_recompute,
-                                                           use_dataset_latest=use_dataset_latest,
-                                                           end_date=args.end_date,
-                                                           )
-            except Exception as err:
-                print err
-                traceback.print_exc()
-                sys.stdout.flush()
-        
-    def axis2bq(courses):
-        import edx2course_axis
-        import load_course_sql
-        import axis2bigquery
-        for course_id in get_course_ids(courses):
-            if args.skip_if_exists and axis2bigquery.already_exists(course_id, use_dataset_latest=use_dataset_latest):
-                print "--> course_axis for %s already exists, skipping" % course_id
-                sys.stdout.flush()
-                continue
-            sdir = load_course_sql.find_course_sql_dir(course_id, 
-                                                       basedir=the_basedir, 
-                                                       datedir=the_datedir,
-                                                       use_dataset_latest=use_dataset_latest,
-                                                       )
-            edx2course_axis.DATADIR = sdir
-            edx2course_axis.VERBOSE_WARNINGS = args.verbose
-            fn = sdir / 'course.xml.tar.gz'
-            if not os.path.exists(fn):
-                fn = sdir / 'course-prod-analytics.xml.tar.gz'
-                if not os.path.exists(fn):
-                    print "---> oops, cannot generate course axis for %s, file %s (or 'course.xml.tar.gz') missing!" % (course_id, fn)
-                    continue
-            try:
-                edx2course_axis.process_xml_tar_gz_file(fn,
-                                                       use_dataset_latest=use_dataset_latest)
-            except Exception as err:
-                print err
-                # raise
-            
-
-    def person_day(courses, check_dates=True):
-        import make_person_course_day
-        for course_id in get_course_ids(courses):
-            try:
-                make_person_course_day.process_course(course_id, 
-                                                      force_recompute=args.force_recompute,
-                                                      use_dataset_latest=use_dataset_latest,
-                                                      check_dates=check_dates,
-                                                      end_date=args.end_date,
-                                                      )
-            except Exception as err:
-                print err
-                traceback.print_exc()
-                sys.stdout.flush()
-            
-
-    def pcday_ip(courses):
-        import make_person_course_day
-        for course_id in get_course_ids(courses):
-            try:
-                make_person_course_day.compute_person_course_day_ip_table(course_id, force_recompute=args.force_recompute,
-                                                                          use_dataset_latest=use_dataset_latest,
-                                                                          end_date=args.end_date,
-                                                                          )
-            except Exception as err:
-                print err
-                traceback.print_exc()
-                sys.stdout.flush()
-
-
-    def enrollment_day(courses):
-        import make_enrollment_day
-        for course_id in get_course_ids(courses):
-            try:
-                make_enrollment_day.process_course(course_id, 
-                                                   force_recompute=args.force_recompute,
-                                                   use_dataset_latest=use_dataset_latest)
-            except Exception as err:
-                print err
-                traceback.print_exc()
-                sys.stdout.flush()
-        
-    def person_course(courses, just_do_nightly=False, force_recompute=False):
-        import make_person_course
-        print "[person_course]: for end date, using %s" % (args.end_date or DEFAULT_END_DATE)
-        for course_id in get_course_ids(courses):
-            try:
-                make_person_course.make_person_course(course_id,
-                                                      gsbucket=edx2bigquery_config.GS_BUCKET,
-                                                      basedir=the_basedir,
-                                                      datedir=the_datedir,
-                                                      start=(args.start_date or "2012-09-05"),
-                                                      end=(args.end_date or DEFAULT_END_DATE),
-                                                      force_recompute=args.force_recompute or force_recompute,
-                                                      nskip=(args.nskip or 0),
-                                                      skip_geoip=args.skip_geoip,
-                                                      skip_if_table_exists=args.skip_if_exists,
-                                                      use_dataset_latest=use_dataset_latest,
-                                                      just_do_nightly=just_do_nightly or args.just_do_nightly,
-                                                      just_do_geoip=args.just_do_geoip,
-                                                      )
-            except Exception as err:
-                print err
-                if ('no user_info_combo' in str(err)) or ('aborting - no dataset' in str(err)):
-                    continue
-                if ('Internal Error' in str(err)):
-                    continue
-                if ('BQ Error creating table' in str(err)):
-                    continue
-                raise
 
     #-----------------------------------------------------------------------------            
 
@@ -550,7 +601,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
         for course_id in get_course_ids(args):
             extract_logs_mongo2gs(course_id, verbose=args.verbose,
                                   start=(args.start_date or "2012-09-05"),
-                                  end=(args.end_date or DEFAULT_END_DATE),
+                                  end=(args.end_date or param.DEFAULT_END_DATE),
                                   dbname=args.dbname,
                                   collection=args.collection or 'tracking_log',
                                   tracking_logs_directory=args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY,
@@ -570,24 +621,35 @@ delete_stats_tables         : delete stats_activity_by_day tables
                 sys.stdout.write(newline)
 
     elif (args.command=='doall'):
-        for course_id in get_course_ids(args):
-            try:
-                print "-"*100
-                print "DOALL PROCESSING %s" % course_id
-                print "-"*100
-                setup_sql(course_id, 'setup_sql')
-                analyze_problems(course_id)
-                axis2bq(course_id)
-                daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
-                pcday_ip(course_id)	# needed for modal IP
-                person_day(course_id)
-                enrollment_day(course_id)
-                person_course(course_id)
-                problem_check(course_id)
-            except Exception as err:
-                print "="*100
-                print "ERROR: %s" % str(err)
-                traceback.print_exc()
+        if args.parallel:			# run multiple instances in parallel
+            courses = get_course_ids(args)
+            pool = mp.Pool(processes=MAXIMUM_PARALLEL_PROCESSES)
+            stdoutset = {}
+            results = []
+            for course_id in courses:
+                sq = SubProcessStdout(course_id)
+                stdoutset[course_id] = sq
+                results.append( pool.apply_async(doall, args=(param, course_id, args, sq)) )
+            output = [p.get() for p in results]
+            print "="*100
+            print "="*100
+            print "PARALLEL DOALL DONE"
+            print "="*100
+            print "="*100
+            for ret in output:
+                print '    [%s] success=%s, dt=%s' % (ret['course_id'], ret['success'], ret['dt'])
+            print "="*100
+            for ret in output:
+                course_id = ret['course_id']
+                print "="*100 + " [%s]" % course_id
+                print ret['stdout'].output
+            print "="*100
+            for ret in output:	# repeat
+                print '    [%s] success=%s, dt=%s' % (ret['course_id'], ret['success'], ret['dt'])
+            print "="*100
+        else:
+            for course_id in get_course_ids(args):
+                doall(param, course_id, args)
 
     elif (args.command=='nightly'):
         for course_id in get_course_ids(args):
@@ -595,44 +657,44 @@ delete_stats_tables         : delete stats_activity_by_day tables
             print "NIGHTLY PROCESSING %s" % course_id
             print "-"*100
             try:
-                daily_logs(args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
-                person_day(course_id, check_dates=False)
-                enrollment_day(course_id)
-                pcday_ip(course_id)	# needed for modal IP
-                person_course(course_id, just_do_nightly=True, force_recompute=True)
-                problem_check(course_id)
+                daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
+                person_day(param, course_id, args, check_dates=False)
+                enrollment_day(param, course_id, args)
+                pcday_ip(param, course_id, args)	# needed for modal IP
+                person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
+                problem_check(param, course_id)
             except Exception as err:
                 print "="*100
                 print "ERROR: %s" % str(err)
                 traceback.print_exc()
 
     elif (args.command=='make_uic'):
-        setup_sql(args, args.command)
+        setup_sql(param, args, args.command)
                                               
     elif (args.command=='sql2bq'):
-        setup_sql(args, args.command)
+        setup_sql(param, args, args.command)
 
     elif (args.command=='load_forum'):
-        setup_sql(args, args.command)
+        setup_sql(param, args, args.command)
 
     elif (args.command=='setup_sql'):
-        setup_sql(args, args.command)
+        setup_sql(param, args, args.command)
 
     elif (args.command=='waldofy'):
         import do_waldofication_of_sql
         dirname = args.courses[0]		# directory of unpacked SQL data from edX
         args.courses = args.courses[1:]		# remove first element, which was dirname
         courses = get_course_ids(args)
-        do_waldofication_of_sql.process_directory(dirname, courses, the_basedir)
+        do_waldofication_of_sql.process_directory(dirname, courses, param.the_basedir)
 
     elif (args.command=='mongo2user_info'):
         import fix_missing_user_info
         for course_id in get_course_ids(args):
             fix_missing_user_info.mongo_dump_user_info_files(course_id, 
-                                                             basedir=the_basedir, 
-                                                             datedir=the_datedir,
-                                                             dbname=args.dbname or DEFAULT_MONGO_DB,
-                                                             use_dataset_latest=use_dataset_latest,
+                                                             basedir=param.the_basedir, 
+                                                             datedir=param.the_datedir,
+                                                             dbname=args.dbname or param.DEFAULT_MONGO_DB,
+                                                             use_dataset_latest=param.use_dataset_latest,
                                                              )
 
     elif (args.command=='makegeoip'):
@@ -678,23 +740,23 @@ delete_stats_tables         : delete stats_activity_by_day tables
         import bqutil
         for course_id in get_course_ids(args):
             try:
-                dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+                dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
                 bqutil.delete_bq_table(dataset, 'stats_activity_by_day')
             except Exception as err:
                 print err
                 raise
 
     elif (args.command=='daily_logs'):
-        daily_logs(args, args.command)
+        daily_logs(param, args, args.command)
 
     elif (args.command=='split'):
-        daily_logs(args, args.command)
+        daily_logs(param, args, args.command)
 
     elif (args.command=='logs2gs'):
-        daily_logs(args, args.command)
+        daily_logs(param, args, args.command)
 
     elif (args.command=='logs2bq'):
-        daily_logs(args, args.command)
+        daily_logs(param, args, args.command)
 
     elif (args.command=='tsv2csv'):
         import csv
@@ -703,13 +765,13 @@ delete_stats_tables         : delete stats_activity_by_day tables
             fp.writerow(line[:-1].split('\t'))
 
     elif (args.command=='analyze_problems'):
-        analyze_problems(args)
+        analyze_problems(param, args, args)
 
     elif (args.command=='problem_check'):
-        problem_check(args)
+        problem_check(param, args, args)
 
     elif (args.command=='axis2bq'):
-        axis2bq(args)
+        axis2bq(param, args, args)
 
     elif (args.command=='staff2bq'):
         import load_staff
@@ -720,16 +782,16 @@ delete_stats_tables         : delete stats_activity_by_day tables
         make_cinfo.do_course_listings(args.courses[0])
 
     elif (args.command=='pcday_ip'):
-        pcday_ip(args)
+        pcday_ip(param, args, args)
 
     elif (args.command=='person_day'):
-        person_day(args)
+        person_day(param, args, args)
 
     elif (args.command=='enrollment_day'):
-        enrollment_day(args)
+        enrollment_day(param, args, args)
 
     elif (args.command=='person_course'):
-        person_course(args)
+        person_course(param, args, args)
 
     elif (args.command=='report'):
         import make_course_report_tables
@@ -738,7 +800,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
                                                output_project_id=args.output_project_id or edx2bigquery_config.PROJECT_ID,
                                                output_dataset_id=args.output_dataset_id,
                                                output_bucket=args.output_bucket or edx2bigquery_config.GS_BUCKET,
-                                               use_dataset_latest=use_dataset_latest,
+                                               use_dataset_latest=param.use_dataset_latest,
                                                )
 
     elif (args.command=='combinepc'):
@@ -749,7 +811,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
                                                output_project_id=args.output_project_id or edx2bigquery_config.PROJECT_ID,
                                                output_dataset_id=args.output_dataset_id,
                                                output_bucket=args.output_bucket or edx2bigquery_config.GS_BUCKET,
-                                               use_dataset_latest=use_dataset_latest,
+                                               use_dataset_latest=param.use_dataset_latest,
                                                )
 
     else:

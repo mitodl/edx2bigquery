@@ -60,6 +60,9 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
     if (not overwrite) and table in existing:
         # find out what the end date is of the current table
         pc_last = bqutil.get_table_data(dataset, table, startIndex=-10, maxResults=100)
+        if pc_last is None:
+            print "--> no data in latest tracking log %s.%s, aborting!" % (dataset, table)
+            return
         last_dates = [get_date_function(x) for x in pc_last['data']]
         table_max_date = max(last_dates).strftime('%Y%m%d')
         if max_date <= table_max_date:
