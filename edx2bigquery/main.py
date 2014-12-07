@@ -663,7 +663,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
                 enrollment_day(param, course_id, args)
                 pcday_ip(param, course_id, args)	# needed for modal IP
                 person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
-                problem_check(param, course_id)
+                problem_check(param, course_id, args)
             except Exception as err:
                 print "="*100
                 print "ERROR: %s" % str(err)
