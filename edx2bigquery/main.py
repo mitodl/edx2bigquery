@@ -41,6 +41,8 @@ def get_course_ids(args, do_check=True):
 def get_course_ids_no_check(args):
     if type(args)==str:		# special case: a single course, already specified
         return [ args ]
+    if type(args)==list:
+        return args
     if args.clist:
         course_dicts = getattr(edx2bigquery_config, 'courses', None)
         if course_dicts is None:
@@ -62,6 +64,14 @@ class Parameters(object):
     def __init__(self):
         return
 
+#-----------------------------------------------------------------------------
+# functions for parallel execution
+
+try:
+    MAXIMUM_PARALLEL_PROCESSES = getattr(edx2bigquery_config, "MAXIMUM_PARALLEL_PROCESSES", None)
+except:
+    MAXIMUM_PARALLEL_PROCESSES = 5
+
 class SubProcessStdout(object):
     def __init__(self, label):
         self.label = label
@@ -75,6 +85,81 @@ class SubProcessStdout(object):
 
     def flush(self):
         sys.__stdout__.flush()
+
+def run_parallel_or_serial(function, param, courses, optargs, parallel=False, name=None):
+    '''
+    run function(param, course_id, args) for each course_id in the list courses.
+
+    Do this serially if parallel=False.
+    Else run in parallel, using a multiprocessing parallel processing pool.
+    '''
+    if not name:
+        name = function.__name__
+
+    if not parallel:
+        try:
+            ret = function(param, courses, optargs)
+        except Exception as err:
+            print "===> Error running %s on %s, err=%s" % (name, courses, str(err))
+            traceback.print_exc()
+            sys.stdout.flush()
+            ret = {}
+        return ret
+            
+    pool = mp.Pool(processes=MAXIMUM_PARALLEL_PROCESSES)
+    results = []
+    for course_id in courses:
+        runname = "%s on %s" % (name, course_id)
+        runargs = (function, (param, course_id, optargs), SubProcessStdout(course_id), runname)
+        results.append( pool.apply_async(run_capture_stdout, args=(runargs)) )
+
+    output = [p.get() for p in results]
+    print "="*100
+    print "="*100
+    print "PARALLEL RUN of %s DONE" % name
+    print "="*100
+    print "="*100
+    def output_stats():
+        for ret in output:
+            ret = ret or {}
+            print '    [%s] success=%s, dt=%s' % (ret.get('name', name), ret.get('success', 'unknown'), ret.get('dt', 'unknown'))
+    output_stats()
+    print "="*100
+    for ret in output:
+        runname = ret.get('name', name)
+        print "="*100 + " [%s]" % runname
+        if 'stdout' in ret:
+            print ret['stdout'].output
+    print "="*100
+    output_stats()
+    print "="*100
+
+
+def run_capture_stdout(function, args, stdout=None, name="<run>"):
+    '''
+    run function(*args) and capture stdout.  Return dict with time elapsed, output, and success flag.
+    '''
+    start = datetime.datetime.now()
+    success = False
+    print "-"*100
+    print "[RUN] STARTING %s at %s" % (name, start)
+    print "-"*100
+    if stdout:
+        sys.stdout = stdout			# overload for multiprocessing, so that we can unravel output streams
+    try:
+        function(*args)
+        errstr = None
+        success = True
+    except Exception as err:
+        errstr = str(err)
+    
+    end = datetime.datetime.now()
+    ret = {'start': start, 'end': end, 'dt' : end-start, 'success': success, 'name': name, 'stdout': stdout}
+    print "-"*100
+    print "[RUN] DONE WITH %s, success=%s, dt=%s" % (name, ret['success'], ret['dt'])
+    print "-"*100
+    sys.stdout.flush()
+    return ret
 
 #-----------------------------------------------------------------------------
 # main functions for performing analysis
@@ -321,6 +406,13 @@ def doall(param, course_id, args, stdout=None):
     sys.stdout.flush()
     return ret
 
+def list_tables_in_course_db(param, courses, args):
+    import bqutil
+    for course_id in get_course_ids(courses):
+        dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
+        table = bqutil.get_list_of_table_ids(dataset)
+        print "Course %s, tables=%s" % (course_id, json.dumps(table, indent=4))
+
 #-----------------------------------------------------------------------------
 # command line processing
 
@@ -525,6 +617,8 @@ rephrase_logs               : process input tracking log lines one at a time fro
 testbq                      : test authentication to BigQuery, by listing accessible datasets.  This is a good command to start with,
                               to make sure your authentication is configured properly.
 
+get_course_tables <cid>     : dump list of tables in the course_id BigQuery dataset.  Good to use as a test case for parallel execution.
+
 get_tables <dataset>        : dump information about the tables in the specified BigQuery dataset.
 
 get_table_data <dataset>    : dump table data as JSON text to stdout
@@ -589,11 +683,6 @@ delete_stats_tables         : delete stats_activity_by_day tables
         param.DEFAULT_MONGO_DB = getattr(edx2bigquery_config, "DEFAULT_MONGO_DB", None)
     except:
         param.DEFAULT_MONGO_DB = None
-
-    try:
-        MAXIMUM_PARALLEL_PROCESSES = getattr(edx2bigquery_config, "MAXIMUM_PARALLEL_PROCESSES", None)
-    except:
-        MAXIMUM_PARALLEL_PROCESSES = 5
 
     #-----------------------------------------------------------------------------            
 
@@ -714,6 +803,10 @@ delete_stats_tables         : delete stats_activity_by_day tables
         print "list of datasets accessible:"
         print json.dumps(bqutil.get_list_of_datasets().keys(), indent=4)
 
+    elif (args.command=='get_course_tables'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(list_tables_in_course_db, param, courses, args, parallel=args.parallel)
+
     elif (args.command=='get_tables'):
         import bqutil
         print json.dumps(bqutil.get_tables(args.courses[0]), indent=4)
@@ -792,7 +885,9 @@ delete_stats_tables         : delete stats_activity_by_day tables
         enrollment_day(param, args, args)
 
     elif (args.command=='person_course'):
-        person_course(param, args, args)
+        # person_course(param, args, args)
+        courses = get_course_ids(args)
+        run_parallel_or_serial(person_course, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='report'):
         import make_course_report_tables
