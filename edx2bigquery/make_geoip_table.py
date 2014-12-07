@@ -9,9 +9,10 @@ import re
 import json
 import codecs
 import time
+import datetime
 import gsutil
 import bqutil
-import pygeoip
+import random
 import pygeoip
 import geoip2.database
 from collections import OrderedDict
@@ -22,28 +23,46 @@ GIPTABLE = 'extra_geoip'
 def lock_file(fn, release=False):
     lockfn = '%s.lock' % fn
 
-    if release:
+    def release_lock(verbose=False):
         try:
             os.rmdir(lockfn)
         except Exception as err:
             print "[lock_file] in releasing lock %s, err=%s" % (lockfn, err)
             return False
+        if verbose:
+            print "[lock_file] released lock %s" % (lockfn)
+            sys.stdout.flush()
         return True
+
+    if release:
+        return release_lock(verbose=True)
 
     cnt = 0
     have_lock = False
+    start = datetime.datetime.now()
+    timeout = random.uniform(3*60, 8*60)
     while not have_lock:
         if not os.path.exists(lockfn):
             try:
                 os.mkdir(lockfn)
+                if cnt:
+                    dt = datetime.datetime.now() - start
+                    print "[lock_file] acquired lock %s after cnt=%s, dt=%s" % (lockfn, cnt, dt)
+                    sys.stdout.flush()
                 return True
             except Exception as err:
                 print "[lock_file] in acquiring lock %s, err=%s" % (lockfn, err)
         cnt += 1
-        if (cnt > 1000):
+        if (cnt > 2000):
             print "[lock_file] Aborting!"
             break
-        print "[lock_file] waiting for %s..." % lockfn
+        if (cnt > 18):
+            dt = datetime.datetime.now() - start
+            if (dt.seconds > timeout):
+                print "[lock_file] timeout after %s seconds waiting for lock" % timeout
+                sys.stdout.flush()
+                release_lock(verbose=True)
+        print "[lock_file] waiting for %s, cnt=%d..." % (lockfn, cnt)
         time.sleep(10)
     if not have_lock:
         msg = "[lock_file] Aborting - could not acquire %s" % lockfn
@@ -156,7 +175,7 @@ class GeoIPData(object):
         if not self.nchanged:
             return
 
-        ofn = 'tmp_geoip.json'
+        ofn = 'tmp_geoip_%08d.json' % random.uniform(0,100000000)
         print "--> new entries added to geoipdat, writing to %s" % (ofn)
         sys.stdout.flush()
 
@@ -171,9 +190,12 @@ class GeoIPData(object):
         ofp.close()
 
         lock_file(self.gipfn)
-        print "--> renaming %s to %s" % (ofn, self.gipfn)
-        sys.stdout.flush()
-        os.rename(ofn, self.gipfn)
+        try:
+            print "--> renaming %s to %s" % (ofn, self.gipfn)
+            sys.stdout.flush()
+            os.rename(ofn, self.gipfn)
+        except Exception as err:
+            print "Error %s in renaming gipfn" % str(err)
         lock_file(self.gipfn, release=True)
         
         mypath = os.path.dirname(os.path.realpath(__file__))
