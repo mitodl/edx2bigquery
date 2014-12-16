@@ -36,6 +36,7 @@ class CourseReport(object):
         datasets_with_pc = []
         self.all_pc_tables = {}
         self.all_pcday_ip_counts_tables = {}
+        self.all_uic_tables = {}
         for cd in course_datasets:
             try:
                 table = bqutil.get_bq_table_info(cd, 'person_course')
@@ -55,11 +56,21 @@ class CourseReport(object):
                 continue
             self.all_pcday_ip_counts_tables[cd] = table
 
+            try:
+                table = bqutil.get_bq_table_info(cd, 'user_info_combo')
+            except Exception as err:
+                continue
+            if table is None:
+                continue
+            self.all_uic_tables[cd] = table
+
         pc_tables = ',\n'.join(['[%s.person_course]' % x for x in datasets_with_pc])
         pcday_ip_counts_tables = ',\n'.join(['[%s.pcday_ip_counts]' % x for x in self.all_pcday_ip_counts_tables])
+        uic_tables = ',\n'.join(['[%s.user_info_combo]' % x for x in self.all_uic_tables])
 
         self.parameters = {'dataset': self.dataset,
                            'pc_tables': pc_tables,
+                           'uic_tables': uic_tables,
                            'pcday_ip_counts_tables': pcday_ip_counts_tables,
                            }
         print "[make_course_report_tables] ==> Using these datasets (with person_course tables): %s" % datasets_with_pc
@@ -73,6 +84,7 @@ class CourseReport(object):
         bqutil.create_dataset_if_nonexistent(self.dataset, project_id=output_project_id)
 
         self.nskip = nskip
+        self.make_table_of_email_addresses()
         self.make_global_modal_ip_table()
         self.make_enrollment_by_day()
         self.make_totals_by_course()
@@ -250,6 +262,18 @@ class CourseReport(object):
         
         self.do_table(the_sql, 'multi_registrations')
     
+    def make_table_of_email_addresses(self):
+        the_sql = '''
+            SELECT username, email, count (*) as ncourses
+            FROM 
+                {uic_tables}
+            WHERE username is not null
+            group by username, email
+            order by username;
+        '''.format(**self.parameters)
+        
+        self.do_table(the_sql, 'email_addresses')
+
     def make_geographic_distributions(self):
         the_sql = '''
             SELECT cc_by_ip as cc,

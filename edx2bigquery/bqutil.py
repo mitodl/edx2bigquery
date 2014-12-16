@@ -342,7 +342,7 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
                          }
               }
               
-    job_id = 'create_%s_%d' % (table_id, time.time())
+    job_id = 'create_%s_%s_%d' % (dataset_id, table_id, time.time())
     job_ref = {'jobId': job_id,
                'projectId': project_id}
     
