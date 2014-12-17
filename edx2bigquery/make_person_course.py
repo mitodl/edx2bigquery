@@ -666,7 +666,7 @@ class PersonCourse(object):
                 MAX(max_dt) as max_dt,
                 sum(n_dt) as n_dt,
                 sum(sum_dt) as sum_dt
-            from
+            from 
                 (TABLE_DATE_RANGE( 
                       [{dataset_pcday}.pcday_],                                                                                                               
                       TIMESTAMP('{start_date}'), TIMESTAMP('{end_date}')))

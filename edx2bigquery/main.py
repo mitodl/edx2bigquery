@@ -557,13 +557,17 @@ mongo2gs <course_id> ...    : extract tracking logs from mongodb (using mongoexp
 
 --- COURSE CONTENT DATA RELATED COMMANDS
 
-axis2bq <course_id> ...     : construct "course axis" table, upload to gs, and generate table in BigQuery dataset for the
+axis2bq <course_id> ...     : construct "course_axis" table, upload to gs, and generate table in BigQuery dataset for the
                               specified course_id's.  
                               Accepts the "--clist" flag, to process specified list of courses in the config file's "courses" dict.
 
 make_cinfo listings.csv     : make the courses.listings table, which contains a listing of all the courses with metadata.
                               The listings.csv file should contain the columns Institution, Semester, New or Rerun, Course Number,
                               Short Title, Title, Instructors, Registration Open, Course Launch, Course Wrap, course_id
+
+analyze_content             : construct "course_content" table, which counts the number of xmodules of different categories,
+    --listings listings.csv   and also the length of the course in weeks (based on using the listings file).
+    <course_id> ...           Use this for categorizing a course according to the kind of content it has.
 
 --- REPORTING COMMANDS
 
@@ -653,6 +657,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
     parser.add_argument("--just-do-geoip", help="for person_course, just update geoip using local db", action="store_true")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
+    parser.add_argument("--listings", type=str, help="path to the course listings.csv file")
     parser.add_argument("--dbname", type=str, help="mongodb db name to use for mongo2gs")
     parser.add_argument("--table", type=str, help="bigquery table to use, specified as dataset_id.table_id") 
     parser.add_argument("--org", type=str, help="organization ID to use")
@@ -672,6 +677,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
     param.the_basedir = args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None)
     param.the_datedir = args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None)
     param.use_dataset_latest = args.dataset_latest
+    param.listings = args.listings
 
     # default end date for person_course
     try:
@@ -776,6 +782,17 @@ delete_stats_tables         : delete stats_activity_by_day tables
         args.courses = args.courses[1:]		# remove first element, which was dirname
         courses = get_course_ids(args)
         do_waldofication_of_sql.process_directory(dirname, courses, param.the_basedir)
+
+    elif (args.command=='analyze_course'):
+        import analyze_content
+        for course_id in get_course_ids(args):
+            analyze_content.analyze_course_content(course_id, 
+                                                   listings_file=param.listings,
+                                                   basedir=param.the_basedir, 
+                                                   datedir=param.the_datedir,
+                                                   use_dataset_latest=param.use_dataset_latest,
+                                                   do_upload=args.force_recompute,
+                                                   )
 
     elif (args.command=='mongo2user_info'):
         import fix_missing_user_info

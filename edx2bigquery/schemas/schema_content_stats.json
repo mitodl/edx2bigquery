@@ -1,0 +1,29 @@
+{
+    "stats_course_content": [
+        {
+            "type": "STRING",
+            "name": "course_id",
+	    "description": "course ID"
+        },
+        {
+            "type": "FLOAT",
+            "name": "nquant_per_week",
+	    "description": "Number of quantitative assessments per week"
+        },
+        {
+            "type": "FLOAT",
+            "name": "total_assessments_per_week",
+	    "description": "Total number of assessments per week"
+        },
+        {
+            "type": "FLOAT",
+            "name": "nqual_per_week",
+	    "description": "Number of 'qualitative' assessments per week"
+        },
+        {
+            "type": "FLOAT",
+            "name": "nweeks",
+	    "description": "Number of weeks the course was open"
+        }
+    ]
+}
