@@ -45,6 +45,8 @@ def get_stats_module_usage(course_id,
     else:
         # download if it is already computed, or recompute if needed
         bqdat = bqutil.get_bq_table(dataset, table, sql=sql)
+        if bqdat is None:
+            bqdat = {'data': []}
 
         fields = [ "module_type", "module_id", "ncount" ]
         fp = open(csvfn, 'w')
@@ -167,15 +169,15 @@ def analyze_course_content(course_id,
 
     def walk_tree(elem):
         if  type(elem.tag)==str and (elem.tag.lower() not in IGNORE):
-            midfrag = (elem.tag, elem.get('url_name_orig', None))
-            if (midfrag in mudata) and int(mudata[midfrag]['ncount']) > 10:
-                counts[elem.tag.lower()] += 1
-                if verbose:
-                    print "    -> counting %s, ncount=%s" % (midfrag, mudata.get(midfrag, {}).get('ncount'))
-            else:
-                if False:
-                    print "    -> ignoring %s, ncount=%s" % (midfrag, mudata.get(midfrag, {}).get('ncount'))
+            counts[elem.tag.lower()] += 1
         for k in elem:
+            midfrag = (k.tag, k.get('url_name_orig', None))
+            if (midfrag in mudata) and int(mudata[midfrag]['ncount']) < 11:
+                if verbose:
+                    print "    -> excluding %s (%s), ncount=%s" % (k.get('display_name', '<no_display_name>'), 
+                                                                   midfrag, 
+                                                                   mudata.get(midfrag, {}).get('ncount'))
+                continue
             walk_tree(k)
 
     walk_tree(xml)
