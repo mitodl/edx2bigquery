@@ -55,7 +55,11 @@ def get_stats_module_usage(course_id,
         for k in bqdat['data']:
             midfrag = tuple(k['module_id'].split('/')[-2:])
             data[midfrag] = k
-            cdw.writerow(k)
+            try:
+                k['module_id'] = k['module_id'].encode('utf8')
+                cdw.writerow(k)
+            except Exception as err:
+                print "Error writing row %s, err=%s" % (k, str(err))
         fp.close()
 
     print "[analyze_content] got %d lines of studentmodule usage data" % len(data)
@@ -174,7 +178,7 @@ def analyze_course_content(course_id,
             midfrag = (k.tag, k.get('url_name_orig', None))
             if (midfrag in mudata) and int(mudata[midfrag]['ncount']) < 11:
                 if verbose:
-                    print "    -> excluding %s (%s), ncount=%s" % (k.get('display_name', '<no_display_name>'), 
+                    print "    -> excluding %s (%s), ncount=%s" % (k.get('display_name', '<no_display_name>').encode('utf8'), 
                                                                    midfrag, 
                                                                    mudata.get(midfrag, {}).get('ncount'))
                 continue
