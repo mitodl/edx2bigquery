@@ -7,12 +7,13 @@ import bqutil
 import json
 import datetime
 
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from lxml import etree
 from path import path
 from load_course_sql import find_course_sql_dir
 
 CCDATA = "course_content.csv"
+CMINFO = "course_metainfo.csv"
 
 def get_stats_module_usage(course_id,
                            basedir="X-Year-2-data-sql", 
@@ -166,17 +167,20 @@ def analyze_course_content(course_id,
     xml = etree.parse(open(xbfn)).getroot()
     
     counts = defaultdict(int)
+    nexcluded = defaultdict(int)
+
     IGNORE = ['html', 'p', 'div', 'iframe', 'ol', 'li', 'ul', 'blockquote', 'h1', 'em', 'b', 'h2', 'h3', 'body', 'span', 'strong',
               'a', 'sub', 'strike', 'table', 'td', 'tr', 's', 'tbody', 'sup', 'sub', 'strike', 'i', 's', 'pre', 'policy', 'metadata',
               'grading_policy', 'br', 'center',  'wiki', 'course', 'font', 'tt', 'it', 'dl', 'startouttext', 'endouttext', 'h4', 
-              'head', 'source', 'dt', 'hr', 'u', 'style', 'dd', 'script', 'th', 'p', 'P', 'TABLE', 'TD']
+              'head', 'source', 'dt', 'hr', 'u', 'style', 'dd', 'script', 'th', 'p', 'P', 'TABLE', 'TD', 'small', 'text', 'title']
 
     def walk_tree(elem):
         if  type(elem.tag)==str and (elem.tag.lower() not in IGNORE):
             counts[elem.tag.lower()] += 1
         for k in elem:
             midfrag = (k.tag, k.get('url_name_orig', None))
-            if (midfrag in mudata) and int(mudata[midfrag]['ncount']) < 11:
+            if (midfrag in mudata) and int(mudata[midfrag]['ncount']) < 20:
+                nexcluded[k.tag] += 1
                 if verbose:
                     print "    -> excluding %s (%s), ncount=%s" % (k.get('display_name', '<no_display_name>').encode('utf8'), 
                                                                    midfrag, 
@@ -233,3 +237,44 @@ def analyze_course_content(course_id,
     for cid, entry in ccd.items():
         dw.writerow(entry)
     cfp.close()
+
+    # store data in course_metainfo table, which has one (course_id, key, value) on each line
+    # keys include nweeks, nqual, nquant, count_* for module types *
+
+    cmfields = OrderedDict()
+    cmfields['course_id'] = course_id
+    cmfields['course_length_days'] = str(ndays)
+    cmfields.update({ ('listings_%s' % key) : value for key, value in data.items() })	# from course listings
+    cmfields.update(ccd[course_id].copy())
+    cmfields.update({ ('count_%s' % key) : str(value) for key, value in counts.items() })	# from content counts
+    cmfields.update({ ('nexcluded_sub_20_%s' % key) : str(value) for key, value in nexcluded.items() })	# from content counts
+
+    course_dir = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest)
+    csvfn = course_dir / CMINFO
+
+    print "--> Course metainfo writing to %s" % csvfn
+
+    fp = open(csvfn, 'w')
+
+    cdw = csv.DictWriter(fp, fieldnames=['course_id', 'key', 'value'])
+    cdw.writeheader()
+    
+    for k, v in cmfields.items():
+        cdw.writerow({'course_id': course_id, 'key': k, 'value': v})
+        
+    fp.close()
+
+    table = 'course_metainfo'
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+
+    gsfnp = gsutil.gs_path_from_course_id(course_id, use_dataset_latest=use_dataset_latest) / CMINFO
+    print "--> Course metainfo uploading to %s then to %s.%s" % (gsfnp, dataset, table)
+
+    gsutil.upload_file_to_gs(csvfn, gsfnp)
+
+    mypath = os.path.dirname(os.path.realpath(__file__))
+    SCHEMA_FILE = '%s/schemas/schema_course_metainfo.json' % mypath
+    the_schema = json.loads(open(SCHEMA_FILE).read())[table]
+
+    bqutil.load_data_to_table(dataset, table, gsfnp, the_schema, wait=True, verbose=False, format='csv', skiprows=1)
+
