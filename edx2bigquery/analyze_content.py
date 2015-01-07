@@ -14,6 +14,7 @@ from load_course_sql import find_course_sql_dir
 
 CCDATA = "course_content.csv"
 CMINFO = "course_metainfo.csv"
+CMINFO_OVERRIDES = "course_metainfo_overrides.csv"
 
 def get_stats_module_usage(course_id,
                            basedir="X-Year-2-data-sql", 
@@ -251,6 +252,19 @@ def analyze_course_content(course_id,
 
     course_dir = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest)
     csvfn = course_dir / CMINFO
+
+    # manual overriding of the automatically computed fields can be done by storing course_id,key,value data
+    # in the CMINFO_OVERRIDES file
+
+    csvfn_overrides = course_dir / CMINFO_OVERRIDES
+    if csvfn_overrides.exists():
+        print "--> Loading manual override information from %s" % csvfn_overrides
+        for ovent in csv.DictReader(open(csvfn_overrides)):
+            if not ovent['course_id']==course_id:
+                print "===> ERROR! override file has entry with wrong course_id: %s" % ovent
+                continue
+            print "    overriding key=%s with value=%s" % (ovent['key'], ovent['value'])
+            cmfields[ovent['key']] = ovent['value']
 
     print "--> Course metainfo writing to %s" % csvfn
 
