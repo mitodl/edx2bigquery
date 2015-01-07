@@ -205,7 +205,40 @@ class PersonCourse(object):
     
     #-----------------------------------------------------------------------------
     
+    def get_nchapters_from_course_metainfo(self):
+        '''
+        Determine the number of chapters from the course_metainfo table, which is computed
+        by analyze_content, based on the course XML, but dropping chapters which haven't
+        seen a significant number of viewers.
+        
+        If the course_metainfo table does not exist, then fall back to using
+        get_nchapters_from_course_structure.
+        '''
+        table = "course_metainfo"
+        
+        tables = bqutil.get_list_of_table_ids(self.dataset)
+        if not table in tables:
+            return self.get_nchapters_from_course_structure()
+
+        bqdat = bqutil.get_table_data(self.dataset, table, key={'name': 'key'})
+        cminfo = bqdat['data_by_key']
+
+        ccent = cminfo.get('count_chapter')
+        if ccent:
+            self.nchapters = int(ccent['value'])
+            nexcluded = cminfo.get('nexcluded_sub_20_chapter', {}).get('value', 0)
+            self.log('course %s has %s chapters, based on course_metainfo, with %s excluded' % (self.course_id, 
+                                                                                                self.nchapters, 
+                                                                                                nexcluded))
+            return self.nchapters
+
+        self.log('-> No count_chapter in course_metainfo table...falling back to get_nchapters_from_course_structure')
+        return self.get_nchapters_from_course_structure()
+
     def get_nchapters_from_course_structure(self):
+        '''
+        Determine the number of chapters from the course structure or course axis file.
+        '''
         nchapters = 0
 
         def getonefile(files):
@@ -311,7 +344,7 @@ class PersonCourse(object):
         self.load_nchapters()
         self.load_pc_forum()
         try:
-            nchapters = self.get_nchapters_from_course_structure()
+            nchapters = self.get_nchapters_from_course_metainfo()
         except Exception as err:
             print "Error %s getting nchapters!" % str(err)
             nchapters = None
