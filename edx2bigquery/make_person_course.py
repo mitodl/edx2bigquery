@@ -321,6 +321,9 @@ class PersonCourse(object):
                               'start_time': 'enrollment_created',
                               'mode': 'enrollment_mode',
                               'is_active': 'enrollment_is_active',
+                              'cert_created_date': 'certificate_created_date',
+                              'cert_modified_date': 'certificate_modified_date',
+                              'profile_country': 'profile_country',
                               })
         
             pcent['registered'] = True	# by definition
@@ -333,6 +336,9 @@ class PersonCourse(object):
             else:
                 pcent['certified'] = False
         
+            # email domain
+            pcent['email_domain'] = uicent.get('email').split('@')[1]
+
     def compute_second_phase(self):
     
         # -----------------------------------------------------------------------------

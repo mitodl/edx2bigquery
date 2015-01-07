@@ -176,6 +176,26 @@
 	    "description": "1 if enrollment active on date of this data, else 0"
         },
         {
+            "type": "STRING",
+            "name": "cert_created_date",
+	    "description": "date when certificate was generated (if applicable)"
+        },
+        {
+            "type": "STRING",
+            "name": "cert_modified_date",
+	    "description": "date when certificate was modified (if applicable)"
+        },
+        {
+            "type": "STRING",
+            "name": "profile_country",
+	    "description": "two-letter country code as specified by user in their profile (only available after ~mid-2014)"
+        },
+        {
+            "type": "STRING",
+            "name": "email_domain",
+	    "description": "domain of the email address of the user, i.e. what appears after the '@'"
+        },
+        {
             "type": "INTEGER",
             "name": "ntranscript",
 	    "description": "Number of video transcript events from tracking logs"
