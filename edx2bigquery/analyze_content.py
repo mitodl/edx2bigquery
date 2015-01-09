@@ -119,7 +119,7 @@ def analyze_course_content(course_id,
             print "Oops!  Failed to load schema file for %s.  Error: %s" % (tableid, str(err))
             raise
 
-        if 1:
+        if 0:
             bqutil.load_data_to_table(dataset, tableid, gsfnp, the_schema, wait=True, verbose=False,
                                       format='csv', skiprows=1)
 
@@ -128,7 +128,7 @@ def analyze_course_content(course_id,
         sql = "select * from {course_tables}".format(course_tables=course_tables)
         print "--> Creating %s.%s using %s" % (dataset, table, sql)
 
-        if 1:
+        if 0:
             bqutil.create_bq_table(dataset, table, sql)
 
 
@@ -173,6 +173,85 @@ def analyze_course_content(course_id,
 
         nr_by_wrap = bqutil.get_bq_table(dataset, 'nregistered_by_wrap', sql=sql, key={'name': 'course_id'})
 
+        # rates for registrants before and during course
+        
+        sql = """
+                SELECT 
+                    *,
+                    ncertified / nregistered * 100 as pct_certified,
+                    ncertified_and_registered_before_launch / nregistered_before_launch * 100 as pct_certified_reg_before_launch,
+                    ncertified_and_registered_during_course / nregistered_during_course * 100 as pct_certified_reg_during_course,
+                    ncertified / nregistered_by_wrap * 100 as pct_certified_by_wrap,
+                FROM
+                (
+                # ------------------------
+                # get aggregate data
+                SELECT pc.course_id as course_id, 
+                    cminfo.wrap_date as wrap_date,
+                    count(*) as nregistered,
+                    sum(case when pc.certified then 1 else 0 end) ncertified,
+                    sum(case when pc.viewed then 1 else 0 end) nviewed,
+                    sum(case when pc.start_time < cminfo.wrap_date then 1 else 0 end) nregistered_by_wrap,
+                    sum(case when pc.start_time < cminfo.wrap_date then 1 else 0 end) / nregistered * 100 nregistered_by_wrap_pct,
+                    sum(case when (pc.start_time < cminfo.wrap_date) and pc.viewed then 1 else 0 end) nviewed_by_wrap,
+                    sum(case when pc.start_time < cminfo.launch_date then 1 else 0 end) nregistered_before_launch,
+                    sum(case when pc.start_time < cminfo.launch_date 
+                              and pc.certified
+                              then 1 else 0 end) ncertified_and_registered_before_launch,
+                    sum(case when (pc.start_time >= cminfo.launch_date) 
+                              and (pc.start_time < cminfo.wrap_date) then 1 else 0 end) nregistered_during_course,
+                    sum(case when (pc.start_time >= cminfo.launch_date) 
+                              and (pc.start_time < cminfo.wrap_date) 
+                              and pc.certified
+                              then 1 else 0 end) ncertified_and_registered_during_course,
+                FROM
+                    [{dataset}.{person_course}] as pc
+                left join (
+                
+                #  get course launch and wrap dates from course_metainfo
+                SELECT A.course_id as course_id,
+                  A.wrap_date as wrap_date,
+                  B.launch_date as launch_date,
+                from
+                (
+                 SELECT course_id,
+                      TIMESTAMP(concat(wrap_year, "-", wrap_month, '-', wrap_day, ' 23:59:59')) as wrap_date,
+                 FROM (
+                  SELECT course_id, 
+                    regexp_extract(value, r'(\d+)/\d+/\d+') as wrap_month,
+                    regexp_extract(value, r'\d+/(\d+)/\d+') as wrap_day,
+                    regexp_extract(value, r'\d+/\d+/(\d+)') as wrap_year,
+                  FROM [{dataset}.course_metainfo]
+                  where key='listings_Course Wrap'
+                 )
+                ) as A
+                left outer join 
+                (
+                 SELECT course_id,
+                      TIMESTAMP(concat(launch_year, "-", launch_month, '-', launch_day)) as launch_date,
+                 FROM (
+                  SELECT course_id, 
+                    regexp_extract(value, r'(\d+)/\d+/\d+') as launch_month,
+                    regexp_extract(value, r'\d+/(\d+)/\d+') as launch_day,
+                    regexp_extract(value, r'\d+/\d+/(\d+)') as launch_year,
+                  FROM [{dataset}.course_metainfo]
+                  where key='listings_Course Launch'
+                 )
+                ) as B
+                on A.course_id = B.course_id 
+                # end course_metainfo subquery
+                
+                ) as cminfo
+                on pc.course_id = cminfo.course_id
+                
+                group by course_id, wrap_date
+                order by course_id
+                # ---- end get aggregate data
+)
+        """.format(dataset=dataset, person_course=latest_person_course)
+
+        cert_by_reg = bqutil.get_bq_table(dataset, 'stats_cert_rates_by_registration', sql=sql, key={'name': 'course_id'})
+
         # start assembling course_summary_stats
 
         c_sum_stats = defaultdict(OrderedDict)
@@ -190,6 +269,9 @@ def analyze_course_content(course_id,
                 cmci['certified_of_nregistered_by_wrap_pct'] = nbw / ncert * 100.0
             else:
                 cmci['certified_of_nregistered_by_wrap_pct'] = None
+            cbr = cert_by_reg['data_by_key'][course_id]
+            for field, value in cbr.items():
+                cmci['cbr_%s' % field] = value
 
         css_keys = c_sum_stats.values()[0].keys()
 
