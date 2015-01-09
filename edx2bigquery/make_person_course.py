@@ -906,7 +906,7 @@ class PersonCourse(object):
         self.log("Loading %s from BigQuery" % tablename)
         setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'username'},
                                                      depends_on=depends_on,
-                                                     newer_than=datetime.datetime(2014, 12, 1, 22, 05),
+                                                     newer_than=datetime.datetime(2015, 1, 9, 3, 0),
                                                      force_query=self.force_recompute_from_logs, logger=self.log))
 
 
