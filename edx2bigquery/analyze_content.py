@@ -98,10 +98,11 @@ def analyze_course_content(course_id,
 
     if do_upload:
         if use_dataset_latest:
-            crname = 'course_report_latest'
+            org = "latest"
         else:
             org = courses[0].split('/',1)[0]	# extract org from first course_id in courses
-            crname = 'course_report_%s' % org
+
+        crname = 'course_report_%s' % org
 
         gspath = gsutil.gs_path_from_course_id(crname)
         gsfnp = gspath / CCDATA
@@ -127,7 +128,119 @@ def analyze_course_content(course_id,
         sql = "select * from {course_tables}".format(course_tables=course_tables)
         print "--> Creating %s.%s using %s" % (dataset, table, sql)
 
-        bqutil.create_bq_table(dataset, table, sql)
+        if 1:
+            bqutil.create_bq_table(dataset, table, sql)
+
+
+        #-----------------------------------------------------------------------------
+        # make course_summary_stats table
+        #
+        # This is a combination of the broad_stats_by_course table (if that exists), and course_metainfo.
+        # Also use (and create if necessary) the nregistered_by_wrap table.
+
+        # get the broad_stats_by_course data
+        bsbc = bqutil.get_table_data(dataset, 'broad_stats_by_course')
+
+        table_list = bqutil.get_list_of_table_ids(dataset)
+
+        latest_person_course = max([ x for x in table_list if x.startswith('person_course_')])
+        print "Latest person_course table in %s is %s" % (dataset, latest_person_course)
+        
+        sql = """
+                SELECT pc.course_id as course_id, 
+                    cminfo.wrap_date as wrap_date,
+                    count(*) as nregistered,
+                    sum(case when pc.start_time < cminfo.wrap_date then 1 else 0 end) nregistered_by_wrap,
+                    sum(case when pc.start_time < cminfo.wrap_date then 1 else 0 end) / nregistered * 100 nregistered_by_wrap_pct,
+                FROM
+                    [{dataset}.{person_course}] as pc
+                left join (
+                 SELECT course_id,
+                      TIMESTAMP(concat(wrap_year, "-", wrap_month, '-', wrap_day, ' 23:59:59')) as wrap_date,
+                 FROM (
+                  SELECT course_id, 
+                    regexp_extract(value, r'(\d+)/\d+/\d+') as wrap_month,
+                    regexp_extract(value, r'\d+/(\d+)/\d+') as wrap_day,
+                    regexp_extract(value, r'\d+/\d+/(\d+)') as wrap_year,
+                  FROM [{dataset}.course_metainfo]
+                  where key='listings_Course Wrap'
+                 )) as cminfo
+                on pc.course_id = cminfo.course_id
+                
+                group by course_id, wrap_date
+                order by course_id
+        """.format(dataset=dataset, person_course=latest_person_course)
+
+        nr_by_wrap = bqutil.get_bq_table(dataset, 'nregistered_by_wrap', sql=sql, key={'name': 'course_id'})
+
+        # start assembling course_summary_stats
+
+        c_sum_stats = defaultdict(OrderedDict)
+        for entry in bsbc['data']:
+            course_id = entry['course_id']
+            cmci = c_sum_stats[course_id]
+            cmci.update(entry)
+            cnbw = nr_by_wrap['data_by_key'][course_id]
+            nbw = int(cnbw['nregistered_by_wrap'])
+            cmci['nbw_wrap_date'] = cnbw['wrap_date']
+            cmci['nregistered_by_wrap'] = nbw
+            cmci['nregistered_by_wrap_pct'] = cnbw['nregistered_by_wrap_pct']
+            cmci['certified_of_nregistered_by_wrap_pct'] = nbw / float(cmci['certified_sum']) * 100.0
+
+        css_keys = c_sum_stats.values()[0].keys()
+
+        # retrieve course_metainfo table, pivot, add that to summary_stats
+
+        bqdat = bqutil.get_table_data(dataset, table)
+
+        def make_key(key):
+            return key.replace(' ', '_').replace("'", "_").replace('/', '_')
+
+        listings_keys = map(make_key, ["Institution", "Semester", "New or Rerun", "Andrew Recodes New/Rerun", 
+                                       "Course Number", "Short Title", "Andrew's Short Titles", "Title", 
+                                       "Instructors", "Registration Open", "Course Launch", "Course Wrap", "course_id"])
+        listings_keys.reverse()
+        
+        for lk in listings_keys:
+            css_keys.insert(1, "listings_%s" % lk)
+
+        for entry in bqdat['data']:
+            thekey = make_key(entry['key'])
+            c_sum_stats[entry['course_id']][thekey] = entry['value']
+            if thekey not in css_keys:
+                css_keys.append(thekey)
+
+        # compute forum_posts_per_week
+        for course_id, entry in c_sum_stats.items():
+            fppw = int(entry['nforum_posts_sum']) / float(entry['nweeks'])
+            entry['nforum_posts_per_week'] = fppw
+            print "    course: %s, assessments_per_week=%s, forum_posts_per_week=%s" % (course_id, entry['total_assessments_per_week'], fppw)
+        css_keys.append('nforum_posts_per_week')
+
+        print "Storing these fields: %s" % css_keys
+
+        # write out CSV
+        css_table = "course_summary_stats"
+        ofn = "%s__%s.csv" % (dataset, css_table)
+        print "Writing data to %s" % ofn
+
+        ofp = open(ofn, 'w')
+        dw = csv.DictWriter(ofp, fieldnames=css_keys)
+        dw.writeheader()
+        for cid, entry in c_sum_stats.items():
+            for key in css_keys:
+                if key not in entry:
+                    entry[key] = None
+            dw.writerow(entry)
+        ofp.close()
+
+        # upload to bigquery
+        the_schema = [ { 'type': 'STRING', 'name': x } for x in css_keys ]
+        if 1:
+            gsfnp = gspath / dataset / (css_table + ".csv")
+            gsutil.upload_file_to_gs(ofn, gsfnp)
+            bqutil.load_data_to_table(dataset, css_table, gsfnp, the_schema, wait=True, verbose=False,
+                                      format='csv', skiprows=1)
 
         return
 
