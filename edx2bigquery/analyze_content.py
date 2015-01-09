@@ -185,7 +185,11 @@ def analyze_course_content(course_id,
             cmci['nbw_wrap_date'] = cnbw['wrap_date']
             cmci['nregistered_by_wrap'] = nbw
             cmci['nregistered_by_wrap_pct'] = cnbw['nregistered_by_wrap_pct']
-            cmci['certified_of_nregistered_by_wrap_pct'] = nbw / float(cmci['certified_sum']) * 100.0
+            ncert = float(cmci['certified_sum'])
+            if ncert:
+                cmci['certified_of_nregistered_by_wrap_pct'] = nbw / ncert * 100.0
+            else:
+                cmci['certified_of_nregistered_by_wrap_pct'] = None
 
         css_keys = c_sum_stats.values()[0].keys()
 
@@ -212,9 +216,13 @@ def analyze_course_content(course_id,
 
         # compute forum_posts_per_week
         for course_id, entry in c_sum_stats.items():
-            fppw = int(entry['nforum_posts_sum']) / float(entry['nweeks'])
-            entry['nforum_posts_per_week'] = fppw
-            print "    course: %s, assessments_per_week=%s, forum_posts_per_week=%s" % (course_id, entry['total_assessments_per_week'], fppw)
+            nfps = entry['nforum_posts_sum']
+            if nfps:
+                fppw = int(nfps) / float(entry['nweeks'])
+                entry['nforum_posts_per_week'] = fppw
+                print "    course: %s, assessments_per_week=%s, forum_posts_per_week=%s" % (course_id, entry['total_assessments_per_week'], fppw)
+            else:
+                entry['nforum_posts_per_week'] = None
         css_keys.append('nforum_posts_per_week')
 
         print "Storing these fields: %s" % css_keys
