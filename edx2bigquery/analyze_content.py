@@ -118,11 +118,13 @@ def analyze_course_content(course_id,
             print "Oops!  Failed to load schema file for %s.  Error: %s" % (tableid, str(err))
             raise
 
-        bqutil.load_data_to_table(dataset, tableid, gsfnp, the_schema, wait=True, verbose=False,
-                                  format='csv', skiprows=1)
+        if 1:
+            bqutil.load_data_to_table(dataset, tableid, gsfnp, the_schema, wait=True, verbose=False,
+                                      format='csv', skiprows=1)
 
         table = 'course_metainfo'
-        sql = "select * from {courses}".format(courses='\n'.join([('[%s.course_metainfo]' % x) for x in courses]))
+        course_tables = ',\n'.join([('[%s.course_metainfo]' % bqutil.course_id2dataset(x)) for x in courses])
+        sql = "select * from {course_tables}".format(course_tables=course_tables)
         print "--> Creating %s.%s using %s" % (dataset, table, sql)
 
         bqutil.create_bq_table(dataset, table, sql)
