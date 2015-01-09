@@ -785,19 +785,29 @@ delete_stats_tables         : delete stats_activity_by_day tables
 
     elif (args.command=='analyze_course'):
         import analyze_content
-        for course_id in get_course_ids(args):
-            try:
-                analyze_content.analyze_course_content(course_id, 
-                                                       listings_file=param.listings,
-                                                       basedir=param.the_basedir, 
-                                                       datedir=param.the_datedir,
-                                                       use_dataset_latest=param.use_dataset_latest,
-                                                       do_upload=args.force_recompute,
-                                                       )
-            except Exception as err:
-                print "===> Error running %s on %s, err=%s" % (args.command, course_id, str(err))
-                traceback.print_exc()
-                sys.stdout.flush()
+        if args.force_recompute:
+            analyze_content.analyze_course_content(course_id=None,
+                                                   listings_file=param.listings,
+                                                   basedir=param.the_basedir, 
+                                                   datedir=param.the_datedir,
+                                                   use_dataset_latest=param.use_dataset_latest,
+                                                   do_upload=args.force_recompute,
+                                                   courses=get_course_ids(args),
+                                                   )
+        else:
+            for course_id in get_course_ids(args):
+                try:
+                    analyze_content.analyze_course_content(course_id, 
+                                                           listings_file=param.listings,
+                                                           basedir=param.the_basedir, 
+                                                           datedir=param.the_datedir,
+                                                           use_dataset_latest=param.use_dataset_latest,
+                                                           do_upload=args.force_recompute,
+                                                           )
+                except Exception as err:
+                    print "===> Error running %s on %s, err=%s" % (args.command, course_id, str(err))
+                    traceback.print_exc()
+                    sys.stdout.flush()
 
     elif (args.command=='mongo2user_info'):
         import fix_missing_user_info

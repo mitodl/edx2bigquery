@@ -74,6 +74,7 @@ def analyze_course_content(course_id,
                            datedir="2013-09-21", 
                            use_dataset_latest=False,
                            do_upload=False,
+                           courses=None,
                            verbose=True,
                            ):
     '''
@@ -99,7 +100,7 @@ def analyze_course_content(course_id,
         if use_dataset_latest:
             crname = 'course_report_latest'
         else:
-            org = course_id.split('/',1)[0]	# extract org from course_id
+            org = courses[0].split('/',1)[0]	# extract org from first course_id in courses
             crname = 'course_report_%s' % org
 
         gspath = gsutil.gs_path_from_course_id(crname)
@@ -119,6 +120,13 @@ def analyze_course_content(course_id,
 
         bqutil.load_data_to_table(dataset, tableid, gsfnp, the_schema, wait=True, verbose=False,
                                   format='csv', skiprows=1)
+
+        table = 'course_metainfo'
+        sql = "select * from {courses}".format(courses='\n'.join([('[%s.course_metainfo]' % x) for x in courses]))
+        print "--> Creating %s.%s using %s" % (dataset, table, sql)
+
+        bqutil.create_bq_table(dataset, table, sql)
+
         return
 
     
