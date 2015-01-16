@@ -138,6 +138,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         copy_elements(line, uic[uid], fields)
         uic[uid]['user_id'] = uid
         nusers += 1
+        uic[uid]['y1_anomalous'] = None
     
     print "  %d users loaded from users.csv" % nusers
 
@@ -201,6 +202,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
             if not uic[uid].get('profile_name', None):
                 copy_elements(pdata, uic[uid], fields, prefix="profile_", skip_empty=True)
                 fix_unicode(uic[uid], ['profile_name', 'profile_mailing_address', 'profile_goals', 'profile_location', 'profile_language'])
+                uic[uid]['y1_anomalous'] = 1
                 nadd_profiles += 1
         fp.close()
         print "  %d additional profiles loaded from %s/profiles.json.gz" % (nadd_profiles, mongodir)

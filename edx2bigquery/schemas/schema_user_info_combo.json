@@ -155,6 +155,10 @@
               {
                   "type": "STRING", 
                   "name": "id_map_hash_id"
-              }
+              },
+        {
+            "type": "INTEGER", 
+            "name": "y1_anomalous"
+        }
     ]
 }
