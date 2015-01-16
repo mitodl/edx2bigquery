@@ -197,6 +197,11 @@
         },
         {
             "type": "STRING",
+            "name": "y1_anomalous",
+	    "description": "if this user was anomlously missing and had to be side-loaded from mongo then this field = 1, else null"
+        },
+        {
+            "type": "STRING",
             "name": "email_domain",
 	    "description": "domain of the email address of the user, i.e. what appears after the '@'"
         },
