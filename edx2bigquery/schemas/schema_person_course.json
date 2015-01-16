@@ -196,7 +196,7 @@
 	    "description": "two-letter country code as specified by user in their profile (only available after ~mid-2014)"
         },
         {
-            "type": "STRING",
+            "type": "INTEGER",
             "name": "y1_anomalous",
 	    "description": "if this user was anomlously missing and had to be side-loaded from mongo then this field = 1, else null"
         },
