@@ -187,6 +187,11 @@
         },
         {
             "type": "STRING",
+            "name": "cert_status",
+	    "description": "one of 'downloadable', 'notpassing', or 'unavailable', where downloadable & unavailable should = earned"
+        },
+        {
+            "type": "STRING",
             "name": "profile_country",
 	    "description": "two-letter country code as specified by user in their profile (only available after ~mid-2014)"
         },

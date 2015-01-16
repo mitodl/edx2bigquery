@@ -323,6 +323,7 @@ class PersonCourse(object):
                               'is_active': 'enrollment_is_active',
                               'cert_created_date': 'certificate_created_date',
                               'cert_modified_date': 'certificate_modified_date',
+                              'cert_status': 'certificate_status',
                               'profile_country': 'profile_country',
                               })
         
