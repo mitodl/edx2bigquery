@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+import sys
 import csv
 import gsutil
 import bqutil
@@ -178,10 +179,12 @@ def analyze_course_content(course_id,
         sql = """
                 SELECT 
                     *,
-                    ncertified / nregistered * 100 as pct_certified,
+                    ncertified / nregistered * 100 as pct_certified_of_reg,
                     ncertified_and_registered_before_launch / nregistered_before_launch * 100 as pct_certified_reg_before_launch,
                     ncertified_and_registered_during_course / nregistered_during_course * 100 as pct_certified_reg_during_course,
-                    ncertified / nregistered_by_wrap * 100 as pct_certified_by_wrap,
+                    ncertified / nregistered_by_wrap * 100 as pct_certified_of_reg_by_wrap,
+                    ncertified / nviewed * 100 as pct_certified_of_viewed,
+                    ncertified / nviewed_by_wrap * 100 as pct_certified_of_viewed_by_wrap,
                 FROM
                 (
                 # ------------------------
@@ -247,10 +250,15 @@ def analyze_course_content(course_id,
                 group by course_id, wrap_date
                 order by course_id
                 # ---- end get aggregate data
-)
+                )
+                order by course_id
         """.format(dataset=dataset, person_course=latest_person_course)
 
-        cert_by_reg = bqutil.get_bq_table(dataset, 'stats_cert_rates_by_registration', sql=sql, key={'name': 'course_id'})
+        print "--> Assembling course_summary_stats from %s" % 'stats_cert_rates_by_registration'
+        sys.stdout.flush()
+        cert_by_reg = bqutil.get_bq_table(dataset, 'stats_cert_rates_by_registration', sql=sql, 
+                                          newer_than=datetime.datetime(2015, 1, 15, 3, 0),
+                                          key={'name': 'course_id'})
 
         # start assembling course_summary_stats
 
@@ -264,6 +272,7 @@ def analyze_course_content(course_id,
             cmci['nbw_wrap_date'] = cnbw['wrap_date']
             cmci['nregistered_by_wrap'] = nbw
             cmci['nregistered_by_wrap_pct'] = cnbw['nregistered_by_wrap_pct']
+            cmci['frac_female'] = float(entry['n_female_viewed']) / (float(entry['n_male_viewed']) + float(entry['n_female_viewed']))
             ncert = float(cmci['certified_sum'])
             if ncert:
                 cmci['certified_of_nregistered_by_wrap_pct'] = nbw / ncert * 100.0
@@ -273,10 +282,30 @@ def analyze_course_content(course_id,
             for field, value in cbr.items():
                 cmci['cbr_%s' % field] = value
 
+        # add medians for viewed, explored, and certified
+
+        msbc_tables = {'msbc_viewed': "viewed_median_stats_by_course",
+                       'msbc_explored': 'explored_median_stats_by_course',
+                       'msbc_certified': 'certified_median_stats_by_course',
+                       }
+        for prefix, mtab in msbc_tables.items():
+            print "--> Merging median stats data from %s" % mtab
+            sys.stdout.flush()
+            bqdat = bqutil.get_table_data(dataset, mtab)
+            for entry in bqdat['data']:
+                course_id = entry['course_id']
+                cmci = c_sum_stats[course_id]
+                for field, value in entry.items():
+                    cmci['%s_%s' % (prefix, field)] = value
+
+        # setup list of keys, for CSV output
+
         css_keys = c_sum_stats.values()[0].keys()
 
         # retrieve course_metainfo table, pivot, add that to summary_stats
 
+        print "--> Merging course_metainfo from %s" % table
+        sys.stdout.flush()
         bqdat = bqutil.get_table_data(dataset, table)
 
         def make_key(key):
@@ -284,7 +313,9 @@ def analyze_course_content(course_id,
 
         listings_keys = map(make_key, ["Institution", "Semester", "New or Rerun", "Andrew Recodes New/Rerun", 
                                        "Course Number", "Short Title", "Andrew's Short Titles", "Title", 
-                                       "Instructors", "Registration Open", "Course Launch", "Course Wrap", "course_id"])
+                                       "Instructors", "Registration Open", "Course Launch", "Course Wrap", "course_id",
+                                       "Empirical Course Wrap", "Andrew's Order", "certifies",
+                                       ])
         listings_keys.reverse()
         
         for lk in listings_keys:
@@ -298,7 +329,7 @@ def analyze_course_content(course_id,
 
         # compute forum_posts_per_week
         for course_id, entry in c_sum_stats.items():
-            nfps = entry['nforum_posts_sum']
+            nfps = entry.get('nforum_posts_sum', 0)
             if nfps:
                 fppw = int(nfps) / float(entry['nweeks'])
                 entry['nforum_posts_per_week'] = fppw
