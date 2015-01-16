@@ -238,7 +238,7 @@ def analyze_course_content(course_id,
                     regexp_extract(value, r'(\d+)/\d+/\d+') as wrap_month,
                     regexp_extract(value, r'\d+/(\d+)/\d+') as wrap_day,
                     regexp_extract(value, r'\d+/\d+/(\d+)') as wrap_year,
-                  FROM [course_report_HarvardX.course_metainfo]
+                  FROM [{dataset}.course_metainfo]
                   where key='listings_Course Wrap'
                  )
                 ) as A
@@ -251,7 +251,7 @@ def analyze_course_content(course_id,
                     regexp_extract(value, r'(\d+)/\d+/\d+') as launch_month,
                     regexp_extract(value, r'\d+/(\d+)/\d+') as launch_day,
                     regexp_extract(value, r'\d+/\d+/(\d+)') as launch_year,
-                  FROM [course_report_HarvardX.course_metainfo]
+                  FROM [{dataset}.course_metainfo]
                   where key='listings_Course Launch'
                  )
                 ) as B
@@ -267,7 +267,7 @@ def analyze_course_content(course_id,
                     regexp_extract(value, r'(\d+)/\d+/\d+') as wrap_month,
                     regexp_extract(value, r'\d+/(\d+)/\d+') as wrap_day,
                     regexp_extract(value, r'\d+/\d+/(\d+)') as wrap_year,
-                  FROM [course_report_HarvardX.course_metainfo]
+                  FROM [{dataset}.course_metainfo]
                   where key='listings_Empirical Course Wrap'
                  )
             ) as BB
