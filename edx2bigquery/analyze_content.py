@@ -129,8 +129,11 @@ def analyze_course_content(course_id,
         sql = "select * from {course_tables}".format(course_tables=course_tables)
         print "--> Creating %s.%s using %s" % (dataset, table, sql)
 
-        if 0:
-            bqutil.create_bq_table(dataset, table, sql)
+        if 1:
+            metainfo_dataset = bqutil.get_bq_table(dataset, table, sql=sql, 
+                                          newer_than=datetime.datetime(2015, 1, 16, 3, 0),
+                                          )
+            # bqutil.create_bq_table(dataset, table, sql, overwrite=True)
 
 
         #-----------------------------------------------------------------------------
@@ -185,6 +188,7 @@ def analyze_course_content(course_id,
                     ncertified / nregistered_by_wrap * 100 as pct_certified_of_reg_by_wrap,
                     ncertified / nviewed * 100 as pct_certified_of_viewed,
                     ncertified / nviewed_by_wrap * 100 as pct_certified_of_viewed_by_wrap,
+                    ncertified_by_ewrap / nviewed_by_ewrap * 100 as pct_certified_of_viewed_by_ewrap,
                 FROM
                 (
                 # ------------------------
@@ -193,10 +197,12 @@ def analyze_course_content(course_id,
                     cminfo.wrap_date as wrap_date,
                     count(*) as nregistered,
                     sum(case when pc.certified then 1 else 0 end) ncertified,
+                    sum(case when (TIMESTAMP(pc.cert_created_date) < cminfo.ewrap_date) and (pc.certified and pc.viewed) then 1 else 0 end) ncertified_by_ewrap,
                     sum(case when pc.viewed then 1 else 0 end) nviewed,
                     sum(case when pc.start_time < cminfo.wrap_date then 1 else 0 end) nregistered_by_wrap,
                     sum(case when pc.start_time < cminfo.wrap_date then 1 else 0 end) / nregistered * 100 nregistered_by_wrap_pct,
                     sum(case when (pc.start_time < cminfo.wrap_date) and pc.viewed then 1 else 0 end) nviewed_by_wrap,
+                    sum(case when (pc.start_time < cminfo.ewrap_date) and pc.viewed then 1 else 0 end) nviewed_by_ewrap,
                     sum(case when pc.start_time < cminfo.launch_date then 1 else 0 end) nregistered_before_launch,
                     sum(case when pc.start_time < cminfo.launch_date 
                               and pc.certified
@@ -211,7 +217,15 @@ def analyze_course_content(course_id,
                     [{dataset}.{person_course}] as pc
                 left join (
                 
+                # --------------------
                 #  get course launch and wrap dates from course_metainfo
+
+       SELECT AA.course_id as course_id, 
+              AA.wrap_date as wrap_date,
+              AA.launch_date as launch_date,
+              BB.ewrap_date as ewrap_date,
+       FROM (
+               #  inner get course launch and wrap dates from course_metainfo
                 SELECT A.course_id as course_id,
                   A.wrap_date as wrap_date,
                   B.launch_date as launch_date,
@@ -224,7 +238,7 @@ def analyze_course_content(course_id,
                     regexp_extract(value, r'(\d+)/\d+/\d+') as wrap_month,
                     regexp_extract(value, r'\d+/(\d+)/\d+') as wrap_day,
                     regexp_extract(value, r'\d+/\d+/(\d+)') as wrap_year,
-                  FROM [{dataset}.course_metainfo]
+                  FROM [course_report_HarvardX.course_metainfo]
                   where key='listings_Course Wrap'
                  )
                 ) as A
@@ -237,12 +251,30 @@ def analyze_course_content(course_id,
                     regexp_extract(value, r'(\d+)/\d+/\d+') as launch_month,
                     regexp_extract(value, r'\d+/(\d+)/\d+') as launch_day,
                     regexp_extract(value, r'\d+/\d+/(\d+)') as launch_year,
-                  FROM [{dataset}.course_metainfo]
+                  FROM [course_report_HarvardX.course_metainfo]
                   where key='listings_Course Launch'
                  )
                 ) as B
                 on A.course_id = B.course_id 
+                # end inner course_metainfo subquery
+            ) as AA
+            left outer join
+            (
+                 SELECT course_id,
+                      TIMESTAMP(concat(wrap_year, "-", wrap_month, '-', wrap_day, ' 23:59:59')) as ewrap_date,
+                 FROM (
+                  SELECT course_id, 
+                    regexp_extract(value, r'(\d+)/\d+/\d+') as wrap_month,
+                    regexp_extract(value, r'\d+/(\d+)/\d+') as wrap_day,
+                    regexp_extract(value, r'\d+/\d+/(\d+)') as wrap_year,
+                  FROM [course_report_HarvardX.course_metainfo]
+                  where key='listings_Empirical Course Wrap'
+                 )
+            ) as BB
+            on AA.course_id = BB.course_id
+
                 # end course_metainfo subquery
+                # --------------------
                 
                 ) as cminfo
                 on pc.course_id = cminfo.course_id
@@ -257,7 +289,7 @@ def analyze_course_content(course_id,
         print "--> Assembling course_summary_stats from %s" % 'stats_cert_rates_by_registration'
         sys.stdout.flush()
         cert_by_reg = bqutil.get_bq_table(dataset, 'stats_cert_rates_by_registration', sql=sql, 
-                                          newer_than=datetime.datetime(2015, 1, 15, 3, 0),
+                                          newer_than=datetime.datetime(2015, 1, 16, 3, 0),
                                           key={'name': 'course_id'})
 
         # start assembling course_summary_stats
@@ -323,7 +355,12 @@ def analyze_course_content(course_id,
 
         for entry in bqdat['data']:
             thekey = make_key(entry['key'])
+            if thekey.startswith('listings_') and thekey[9:] not in listings_keys:
+                # print "dropping key=%s for course_id=%s" % (thekey, entry['course_id'])
+                continue
             c_sum_stats[entry['course_id']][thekey] = entry['value']
+            #if 'certifies' in thekey:
+            #    print "course_id=%s, key=%s, value=%s" % (entry['course_id'], thekey, entry['value'])
             if thekey not in css_keys:
                 css_keys.append(thekey)
 
