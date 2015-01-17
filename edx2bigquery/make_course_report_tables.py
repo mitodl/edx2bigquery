@@ -166,7 +166,7 @@ class CourseReport(object):
                             select *, (2014-YoB) as age, FROM 
                                 {pc_tables}
                          )
-                    WHERE {constraint}
+                    WHERE {constraint} and (not (forumRoles_isStudent = 0))
                    )
               group by course_id
               order by course_id;
@@ -243,6 +243,8 @@ class CourseReport(object):
                    sum(case when ((ip is not null) and (cc_by_ip is null)) then 1 else 0 end) as n_missing_cc,
             FROM 
                 {pc_tables}
+            WHERE
+                (not (forumRoles_isStudent = 0))
             group by course_id
             order by course_id;
         '''.format(**self.parameters)
@@ -301,6 +303,7 @@ class CourseReport(object):
                    FROM {pc_tables}
                    where is_active = 0
                    and  last_event is not null
+                   and (not (forumRoles_isStudent = 0))
                    group by date, course_id
                    order by date, course_id
                  ),(
@@ -313,6 +316,7 @@ class CourseReport(object):
                      INTEGER(0) as verified_un_registered,
                    FROM {pc_tables}
                    where start_time is not null
+                   and (not (forumRoles_isStudent = 0))
                    group by date, course_id
                    order by date, course_id
                  )
@@ -357,6 +361,8 @@ class CourseReport(object):
                 sum(case when (mode="verified") and certified then 1 else 0 end) as ncert_verified,
                 avg(case when certified then avg_dt else null end) as avg_certified_dt,
             FROM {pc_tables}
+            WHERE
+                 (not (forumRoles_isStudent = 0))
             group by cc, countryLabel
             #order by countryLabel
             order by nverified desc
@@ -427,6 +433,8 @@ class CourseReport(object):
                    sum(case when ((ip is not null) and (cc_by_ip is null)) then 1 else 0 end) as n_missing_cc,
             FROM 
                 {pc_tables}
+            WHERE
+                 (not (forumRoles_isStudent = 0))
             group by course_id
             order by course_id;
         '''.format(**self.parameters)
