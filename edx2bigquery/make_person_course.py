@@ -160,7 +160,7 @@ class PersonCourse(object):
         data = OrderedDict()
         if keymap is None:
             keymap = lambda x: x
-        for line in csv.DictReader(openfile(fn)):
+        for line in csv.DictReader(self.openfile(fn)):
             try:
                 the_id = keymap(line[key])
             except Exception as err:
@@ -192,7 +192,9 @@ class PersonCourse(object):
         return data
     
     @staticmethod
-    def copy_fields(src, dst, fields):
+    def copy_fields(src, dst, fields, mapfun=None):
+        if not mapfun:
+            mapfun = lambda x: x
         for key, val in fields.items():
             if type(val)==list:
                 for valent in val:
@@ -201,7 +203,7 @@ class PersonCourse(object):
                         break
             else:
                 if val in src:
-                    dst[key] = src[val]
+                    dst[key] = mapfun(src[val])
     
     #-----------------------------------------------------------------------------
     
@@ -537,7 +539,47 @@ class PersonCourse(object):
         self.log("--> # missing_ip = %d, # missing_geo = %d, # missing_ip_but_have_events = %d" % (nmissing_ip, nmissing_geo, nmissing_ip_but_have_events))
         sys.stdout.flush()
         gid.write_geoip_table()
+
         
+    def compute_sixth_phase(self):
+        '''
+        Add forum and course (staff) roles flags
+        '''
+        rfn = 'roles.csv'
+        if not (self.cdir / rfn).exists():
+            self.log("Skipping sixth phase (adding roles), no file %s" % rfn)
+            return
+
+        self.log("-"*20)
+        self.log("Computing sixth phase based on %s" % rfn)
+        
+        roles = self.load_csv(rfn, 'user_id', keymap=int)
+
+        fields = ["roles_isBetaTester","roles_isInstructor",
+                  "roles_isStaff","forumRoles_isAdmin","forumRoles_isCommunityTA",
+                  "forumRoles_isModerator","forumRoles_isStudent"]
+
+        def mapfun(x):
+            if x or x==0:
+                return int(float(x))
+            return None
+
+        nroles = 0
+        nmissing = 0
+        missing_uids = []
+        for key, pcent in self.pctab.iteritems():
+            uid = int(pcent['user_id'])
+            if not uid in roles:
+                missing_uids.append(uid)
+                nmissing += 1
+                continue
+
+            self.copy_fields(roles[uid], pcent, {x:x for x in fields}, mapfun=mapfun)
+            nroles += 1
+
+        if self.verbose:
+            self.log("--> Err! missing roles information for uid=%s" % missing_uids)
+        self.log("  Added roles information for %d users; missing roles for %d" % (nroles, nmissing))
 
     def output_table(self):
         '''
@@ -998,7 +1040,7 @@ class PersonCourse(object):
                                                      force_query=self.force_recompute_from_logs, logger=self.log))
 
     def load_cwsm(self):
-        self.cwsm = load_csv('studentmodule.csv', 'student_id', fields=['module_id', 'module_type'], keymap=int)
+        self.cwsm = self.load_csv('studentmodule.csv', 'student_id', fields=['module_id', 'module_type'], keymap=int)
 
     def make_all(self):
         steps = [
@@ -1007,6 +1049,7 @@ class PersonCourse(object):
             self.compute_third_phase,
             self.compute_fourth_phase,
             self.compute_fifth_phase,
+            self.compute_sixth_phase,	# roles
             ]
         if self.nskip==0:
             for step in steps:

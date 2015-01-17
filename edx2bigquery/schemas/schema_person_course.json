@@ -259,6 +259,41 @@
             "type": "FLOAT",
             "name": "sum_dt",
 	    "description": "Total elapsed time (in seconds) spent by user on this course, based on time difference of consecutive events, with 5 min max cutoff, from tracking logs"
+        },
+        {
+            "type": "INTEGER", 
+            "name": "roles_isBetaTester",
+            "description":  "1 if user is a course beta tester"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "roles_isInstructor",
+            "description":  "1 if user is a course instructor"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "roles_isStaff",
+            "description":  "1 if user is course staff"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "forumRoles_isAdmin",
+            "description":  "1 if user is a forum admin"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "forumRoles_isCommunityTA",
+            "description":  "1 if user is a community TA"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "forumRoles_isModerator",
+            "description":  "1 if user is a forum moderator"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "forumRoles_isStudent",
+            "description":  "1 if user is student on the forum"
         }
     ]
 }
