@@ -212,6 +212,25 @@ def setup_sql(param, args, steps, course_id=None):
             print err
 
 
+def setup_sql_single(param, course_id, optargs=None):
+    '''
+    run setup_sql on a single course
+
+    param = (dict) run parameters
+    course_id = (string) course_id of course to run on
+    optargs is ignored
+    '''
+    print "="*100
+    print "Processing setup_sql for %s" % course_id
+    sys.stdout.flush()
+    try:
+        setup_sql(param, {}, "setup_sql", course_id)
+    except Exception as err:
+        print "===> Error completing setup_sql on %s, err=%s" % (course_id, str(err))
+        traceback.print_exc()
+        sys.stdout.flush()
+        raise
+
 def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
     if steps=='daily_logs':
         # doing daily_logs, so run split once first, then afterwards logs2gs and logs2bq
@@ -774,7 +793,9 @@ delete_stats_tables         : delete stats_activity_by_day tables
         setup_sql(param, args, args.command)
 
     elif (args.command=='setup_sql'):
-        setup_sql(param, args, args.command)
+        # setup_sql(param, args, args.command)
+        courses = get_course_ids(args)
+        run_parallel_or_serial(setup_sql_single, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='waldofy'):
         import do_waldofication_of_sql

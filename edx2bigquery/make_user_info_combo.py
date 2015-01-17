@@ -207,19 +207,32 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         fp.close()
         print "  %d additional profiles loaded from %s/profiles.json.gz" % (nadd_profiles, mongodir)
                 
+        # if datedir is specified, then do not add entries from mongodb where the enrollment happened after the datedir cutoff
+        cutoff = None
+        if datedir:
+            cutoff = "%s 00:00:00" % datedir
+
         fp = gzip.GzipFile(mongodir / "enrollment.json.gz")
         fields = ['course_id', 'created', 'is_active', 'mode', ]
         nadd_enrollment = 0
+        n_removed_after_cutoff = 0
         for line in fp:
             pdata = json.loads(line.decode('utf8'))
             uid = int(pdata['user_id'])
             if not uic[uid].get('enrollment_course_id', None):
-                copy_elements(pdata, uic[uid], fields, prefix="enrollment_", skip_empty=True)
-                nadd_enrollment += 1
+                if cutoff and (pdata['created'] > cutoff) and (uic[uid].get('y1_anomalous')==1):	# remove if enrolled after datedir cutoff
+                    uic.pop(uid)
+                    n_removed_after_cutoff += 1
+                else:
+                    copy_elements(pdata, uic[uid], fields, prefix="enrollment_", skip_empty=True)
+                    nadd_enrollment += 1
         fp.close()
         print "  %d additional enrollments loaded from %s/enrollment.json.gz" % (nadd_enrollment, mongodir)
 
-        print "     from mongodb files, added %s new users (%s profiles, %s enrollments)" % (nadded, nadd_profiles, nadd_enrollment)
+        print "     from mongodb files, added %s (of %s) new users (%s profiles, %s enrollments, %s after cutoff %s)" % (nadded - n_removed_after_cutoff,
+                                                                                                                         nadded, nadd_profiles, nadd_enrollment,
+                                                                                                                         n_removed_after_cutoff,
+                                                                                                                         cutoff)
         sys.stdout.flush()
 
     fp = openfile('certificates.csv')
