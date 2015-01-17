@@ -333,7 +333,8 @@ class PersonCourse(object):
             # derived entries, from SQL data
         
             # certificate status can be [ "downloadable", "notpassing", "unavailable" ]
-            if uicent.get('certificate_status', '') in [ "downloadable","unavailable" ]:
+            # if uicent.get('certificate_status', '') in [ "downloadable","unavailable" ]:
+            if uicent.get('certificate_status', '') in [ "downloadable" ]:
                 pcent['certified'] = True
             else:
                 pcent['certified'] = False
