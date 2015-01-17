@@ -98,7 +98,8 @@ def run_parallel_or_serial(function, param, courses, optargs, parallel=False, na
 
     if not parallel:
         try:
-            ret = function(param, courses, optargs)
+            for course_id in courses:
+                ret = function(param, course_id, optargs)
         except Exception as err:
             print "===> Error running %s on %s, err=%s" % (name, courses, str(err))
             traceback.print_exc()
