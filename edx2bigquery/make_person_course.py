@@ -577,7 +577,7 @@ class PersonCourse(object):
             self.copy_fields(roles[uid], pcent, {x:x for x in fields}, mapfun=mapfun)
             nroles += 1
 
-        if self.verbose:
+        if self.verbose and False:
             self.log("--> Err! missing roles information for uid=%s" % missing_uids)
         self.log("  Added roles information for %d users; missing roles for %d" % (nroles, nmissing))
 
