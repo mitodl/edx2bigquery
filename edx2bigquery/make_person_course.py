@@ -415,7 +415,7 @@ class PersonCourse(object):
 
         # skip if no tracking logs available
         if not self.are_tracking_logs_available():
-            print "--> Missing tracking logs dataset %s_logs, skipping third phase of person_course" % self.dataset
+            self.log("--> Missing tracking logs dataset %s_logs, skipping third phase of person_course" % self.dataset)
             return
 
         if False:
@@ -431,6 +431,7 @@ class PersonCourse(object):
                       'nseek_video', 'npause_video', 'avg_dt', 'sdv_dt', 'max_dt', 'n_dt', 'sum_dt']
 
         nmissing_ip = 0
+        nmissing_ip_cert = 0
         for key, pcent in self.pctab.iteritems():
             username = pcent['username']
 
@@ -450,11 +451,15 @@ class PersonCourse(object):
                 self.copy_from_bq_table(self.pc_modal_ip, pcent, username, 'modal_ip', new_field='ip')
                 if self.pc_modal_ip['data_by_key'].get(username, {}).get('source', None)=='missing':
                     nmissing_ip += 1
+                    if pcent.get('certified'):
+                        nmissing_ip_cert += 1
 
             for pcdf in pcd_fields:
                 self.copy_from_bq_table(self.pc_day_totals, pcent, username, pcdf)
 
-        print "--> modal_ip's number missing = %d" % nmissing_ip
+        self.log("--> modal_ip's number missing = %d" % nmissing_ip)
+        if nmissing_ip_cert:
+            self.log("==> WARNING: missing %d ip addresses for users with certified=True!" % nmissing_ip_cert)
 
     def compute_fourth_phase(self):
     
@@ -905,7 +910,7 @@ class PersonCourse(object):
         ctables = bqutil.get_list_of_table_ids(self.dataset_courses)
         gtable = 'global_modal_ip'
         if gtable not in ctables:
-            print "---> WARNING: Table %s.%s is missing, so global modal IP's won't be included!" % (self.dataset_courses, gtable)
+            self.log("---> WARNING: Table %s.%s is missing, so global modal IP's won't be included!" % (self.dataset_courses, gtable))
 
             the_sql = """
               SELECT uic.username as username, 
@@ -926,12 +931,21 @@ class PersonCourse(object):
                          mip.course_ip_count as course_ip_count,
                          mip.global_modal_ip as global_modal_ip,
                          mip.global_ip_count as global_ip_count,
+
+                         # logic to take the course ip when available, else the global ip
                          CASE when course_modal_ip !="" then course_modal_ip else global_modal_ip end as modal_ip,
                          CASE when course_modal_ip !="" then 'course' 
                               when global_modal_ip !="" then 'global'
                               else 'missing' end as source,
                   FROM [{dataset}.user_info_combo] as uic
                   LEFT JOIN EACH ( 
+
+                     # what we really want is a full outer join, and bigquery does not have that.
+                     # so take the union of two left joins
+
+                     SELECT * FROM 
+                       (
+                         #  first, get cases where both course and global are available
                          SELECT (case when cmi.username != "" then cmi.username else gmi.username end) as username,
                                 cmi.modal_ip as course_modal_ip,
                                 cmi.ip_count as course_ip_count,
@@ -941,8 +955,25 @@ class PersonCourse(object):
                          LEFT JOIN {each} [{dataset}.course_modal_ip] as cmi
                          ON cmi.username = gmi.username
                          order by username
+                       ),
+                       #  now get cases where course is available but not global
+                       (
+                         SELECT (case when cmi.username != "" then cmi.username else gmi.username end) as username,
+                                cmi.modal_ip as course_modal_ip,
+                                cmi.ip_count as course_ip_count,
+                                gmi.modal_ip as global_modal_ip,
+                                gmi.ip_count as global_ip_count,
+                         FROM
+                                [{dataset}.course_modal_ip] as cmi
+                         LEFT JOIN EACH
+                                [courses.global_modal_ip] as gmi
+                         ON cmi.username = gmi.username
+                         WHERE gmi.username is NULL
+                         order by username
+                       )
                   ) as mip
                   ON uic.username = mip.username
+                  order by username
               """.format(each=use_each, **self.sql_parameters)
             depends_on.append('courses.global_modal_ip')
 
@@ -951,7 +982,7 @@ class PersonCourse(object):
         self.log("Loading %s from BigQuery" % tablename)
         setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'username'},
                                                      depends_on=depends_on,
-                                                     newer_than=datetime.datetime(2015, 1, 9, 3, 0),
+                                                     newer_than=datetime.datetime(2015, 1, 18, 0, 0),
                                                      force_query=self.force_recompute_from_logs, logger=self.log))
 
 
