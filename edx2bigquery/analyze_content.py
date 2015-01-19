@@ -346,7 +346,7 @@ def analyze_course_content(course_id,
         listings_keys = map(make_key, ["Institution", "Semester", "New or Rerun", "Andrew Recodes New/Rerun", 
                                        "Course Number", "Short Title", "Andrew's Short Titles", "Title", 
                                        "Instructors", "Registration Open", "Course Launch", "Course Wrap", "course_id",
-                                       "Empirical Course Wrap", "Andrew's Order", "certifies",
+                                       "Empirical Course Wrap", "Andrew's Order", "certifies", "MinPassGrade"
                                        ])
         listings_keys.reverse()
         
