@@ -492,7 +492,7 @@ def load_data_to_table(dataset_id, table_id, gsfn, schema, wait=True, verbose=Fa
     if maxbad is not None:
         config['load']['maxBadRecords'] = maxbad
 
-    job_id = 'load_%s_%d' % (table_id, time.time())
+    job_id = 'load_%s__%s_%d' % (dataset_id, table_id, time.time())
     job_ref = {'jobId': job_id,
                'projectId': project_id}
     
@@ -516,6 +516,11 @@ def load_data_to_table(dataset_id, table_id, gsfn, schema, wait=True, verbose=Fa
                 print err
                 print "--> 500 error, retrying in 30 sec"
                 time.sleep(30)
+                continue
+            if 'SSL3_GET_RECORD:decryption failed' in str(err):
+                print err
+                print "--> SSL3 error, retrying in 10 sec"
+                time.sleep(10)
                 continue
             raise
 
@@ -581,7 +586,7 @@ def extract_table_to_gs(dataset_id, table_id, gsfn, format=None, do_gzip=False, 
     if format=='csv':
         config['extract']['destinationFormat'] = 'CSV'
 
-    job_id = 'load_%s_%d' % (table_id, time.time())
+    job_id = 'load_%s__%s_%d' % (dataset_id, table_id, time.time())
     job_ref = {'jobId': job_id,
                'projectId': project_id}
     
