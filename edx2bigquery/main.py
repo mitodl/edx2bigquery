@@ -232,6 +232,34 @@ def setup_sql_single(param, course_id, optargs=None):
         sys.stdout.flush()
         raise
 
+def analyze_course_single(param, course_id, optargs=None):
+    '''
+    run analyze_course_content on a single course
+
+    param = (dict) run parameters
+    course_id = (string) course_id of course to run on
+    optargs is ignored
+    '''
+    print "="*100
+    print "Processing analyze_course_content for %s" % course_id
+    sys.stdout.flush()
+
+    import analyze_content
+
+    try:
+        analyze_content.analyze_course_content(course_id, 
+                                               listings_file=param.listings,
+                                               basedir=param.the_basedir, 
+                                               datedir=param.the_datedir,
+                                               use_dataset_latest=param.use_dataset_latest,
+                                               do_upload=False,
+                                               )
+    except Exception as err:
+        print "===> Error completing analyze_course_content on %s, err=%s" % (course_id, str(err))
+        traceback.print_exc()
+        sys.stdout.flush()
+        raise
+
 def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
     if steps=='daily_logs':
         # doing daily_logs, so run split once first, then afterwards logs2gs and logs2bq
@@ -817,19 +845,8 @@ delete_stats_tables         : delete stats_activity_by_day tables
                                                    courses=get_course_ids(args),
                                                    )
         else:
-            for course_id in get_course_ids(args):
-                try:
-                    analyze_content.analyze_course_content(course_id, 
-                                                           listings_file=param.listings,
-                                                           basedir=param.the_basedir, 
-                                                           datedir=param.the_datedir,
-                                                           use_dataset_latest=param.use_dataset_latest,
-                                                           do_upload=args.force_recompute,
-                                                           )
-                except Exception as err:
-                    print "===> Error running %s on %s, err=%s" % (args.command, course_id, str(err))
-                    traceback.print_exc()
-                    sys.stdout.flush()
+            courses = get_course_ids(args)
+            run_parallel_or_serial(analyze_course_single, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='mongo2user_info'):
         import fix_missing_user_info

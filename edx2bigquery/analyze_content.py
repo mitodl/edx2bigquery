@@ -12,6 +12,7 @@ from collections import defaultdict, OrderedDict
 from lxml import etree
 from path import path
 from load_course_sql import find_course_sql_dir
+from make_geoip_table import lock_file
 
 CCDATA = "course_content.csv"
 CMINFO = "course_metainfo.csv"
@@ -498,6 +499,7 @@ def analyze_course_content(course_id,
     print "per week: nqual=%6.2f, nquant=%6.2f total=%6.2f" % (nqual_per_week, nquant_per_week, total_per_week)
 
     # save this overall data in CCDATA
+    lock_file(CCDATA)
     ccdfn = path(CCDATA)
     ccd = {}
     if ccdfn.exists():
@@ -519,6 +521,7 @@ def analyze_course_content(course_id,
     for cid, entry in ccd.items():
         dw.writerow(entry)
     cfp.close()
+    lock_file(CCDATA, release=True)
 
     # store data in course_metainfo table, which has one (course_id, key, value) on each line
     # keys include nweeks, nqual, nquant, count_* for module types *
