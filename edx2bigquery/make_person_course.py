@@ -900,7 +900,7 @@ class PersonCourse(object):
         
         use_each = ""
         # check to see if the course_modal_ip table is too large; if so, must do JOIN EACH
-        cmi_size = bqutil.get_bq_table_size_rows(self.dataset, "course_modal_ip")        
+        cmi_size = bqutil.get_bq_table_size_bytes(self.dataset, "course_modal_ip")        
         if cmi_size > 5e6:
             use_each = "EACH"
 

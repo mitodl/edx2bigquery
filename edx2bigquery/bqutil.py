@@ -210,6 +210,15 @@ def get_bq_table_size_rows(dataset_id, table_id):
         return int(tinfo['numRows'])
     return None
 
+def get_bq_table_size_bytes(dataset_id, table_id):
+    '''
+    Retrieve number of bytes of specified BQ table
+    '''
+    tinfo = get_bq_table_info(dataset_id, table_id)
+    if tinfo is not None:
+        return int(tinfo['numBytes'])
+    return None
+
 def bq_timestamp_milliseconds_to_datetime(timestamp):
     '''
     Convert a millisecond timestamp to a python datetime object
