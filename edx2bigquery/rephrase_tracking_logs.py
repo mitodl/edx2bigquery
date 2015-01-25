@@ -176,7 +176,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                 context.pop(key)
         context['agent'] = json.dumps(agent)
 
-    mobile_api_context_fields = ['application', 'client', 'received_at', 'component']
+    mobile_api_context_fields = ['application', 'client', 'received_at', 'component', "open_in_browser_url"]
     move_unknown_fields_from_context_to_context_agent(mobile_api_context_fields)
 
     #----------------------------------------
