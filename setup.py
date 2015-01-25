@@ -32,6 +32,7 @@ setup(
 		      'pygeoip',
                       'pytz',
                       'python-dateutil',
+                      'geoip2',
                       ],
     dependency_links = [
         ],
