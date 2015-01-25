@@ -188,7 +188,7 @@ class PersonCourse(object):
                 the_id = jd[key]
                 data[the_id] = jd
             else:
-                print "[make_person_course] oops!  missing %s from %s row %s=%s" % (key, fn, cnt, jd)
+                self.log("[make_person_course] oops!  missing %s from %s row %s=%s" % (key, fn, cnt, jd))
         return data
     
     @staticmethod
@@ -252,7 +252,7 @@ class PersonCourse(object):
         csfiles = ['course_structure-prod-analytics.json.gz', 'course_structure.json', 'course_axis.json']
         csfn = getonefile(csfiles)
         if csfn is None:
-            print '[make_person_course] get_nchapters: Cannot find required file in %s, one of %s' % (self.cdir, csfiles)
+            self.log('[make_person_course] get_nchapters: Cannot find required file in %s, one of %s' % (self.cdir, csfiles))
             sys.stdout.flush()
             return 9999   	# dummy value
 
@@ -357,7 +357,7 @@ class PersonCourse(object):
         try:
             nchapters = self.get_nchapters_from_course_metainfo()
         except Exception as err:
-            print "Error %s getting nchapters!" % str(err)
+            self.log("Error %s getting nchapters!" % str(err))
             nchapters = None
             self.pc_nchapters = None
 
@@ -470,15 +470,19 @@ class PersonCourse(object):
         self.log("Computing fourth phase based on modal_ip and geoip join in BigQuery")
 
         if self.skip_geoip:
-            print "--> Skipping geoip"
+            self.log("--> Skipping geoip")
             return
 
         # skip if no tracking logs available
         if not self.are_tracking_logs_available():
-            print "--> Missing tracking logs dataset %s_logs, skipping fourth phase of person_course" % self.dataset
+            self.log("--> Missing tracking logs dataset %s_logs, skipping fourth phase of person_course" % self.dataset)
             return
 
         self.load_pc_geoip()
+
+        if self.pc_geoip is None:
+            self.log("Skipping fourth phase - pc_geoip table is None")
+            return
 
         pcd_fields = [['country', 'cc_by_ip'], 'latitude', 'longitude']
 
@@ -504,7 +508,7 @@ class PersonCourse(object):
         try:
             gid = make_geoip_table.GeoIPData()
         except Exception as err:
-            print "---> Skipping local geoip"
+            self.log("---> Skipping local geoip")
             return
         
         gid.load_geoip()
@@ -1092,7 +1096,7 @@ class PersonCourse(object):
                 if self.nskip <= 0:
                     step()
                 else:
-                    print "Skipping %s" % repr(step)
+                    self.log("Skipping %s" % repr(step))
                 self.nskip -= 1
 
         self.output_table()
