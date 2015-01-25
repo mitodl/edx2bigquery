@@ -30,6 +30,8 @@ setup(
     install_requires=['path.py',
                       'argparse',
 		      'pygeoip',
+                      'pytz',
+                      'python-dateutil',
                       ],
     dependency_links = [
         ],
