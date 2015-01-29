@@ -416,9 +416,11 @@ def person_course(param, courses, args, just_do_nightly=False, force_recompute=F
             if ('no user_info_combo' in str(err)) or ('aborting - no dataset' in str(err)):
                 continue
             if ('Internal Error' in str(err)):
-                continue
+                raise
+                # continue
             if ('BQ Error creating table' in str(err)):
-                continue
+                raise
+                # continue
             raise
     
 def doall(param, course_id, args, stdout=None):
@@ -878,6 +880,21 @@ delete_stats_tables         : delete stats_activity_by_day tables
         courses = get_course_ids(args)
         run_parallel_or_serial(list_tables_in_course_db, param, courses, args, parallel=args.parallel)
 
+    elif (args.command=='check_pc_dates'):
+        import bqutil
+        tablename = "person_course"
+        for course_id in get_course_ids(args):
+            dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
+            try:
+                table_date = bqutil.get_bq_table_last_modified_datetime(dataset, tablename)
+            except Exception as err:
+                if 'Not Found' in str(err):
+                    table_date = None
+                else:
+                    table_date = str(err)
+            print "%s: %s " %  (course_id, table_date)
+            sys.stdout.flush()
+            
     elif (args.command=='get_tables'):
         import bqutil
         print json.dumps(bqutil.get_tables(args.courses[0]), indent=4)
