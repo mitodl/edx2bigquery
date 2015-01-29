@@ -33,6 +33,8 @@ setup(
                       'pytz',
                       'python-dateutil',
                       'geoip2',
+                      'lxml',
+                      'BeautifulSoup',
                       ],
     dependency_links = [
         ],
