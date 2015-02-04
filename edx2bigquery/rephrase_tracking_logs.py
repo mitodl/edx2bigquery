@@ -171,12 +171,27 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
         context = data.get('context', {})
         agent = {'oldagent': context.get('agent', "")}
         for key in keys:
-            if key in context:
-                agent[key] = context[key]
-                context.pop(key)
+            if '.' in key:
+                (prefix, subkey) = key.split('.',1)
+                if prefix in context:
+                    subcontext = context[prefix]
+                    if subkey in subcontext:
+                        agent[key] = subcontext[subkey]
+                        subcontext.pop(subkey)
+            else:
+                if key in context:
+                    agent[key] = context[key]
+                    context.pop(key)
         context['agent'] = json.dumps(agent)
 
-    mobile_api_context_fields = ['application', 'client', 'received_at', 'component', "open_in_browser_url"]
+    # 31-Jan-15: handle new "module.usage_key" field in context, e.g.:
+    #
+    #    "module": {
+    #        "display_name": "Radiation Exposure", 
+    #        "usage_key": "i4x://MITx/6.00.1x_5/problem/ps03:ps03-Radiation-Exposure"
+    #    }, 
+
+    mobile_api_context_fields = ['application', 'client', 'received_at', 'component', "open_in_browser_url", "module.usage_key"]
     move_unknown_fields_from_context_to_context_agent(mobile_api_context_fields)
 
     #----------------------------------------
