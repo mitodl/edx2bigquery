@@ -58,7 +58,7 @@ def guess_course_id(data, org="MITx"):
 #-----------------------------------------------------------------------------
 
 
-def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='MITx'):
+def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='MITx', logs_dir=LOGS_DIR):
     
     line = line.strip()
     if not line.startswith('{'):
@@ -97,7 +97,7 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
     if ofn in ofpset:
         ofp = ofpset[ofn]
     else:
-        ofp_dir = '%s/%s' % (LOGS_DIR, ofn)
+        ofp_dir = '%s/%s' % (logs_dir, ofn)
         if not os.path.exists(ofp_dir):
             os.mkdir(ofp_dir)
         if not do_zip:
@@ -138,7 +138,7 @@ def do_file(fn, logs_dir=LOGS_DIR):
     for line in fp:
         cnt += 1
         try:
-            newline = do_split(line, linecnt=cnt, run_rephrase=True, date=the_date, do_zip=True)
+            newline = do_split(line, linecnt=cnt, run_rephrase=True, date=the_date, do_zip=True, logs_dir=logs_dir)
         except Exception as err:
             print "[split_and_rephrase] ===> OOPS, failed err=%s in parsing line %s" % (str(err), line)
             raise
