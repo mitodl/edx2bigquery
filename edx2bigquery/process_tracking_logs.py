@@ -10,7 +10,8 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                                end_date=None, 
                                get_date_function=None,
                                existing=None,
-                               log_dates=None):
+                               log_dates=None,
+                               days_delta=1):
     '''
     make a certain table (with SQL given) for specified course_id.
 
@@ -28,7 +29,10 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
     If the query fails because of "Resources exceeded during query execution"
     then try setting the end_date, to do part at a time.
 
-    NOTE: the SQL must produce a result which is ordered by date, in increaseing order.
+    NOTE: the SQL must produce a result which is ordered by date, in increasing order.
+
+    days_delta = integer number of days to increase each time; specify 0 for one day overlap,
+                 but make sure the SQL query only selects for time > TIMESTAMP("{last_date}")
     '''
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
@@ -57,6 +61,8 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
     else:
         overwrite = False
 
+    last_date = "2112-10-01 01:02:03"    	# default last date
+
     if (not overwrite) and table in existing:
         # find out what the end date is of the current table
         pc_last = bqutil.get_table_data(dataset, table, startIndex=-10, maxResults=100)
@@ -64,7 +70,8 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
             print "--> no data in latest tracking log %s.%s, aborting!" % (dataset, table)
             return
         last_dates = [get_date_function(x) for x in pc_last['data']]
-        table_max_date = max(last_dates).strftime('%Y%m%d')
+        last_date = max(last_dates)
+        table_max_date = last_date.strftime('%Y%m%d')
         if max_date <= table_max_date:
             print '--> %s already exists, max_date=%s, but tracking log data min=%s, max=%s, nothing new!' % (table, 
                                                                                                               table_max_date,
@@ -72,7 +79,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                                                                                                               max_date)
             sys.stdout.flush()
             return
-        min_date = (max(last_dates) + datetime.timedelta(days=1)).strftime('%Y%m%d')
+        min_date = (last_date + datetime.timedelta(days=days_delta)).strftime('%Y%m%d')
         print '--> %s already exists, max_date=%s, adding tracking log data from %s to max=%s' % (table, 
                                                                                                   table_max_date,
                                                                                                   min_date,
@@ -87,10 +94,10 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                   )
          """.format(dataset=log_dataset, start=min_date, end=max_date)
 
-    the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets)
+    the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets, last_date=last_date)
 
     if overwrite=='append':
-        print "Appending to %s table for course %s (start=%s, end=%s) [%s]"  % (table, course_id, min_date, max_date, datetime.datetime.now())
+        print "Appending to %s table for course %s (start=%s, end=%s, last_date=%s) [%s]"  % (table, course_id, min_date, max_date, last_date, datetime.datetime.now())
     else:
         print "Making new %s table for course %s (start=%s, end=%s) [%s]"  % (table, course_id, min_date, max_date, datetime.datetime.now())
     sys.stdout.flush()

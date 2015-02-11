@@ -196,6 +196,7 @@ def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=Fa
                from {DATASETS}
                where event_type = "problem_check"
                   and event_source = "server"
+                  and time > TIMESTAMP("{last_date}")
                order by time;
             """
 
@@ -207,5 +208,6 @@ def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=Fa
     process_tracking_logs.run_query_on_tracking_logs(SQL, table, course_id, force_recompute=force_recompute,
                                                      use_dataset_latest=use_dataset_latest,
                                                      end_date=end_date,
-                                                     get_date_function=gdf)
+                                                     get_date_function=gdf,
+                                                     days_delta=0)
         
