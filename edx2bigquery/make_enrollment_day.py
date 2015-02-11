@@ -172,6 +172,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
             FROM {DATASETS} 
             where (event_type = "edx.course.enrollment.activated") or
                   (event_type = "edx.course.enrollment.deactivated")
+                  and time > TIMESTAMP("{last_date}")
             order by time;
             """
 
@@ -183,4 +184,5 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
     process_tracking_logs.run_query_on_tracking_logs(SQL, table, course_id, force_recompute=force_recompute,
                                                      use_dataset_latest=use_dataset_latest,
                                                      end_date=end_date,
-                                                     get_date_function=gdf)
+                                                     get_date_function=gdf,
+                                                     days_delta=0)

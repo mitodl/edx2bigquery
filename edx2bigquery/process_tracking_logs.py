@@ -11,7 +11,8 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                                get_date_function=None,
                                existing=None,
                                log_dates=None,
-                               days_delta=1):
+                               days_delta=1,
+                               skip_last_day=False):
     '''
     make a certain table (with SQL given) for specified course_id.
 
@@ -33,6 +34,10 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
 
     days_delta = integer number of days to increase each time; specify 0 for one day overlap,
                  but make sure the SQL query only selects for time > TIMESTAMP("{last_date}")
+
+    If skip_last_day is True then do not include the last day of tracking log data
+    in the processing.  This is done to avoid processing partial data, e.g. when
+    tracking log data are incrementally loaded with a delta of less than one day.
     '''
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
@@ -45,6 +50,13 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
     if log_dates is None:
         log_tables = [x for x in bqutil.get_list_of_table_ids(log_dataset) if x.startswith('tracklog_20')]
         log_dates = [x[9:] for x in log_tables]
+
+    if skip_last_day:
+        old_max_date = max(log_dates)
+        log_dates.remove(max(log_dates))	# remove the last day of data from consideration
+        max_date = max(log_dates)
+        print "         --> skip_last_day is True: dropping %s, new max_date=%s" % (old_max_date, max_date)
+        sys.stdout.flush()
 
     min_date = min(log_dates)
     max_date = max(log_dates)

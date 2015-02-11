@@ -199,7 +199,8 @@ def obsolete_process_course(course_id, force_recompute=False, check_dates=True):
 
 #-----------------------------------------------------------------------------
 
-def process_course(course_id, force_recompute=False, use_dataset_latest=False, end_date=None, check_dates=True):
+def process_course(course_id, force_recompute=False, use_dataset_latest=False, end_date=None, 
+                   check_dates=True, skip_last_day=False):
     '''
     Make {course_id}.person_course_day table for specified course_id.
 
@@ -208,6 +209,10 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
     by appending rows to the end.  The rows are kept in time order.
 
     check_dates is disregarded.
+
+    If skip_last_day is True then do not include the last day of tracking log data
+    in the processing.  This is done to avoid processing partial data, e.g. when
+    tracking log data are incrementally loaded with a delta of less than one day.
     '''
 
     PCDAY_SQL = """
@@ -281,7 +286,8 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
     process_tracking_logs.run_query_on_tracking_logs(PCDAY_SQL, table, course_id, force_recompute=force_recompute,
                                                      use_dataset_latest=use_dataset_latest,
                                                      end_date=end_date,
-                                                     get_date_function=gdf)
+                                                     get_date_function=gdf,
+                                                     skip_last_day=skip_last_day)
     
     print "Done with person_course_day for %s (end %s)"  % (course_id, datetime.datetime.now())
     print "="*77

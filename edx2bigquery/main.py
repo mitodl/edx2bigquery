@@ -377,6 +377,7 @@ def person_day(param, courses, args, check_dates=True):
                                                   use_dataset_latest=param.use_dataset_latest,
                                                   check_dates=check_dates,
                                                   end_date=args.end_date,
+                                                  skip_last_day=args.skip_last_day,
                                                   )
         except Exception as err:
             print err
@@ -735,6 +736,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
     parser.add_argument("--output-bucket", type=str, help="gs bucket where the report output should go, e.g. gs://x-data (used by the report and combinepc commands)")
     parser.add_argument("--dynamic-dates", help="split tracking logs using dates determined by each log line entry, and not filename", action="store_true")
     parser.add_argument("--logfn-keepdir", help="keep directory name in tracking which tracking logs have been loaded already", action="store_true")
+    parser.add_argument("--skip-last-day", help="skip last day of tracking log data in processing pcday, to avoid partial-day data contamination", action="store_true")
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
     
     args = parser.parse_args()
