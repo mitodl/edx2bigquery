@@ -422,6 +422,9 @@ class PersonCourse(object):
             self.load_last_event()	# this now comes from pc_day_totals
 
         self.load_pc_day_totals()	# person-course-day totals contains all the aggregate nevents, etc.
+
+        skip_modal_ip = skip_modal_ip or self.skip_geoip
+
         if not skip_modal_ip:
             self.load_modal_ip()
 
@@ -457,9 +460,10 @@ class PersonCourse(object):
             for pcdf in pcd_fields:
                 self.copy_from_bq_table(self.pc_day_totals, pcent, username, pcdf)
 
-        self.log("--> modal_ip's number missing = %d" % nmissing_ip)
-        if nmissing_ip_cert:
-            self.log("==> WARNING: missing %d ip addresses for users with certified=True!" % nmissing_ip_cert)
+        if not skip_modal_ip:
+            self.log("--> modal_ip's number missing = %d" % nmissing_ip)
+            if nmissing_ip_cert:
+                self.log("==> WARNING: missing %d ip addresses for users with certified=True!" % nmissing_ip_cert)
 
     def compute_fourth_phase(self):
     
@@ -499,9 +503,9 @@ class PersonCourse(object):
         Add more geoip information, based on extra_geoip and local maxmind geoip
         '''
 
-        #if self.skip_geoip:
-        #    print "--> Skipping geoip"
-        #    return
+        if self.skip_geoip:
+            print "--> Skipping geoip"
+            return
 
         import make_geoip_table
 

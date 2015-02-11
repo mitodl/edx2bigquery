@@ -14,6 +14,8 @@ import string
 import re
 import json
 import gzip
+import dateutil.parser
+import pytz
 from rephrase_tracking_logs import do_rephrase
 
 ofpset = {}
@@ -58,7 +60,14 @@ def guess_course_id(data, org="MITx"):
 #-----------------------------------------------------------------------------
 
 
-def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='MITx', logs_dir=LOGS_DIR):
+def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='MITx', logs_dir=LOGS_DIR,
+             dynamic_dates=False, timezone=None):
+    '''
+    if dynamic_dates=True, then use the date on each tracking log line for the date string in the filename.
+    
+    if timezone is specified (as a pytz timezone), and if dynamic_dates=True, then use the timezone in parsing dates,
+    instead of the default UTC.
+    '''
     
     line = line.strip()
     if not line.startswith('{'):
@@ -73,10 +82,18 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
         sys.stderr.write('[%d] oops, bad log line err=%s, line=%s\n' % (linecnt, str(err), line))
         return
 
-    if date is None:
-        datestr = ''
+    # determine the date to be used for the filename
+    if dynamic_dates:
+        the_time = data['time']	        # "time": "2015-02-10T05:17:08.011728+00:00"
+        dt = dateutil.parser.parse(the_time)
+        if timezone:
+            dt = dt.astimezone(timezone)
+        datestr = '-' + dt.strftime('%Y-%m-%d')
     else:
-        datestr = '-' + date
+        if date is None:
+            datestr = ''
+        else:
+            datestr = '-' + date
 
     # add course_id?
     if 'course_id' not in data:
@@ -101,19 +118,28 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
         if not os.path.exists(ofp_dir):
             os.mkdir(ofp_dir)
         if not do_zip:
-            ofp = open('%s/tracklog%s.json' % (ofp_dir, datestr), 'a')
+            ofn_actual = '%s/tracklog%s.json' % (ofp_dir, datestr)
+            ofp = open(ofn_actual, 'a')
         else:
-            ofp = gzip.GzipFile('%s/tracklog%s.json.gz' % (ofp_dir, datestr), 'w')
+            ofn_actual = '%s/tracklog%s.json.gz' % (ofp_dir, datestr)
+            ofp = gzip.GzipFile(ofn_actual, 'a')	# note - append to file!
         ofpset[ofn] = ofp
 
     ofp.write(json.dumps(data)+'\n')
 
 #-----------------------------------------------------------------------------
 
-def do_file(fn, logs_dir=LOGS_DIR):
+def do_file(fn, logs_dir=LOGS_DIR, dynamic_dates=False, timezone=None, logfn_keepdir=False):
     if fn.endswith('.gz'):
         fp = gzip.GzipFile(fn)
-        ofn = string.rsplit(os.path.basename(fn), '.', 2)[0]
+        if logfn_keepdir:
+            fnb = fn.replace('/', '__')
+        else:
+            fnb = os.path.basename(fn)
+        if dynamic_dates:
+            ofn = string.rsplit(fnb, '.', 1)[0]
+        else:
+            ofn = string.rsplit(fnb, '.', 2)[0]
     else:
         fp = open(fn)	# expect it ends with .log
         ofn = string.rsplit(os.path.basename(fn), '.', 1)[0]
@@ -138,7 +164,8 @@ def do_file(fn, logs_dir=LOGS_DIR):
     for line in fp:
         cnt += 1
         try:
-            newline = do_split(line, linecnt=cnt, run_rephrase=True, date=the_date, do_zip=True, logs_dir=logs_dir)
+            newline = do_split(line, linecnt=cnt, run_rephrase=True, date=the_date, do_zip=True, logs_dir=logs_dir,
+                               dynamic_dates=dynamic_dates, timezone=timezone)
         except Exception as err:
             print "[split_and_rephrase] ===> OOPS, failed err=%s in parsing line %s" % (str(err), line)
             raise

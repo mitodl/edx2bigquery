@@ -277,6 +277,7 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
 
     if 'split' in steps:
         import split_and_rephrase
+        import pytz
         tlfn = course_id		# tracking log filename
         if '*' in tlfn:
             import glob
@@ -286,7 +287,24 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
             TODO = [tlfn]
         for the_tlfn in TODO:
             print "--> Splitting tracking logs in %s" % the_tlfn
-            split_and_rephrase.do_file(the_tlfn, args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY)
+            timezone_string = None
+            timezone = None
+            try:
+                timezone_string = edx2bigquery_config.TIMEZONE
+            except Exception as err:
+                print "    no timezone specified, timezone_string=%s, err=%s" % (timezone_string, err)
+            if timezone_string:
+                try:
+                    timezone = pytz.timezone(timezone_string)
+                except Exception as err:
+                    print "  Error!  Cannot parse timezone '%s' err=%s" % (timezone_string, err)
+                    
+            split_and_rephrase.do_file(the_tlfn, 
+                                       logs_dir=args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY,
+                                       dynamic_dates=args.dynamic_dates,
+                                       timezone=timezone,
+                                       logfn_keepdir=args.logfn_keepdir,
+            )
 
     if 'logs2gs' in steps:
         import transfer_logs_to_gs
@@ -701,7 +719,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
     parser.add_argument("--clist", type=str, help="specify name of list of courses to iterate command over")
     parser.add_argument("--force-recompute", help="force recomputation", action="store_true")
     parser.add_argument("--dataset-latest", help="use the *_latest SQL dataset", action="store_true")
-    parser.add_argument("--skip-geoip", help="skip geoip processing in person_course", action="store_true")
+    parser.add_argument("--skip-geoip", help="skip geoip (and modal IP) processing in person_course", action="store_true")
     parser.add_argument("--skip-if-exists", help="skip processing in person_course if table already exists", action="store_true")
     parser.add_argument("--just-do-nightly", help="for person_course, just update activity stats for new logs", action="store_true")
     parser.add_argument("--just-do-geoip", help="for person_course, just update geoip using local db", action="store_true")
@@ -715,6 +733,8 @@ delete_stats_tables         : delete stats_activity_by_day tables
     parser.add_argument("--output-project-id", type=str, help="project-id where the report output should go (used by the report and combinepc commands)")
     parser.add_argument("--output-dataset-id", type=str, help="dataset-id where the report output should go (used by the report and combinepc commands)")
     parser.add_argument("--output-bucket", type=str, help="gs bucket where the report output should go, e.g. gs://x-data (used by the report and combinepc commands)")
+    parser.add_argument("--dynamic-dates", help="split tracking logs using dates determined by each log line entry, and not filename", action="store_true")
+    parser.add_argument("--logfn-keepdir", help="keep directory name in tracking which tracking logs have been loaded already", action="store_true")
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
     
     args = parser.parse_args()
@@ -933,6 +953,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
 
     elif (args.command=='split'):
         daily_logs(param, args, args.command)
+        print "==> split done at %s" % datetime.datetime.now()
 
     elif (args.command=='logs2gs'):
         daily_logs(param, args, args.command)
