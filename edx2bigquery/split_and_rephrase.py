@@ -103,6 +103,11 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
     else:
         cid = data['course_id']
 
+    # un-mangle opaque keys version of course_id, e.g. course-v1:MITx+6.00.2x_3+1T2015
+    if cid.startswith('course-v1:'):
+        cid = cid.split('course-v1:',1)[1].replace('+','/')
+        data['course_id'] = cid
+
     if cid is None or not cid:
         cid = guess_course_id(data, org=org)
 
@@ -111,6 +116,10 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
 
     ofn = cid.replace('/','__')     # determine output filename
     
+    mode = 'w'
+    if dynammic_dates:
+        mode = 'a'	# note - append to file!
+
     if ofn in ofpset:
         ofp = ofpset[ofn]
     else:
@@ -119,10 +128,10 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
             os.mkdir(ofp_dir)
         if not do_zip:
             ofn_actual = '%s/tracklog%s.json' % (ofp_dir, datestr)
-            ofp = open(ofn_actual, 'a')
+            ofp = open(ofn_actual, mode)
         else:
             ofn_actual = '%s/tracklog%s.json.gz' % (ofp_dir, datestr)
-            ofp = gzip.GzipFile(ofn_actual, 'a')	# note - append to file!
+            ofp = gzip.GzipFile(ofn_actual, mode)
         ofpset[ofn] = ofp
 
     ofp.write(json.dumps(data)+'\n')
