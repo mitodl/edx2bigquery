@@ -84,6 +84,9 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
                 src[key] = None
             if src[key]=='NULL':
                 continue
+            if key=='course_id' and src[key].startswith('course-v1:'):
+                # special handling for mangled "opaque keys" version of course_id, e.g. course-v1:MITx+6.00.2x_3+1T2015
+                src[key] = src[key].split(':',1)[1].replace('+','/')
             dest[prefix + key] = src[key]
     
     def openfile(fn_in, mode='r', add_dir=True):
