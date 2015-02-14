@@ -117,7 +117,7 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
     ofn = cid.replace('/','__')     # determine output filename
     
     mode = 'w'
-    if dynammic_dates:
+    if dynamic_dates:
         mode = 'a'	# note - append to file!
 
     if ofn in ofpset:
