@@ -292,7 +292,8 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
             try:
                 timezone_string = edx2bigquery_config.TIMEZONE
             except Exception as err:
-                print "    no timezone specified, timezone_string=%s, err=%s" % (timezone_string, err)
+                if not str(err)=="'module' object has no attribute 'TIMEZONE'":
+                    print "    no timezone specified, timezone_string=%s, err=%s" % (timezone_string, err)
             if timezone_string:
                 try:
                     timezone = pytz.timezone(timezone_string)
