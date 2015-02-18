@@ -689,7 +689,9 @@ class PersonCourse(object):
             return
 
         self.log("Loading %s from BigQuery" % tablename)
-        self.pc_nchapters = bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'user_id'}, logger=self.log)
+        self.pc_nchapters = bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'user_id'},
+                                                depends_on=[ '%s.studentmodule' % self.dataset ],
+                                                force_query=self.force_recompute_from_logs, logger=self.log)
 
 
     def load_pc_day_totals(self):
