@@ -344,6 +344,20 @@ def analyze_problems(param, courses, args):
             traceback.print_exc()
             sys.stdout.flush()
     
+def analyze_ora(param, courses, args):
+    import make_openassessment_analysis
+    for course_id in get_course_ids(courses):
+        try:
+            make_openassessment_analysis.get_ora_events(course_id, 
+                                                        force_recompute=args.force_recompute,
+                                                        use_dataset_latest=param.use_dataset_latest,
+                                                        end_date=args.end_date,
+                                                    )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+
 def problem_check(param, courses, args):
     import make_problem_analysis
     for course_id in get_course_ids(courses):
@@ -461,6 +475,7 @@ def doall(param, course_id, args, stdout=None):
         enrollment_day(param, course_id, args)
         person_course(param, course_id, args)
         problem_check(param, course_id, args)
+        analyze_ora(param, course_id, args)
         success = True
 
     except Exception as err:
@@ -590,7 +605,10 @@ tsv2csv                     : filter, which takes lines of tab separated values 
 
 analyze_problems <c_id> ... : Analyze capa problem data in studentmodule table, generating the problem_analysis table as a result.  
                               Uploads the result to google cloud storage and to BigQuery.
-                              This table is necessary for the insights dashboard.
+                              This table is necessary for the analytics dashboard.
+
+analyze_ora <course_id> ... : Analyze openassessment response problem data in tracking logs, generating the ora_events table as a result.  
+                              Uploads the result to google cloud storage and to BigQuery.
 
 staff2bq <staff.csv>        : load staff.csv file into BigQuery; put it in the "courses" dataset.
 
@@ -832,6 +850,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
                 pcday_ip(param, course_id, args)	# needed for modal IP
                 person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
                 problem_check(param, course_id, args)
+                analyze_ora(param, course_id, args)
             except Exception as err:
                 print "="*100
                 print "ERROR: %s" % str(err)
@@ -972,6 +991,9 @@ delete_stats_tables         : delete stats_activity_by_day tables
 
     elif (args.command=='analyze_problems'):
         analyze_problems(param, args, args)
+
+    elif (args.command=='analyze_ora'):
+        analyze_ora(param, args, args)
 
     elif (args.command=='problem_check'):
         problem_check(param, args, args)

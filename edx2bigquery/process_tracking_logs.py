@@ -73,7 +73,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
     else:
         overwrite = False
 
-    last_date = "2112-10-01 01:02:03"    	# default last date
+    last_date = "2010-10-01 01:02:03"    	# default last date
 
     if (not overwrite) and table in existing:
         # find out what the end date is of the current table
@@ -143,6 +143,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                 force_recompute = False		# after first, don't force recompute
             return
         else:
+            print the_sql
             raise
 
     if overwrite=='append':
