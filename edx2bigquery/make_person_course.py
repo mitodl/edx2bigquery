@@ -57,7 +57,7 @@
 
 import os
 import sys
-import csv
+import unicodecsv as csv
 import gzip
 import json
 import bqutil

@@ -35,6 +35,7 @@ setup(
                       'geoip2',
                       'lxml',
                       'BeautifulSoup',
+                      'unicodecsv',
                       ],
     dependency_links = [
         ],
