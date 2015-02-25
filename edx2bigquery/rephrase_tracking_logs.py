@@ -195,6 +195,46 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
     move_unknown_fields_from_context_to_context_agent(mobile_api_context_fields)
 
     #----------------------------------------
+    # new fields which are not in schema get moved as JSON strings to the pre-existing "mongoid" field, 
+    # which is unused except in very old records
+    # do this, for example, for the "referer" and "accept_language" fields
+
+    def move_fields_to_mongoid(field_paths):
+        '''
+        field_path is a list of lists which gives the recursive dict keys to traverse to get to the field to move.
+        Move that field, with the path intact, into the mongoid field.
+        '''
+        mongoid = data.get('mongoid')
+        if not type(mongoid)==dict:
+            mongoid = {'old_mongoid' : mongoid}
+
+        def move_field_value(ddict, vdict, fp):
+            '''recursively traverse dict to get and move value for specified field path'''
+            key = fp[0]
+            if len(fp)==1:		# base case
+                if key in ddict:
+                    fval = ddict.get(key)
+                    vdict[key] = fval	# copy to new values dict
+                    ddict.pop(key)		# remove key from current path within data dict
+                    return fval
+                return None
+            
+            if not key in vdict:
+                vdict[key] = {}
+
+            return move_field_value(ddict.get(key, {}), vdict[key], fp[1:])
+        
+        vdict = mongoid
+        for field_path in field_paths:
+            move_field_value(data, vdict, field_path)
+            
+        data['mongoid'] = json.dumps(vdict)
+
+    move_fields_to_mongoid([ ['referer'],
+                             ['accept_language'],
+                         ])
+
+    #----------------------------------------
     # general checks
 
     def fix_dash(key):
