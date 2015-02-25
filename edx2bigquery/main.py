@@ -491,6 +491,26 @@ def doall(param, course_id, args, stdout=None):
     sys.stdout.flush()
     return ret
 
+def run_nightly_single(param, course_id, args=None):
+    try:
+        print "-"*100
+        print "NIGHTLY PROCESSING %s" % course_id
+        print "-"*100
+        daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
+        person_day(param, course_id, args, check_dates=False)
+        enrollment_day(param, course_id, args)
+        pcday_ip(param, course_id, args)	# needed for modal IP
+        person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
+        problem_check(param, course_id, args)
+        analyze_ora(param, course_id, args)
+    except Exception as err:
+        print "="*100
+        print "ERROR: %s" % str(err)
+        traceback.print_exc()
+        sys.stdout.flush()
+        raise
+
+
 def list_tables_in_course_db(param, courses, args):
     import bqutil
     for course_id in get_course_ids(courses):
@@ -839,6 +859,10 @@ delete_stats_tables         : delete stats_activity_by_day tables
                 doall(param, course_id, args)
 
     elif (args.command=='nightly'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(run_nightly_single, param, courses, args, parallel=args.parallel)
+        sys.exit(0)
+
         for course_id in get_course_ids(args):
             print "-"*100
             print "NIGHTLY PROCESSING %s" % course_id
