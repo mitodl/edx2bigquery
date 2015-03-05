@@ -344,6 +344,20 @@ def analyze_problems(param, courses, args):
             traceback.print_exc()
             sys.stdout.flush()
     
+
+def attempts_correct(param, courses, args):
+    import make_problem_analysis
+    for course_id in get_course_ids(courses):
+        try:
+            make_problem_analysis.attempts_correct(course_id, 
+                                                   force_recompute=args.force_recompute,
+                                                   use_dataset_latest=param.use_dataset_latest,
+            )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+
 def analyze_ora(param, courses, args):
     import make_openassessment_analysis
     for course_id in get_course_ids(courses):
@@ -721,6 +735,9 @@ combinepc <course_id> ...   : Combine individual person_course tables from the s
 problem_check <c_id> ...    : Create or update problem_check table, which has all the problem_check events from all the course's
                               tracking logs.
 
+attempts_correct <c_id> ... : Create or update stats_attempts_correct table, which records the percentages of attempts which were correct
+                              for a given user in a specified course.
+
 --- TESTING & DEBUGGING COMMANDS
 
 rephrase_logs               : process input tracking log lines one at a time from standard input, and rephrase them to fit the
@@ -1015,6 +1032,9 @@ delete_stats_tables         : delete stats_activity_by_day tables
 
     elif (args.command=='analyze_problems'):
         analyze_problems(param, args, args)
+
+    elif (args.command=='attempts_correct'):
+        attempts_correct(param, args, args)
 
     elif (args.command=='analyze_ora'):
         analyze_ora(param, args, args)

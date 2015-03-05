@@ -162,6 +162,41 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
         
 #-----------------------------------------------------------------------------
 
+def attempts_correct(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    make stats_attempts_corrct table for specified course_id.
+
+    This table has percentage of attempts which are correct, computed for each user.
+    '''
+    SQL = """# problem attempt correctness percentage, including whether user was certified
+             SELECT
+                 "{course_id}" as course_id,
+                 PA.user_id as user_id,
+                 PC.certified as certified,
+                 PC.explored as explored,
+                 sum(case when PA.item.correct_bool then 1 else 0 end)
+                 / count(PA.item.correct_bool) * 100.0 as percent_correct,
+                 count(PA.item.correct_bool) as nitems,
+             FROM [{dataset}.problem_analysis] as PA
+             JOIN EACH [{dataset}.person_course] as PC
+             ON PA.user_id = PC.user_id
+             where PC.certified            # only certificate earners, for this query
+             group by user_id, certified, explored
+             order by certified desc, explored desc, percent_correct desc
+          """
+    
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    tablename = 'stats_attempts_correct'
+        
+    the_sql = SQL.format(dataset=dataset, course_id=course_id)
+    bqdat = bqutil.get_bq_table(dataset, tablename, the_sql,
+                                force_query=force_recompute, 
+                                depends_on=[ '%s.problem_analysis' % dataset ],
+                                )
+    return bqdat
+
+#-----------------------------------------------------------------------------
+
 def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=False, end_date=None):
     '''
     make problem_check table for specified course_id.
