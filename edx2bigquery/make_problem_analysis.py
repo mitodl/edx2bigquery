@@ -7,8 +7,7 @@
 #
 #    course_id, user_id, problem_url_name, item: { answer_id, response, correctness} , npoints, attempts, seed, done, grade, created
 #
-# 2. Extract from tracking logs all problem_check attempts and fill in information in the "attempts_DAY" table inside {dataset}_pcday 
-#    for each day.
+# 2. Extract from tracking logs all problem_check attempts and fill in information in the problem_check table
 #
 
 import os, sys
@@ -229,7 +228,7 @@ def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=Fa
                    event_struct.success as success,
                    event_struct.grade as grade,
                from {DATASETS}
-               where event_type = "problem_check"
+               where (event_type = "problem_check" or event_type = "save_problem_check")
                   and event_source = "server"
                   and time > TIMESTAMP("{last_date}")
                order by time;

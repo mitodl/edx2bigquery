@@ -117,31 +117,65 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
     try:
         bqutil.create_bq_table(dataset, table, the_sql, wait=True, overwrite=overwrite)
     except Exception as err:
-        if 'Resources exceeded during query execution' in str(err):
-            def get_ym(x):
-                return int(x[0:4]), int(x[4:6]), int(x[6:])
-            (min_year, min_month, min_day) = get_ym(min_date)
-            (max_year, max_month, max_day) = get_ym(max_date)
-            nmonths = max_month - min_month + 12 * (max_year - min_year)
-            print "====> ERROR with resources exceeded during query execution; re-trying based on one month's data at a time"
-            sys.stdout.flush()
-            (end_year, end_month) = (min_year, min_month)
-            for dm in range(nmonths):
-                end_month += 1
-                if end_month > 12:
-                    end_month = 1
-                    end_year += 1
-                end_date = "%04d-%02d-%02d" % (end_year, end_month, min_day)
-                print "--> with end_date=%s" % end_date
+        if ('Resources exceeded during query execution' in str(err)) or ('Response too large to return.' in str(err)):
+            if True:
+                # figure out time interval in days, and split that in half
+                start_date = datetime.datetime.strptime(min_date, '%Y%m%d')
+                end_date = datetime.datetime.strptime(max_date, '%Y%m%d')
+                ndays = (end_date - start_date).days
+                nd1 = int(ndays/2)
+                nd2 = ndays - nd1
+                print "====> ERROR with resources exceeded during query execution; re-trying based on splitting %d days into %d + %d days" % (ndays, nd1, nd2)
+                sys.stdout.flush()
+
+                end_date = (start_date + datetime.timedelta(days=nd1)).strftime('%Y%m%d')
+                print "--> part 1 with %d days (end_date=%s)" % (nd1, end_date)
                 sys.stdout.flush()
                 run_query_on_tracking_logs(SQL, table, course_id, force_recompute=force_recompute, 
                                            use_dataset_latest=use_dataset_latest,
                                            end_date=end_date, 
                                            get_date_function=get_date_function,
-                                           existing=existing,
+                                           # existing=existing,
                                            log_dates=log_dates)
-                force_recompute = False		# after first, don't force recompute
-            return
+
+                end_date = max_date
+                print "--> part 2 with %d days (end_date=%s)" % (nd2, end_date)
+                sys.stdout.flush()
+                run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, 
+                                           use_dataset_latest=use_dataset_latest,
+                                           end_date=end_date, 
+                                           get_date_function=get_date_function,
+                                           # existing=existing,
+                                           log_dates=log_dates)
+                print "--> Done with %d + %d days!" % (nd1, nd2)
+                return
+
+
+            if False:
+                def get_ym(x):
+                    return int(x[0:4]), int(x[4:6]), int(x[6:])
+                (min_year, min_month, min_day) = get_ym(min_date)
+                (max_year, max_month, max_day) = get_ym(max_date)
+                nmonths = max_month - min_month + 12 * (max_year - min_year)
+                print "====> ERROR with resources exceeded during query execution; re-trying based on one month's data at a time"
+                sys.stdout.flush()
+                (end_year, end_month) = (min_year, min_month)
+                for dm in range(nmonths):
+                    end_month += 1
+                    if end_month > 12:
+                        end_month = 1
+                        end_year += 1
+                    end_date = "%04d-%02d-%02d" % (end_year, end_month, min_day)
+                    print "--> with end_date=%s" % end_date
+                    sys.stdout.flush()
+                    run_query_on_tracking_logs(SQL, table, course_id, force_recompute=force_recompute, 
+                                               use_dataset_latest=use_dataset_latest,
+                                               end_date=end_date, 
+                                               get_date_function=get_date_function,
+                                               # existing=existing,
+                                               log_dates=log_dates)
+                    force_recompute = False		# after first, don't force recompute
+                return
         else:
             print the_sql
             raise

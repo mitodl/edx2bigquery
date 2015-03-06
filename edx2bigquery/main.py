@@ -98,6 +98,7 @@ def run_parallel_or_serial(function, param, courses, optargs, parallel=False, na
 
     if not parallel:
         try:
+            ret = None
             for course_id in courses:
                 ret = function(param, course_id, optargs)
         except Exception as err:
@@ -256,6 +257,32 @@ def analyze_course_single(param, course_id, optargs=None):
                                                )
     except Exception as err:
         print "===> Error completing analyze_course_content on %s, err=%s" % (course_id, str(err))
+        traceback.print_exc()
+        sys.stdout.flush()
+        raise
+
+def time_on_task(param, course_id, optargs=None):
+    '''
+    update time_task table based on tracking logs
+
+    param = (dict) run parameters
+    course_id = (string) course_id of course to run on
+    optargs is ignored
+    '''
+    print "="*100
+    print "Updating time_task table for %s" % course_id
+    sys.stdout.flush()
+
+    import make_time_on_task
+
+    try:
+        make_time_on_task.process_course_time_on_task(course_id, 
+                                                      force_recompute=param.force_recompute,
+                                                      use_dataset_latest=param.use_dataset_latest,
+                                                      end_date=param.end_date,
+                                                  )
+    except Exception as err:
+        print "===> Error completing process_course_time_on_task on %s, err=%s" % (course_id, str(err))
         traceback.print_exc()
         sys.stdout.flush()
         raise
@@ -644,6 +671,8 @@ analyze_problems <c_id> ... : Analyze capa problem data in studentmodule table, 
 analyze_ora <course_id> ... : Analyze openassessment response problem data in tracking logs, generating the ora_events table as a result.  
                               Uploads the result to google cloud storage and to BigQuery.
 
+time_task <course_id> ...   : Update time_task table of data on time on task, based on daily tracking logs, for specified course.
+
 staff2bq <staff.csv>        : load staff.csv file into BigQuery; put it in the "courses" dataset.
 
 mongo2user_info <course_id> : dump users, profiles, enrollment, certificates CSV files from mongodb for specified course_id's.
@@ -806,6 +835,8 @@ delete_stats_tables         : delete stats_activity_by_day tables
     param.the_datedir = args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None)
     param.use_dataset_latest = args.dataset_latest
     param.listings = args.listings
+    param.force_recompute = args.force_recompute
+    param.end_date = args.end_date
 
     # default end date for person_course
     try:
@@ -1035,6 +1066,10 @@ delete_stats_tables         : delete stats_activity_by_day tables
 
     elif (args.command=='attempts_correct'):
         attempts_correct(param, args, args)
+
+    elif (args.command=='time_task'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(time_on_task, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='analyze_ora'):
         analyze_ora(param, args, args)
