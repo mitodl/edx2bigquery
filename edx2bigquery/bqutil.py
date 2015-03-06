@@ -122,7 +122,7 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
     startIndex  = zero-based index of starting row to read; make this negative to return from 
                   end of table
     '''
-    table = get_bq_table_info(dataset_id, table_id)
+    table = get_bq_table_info(dataset_id, table_id, project_id)
     nrows = int(table['numRows'])
 
     table_ref = dict(datasetId=dataset_id, projectId=project_id, tableId=table_id)
