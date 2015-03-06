@@ -33,7 +33,8 @@ from gsutil import get_gs_file_list
         
 #-----------------------------------------------------------------------------
 
-def process_course_time_on_task(course_id, force_recompute=False, use_dataset_latest=False, end_date=None):
+def process_course_time_on_task(course_id, force_recompute=False, use_dataset_latest=False, end_date=None,
+                                just_do_totals=False):
     '''
     Create the time_on_task table, containing time, user_id, and time
     on task stats.  This table isn't split into separate days.  It is
@@ -46,7 +47,13 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
     If it already exists, then run a query on it to see what dates have
     already been done.  Then do all tracking logs except those which
     have already been done.  Append the results to the existing table.
+
+    Compute totals and store in time_on_task_totals, by summing over all dates, 
+    grouped by user.
     '''
+
+    if just_do_totals:
+        return process_time_on_task_totals(course_id, force_recompute=False, use_dataset_latest=False)
 
     SQL = """
             SELECT 
@@ -136,3 +143,40 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
                                                      end_date=end_date,
                                                      get_date_function=gdf,
                                                      days_delta=0)
+
+    return process_time_on_task_totals(course_id, force_recompute=False, use_dataset_latest=False)
+
+
+def process_time_on_task_totals(course_id, force_recompute=False, use_dataset_latest=False):
+
+    SQL = """
+            SELECT 
+  		    "{course_id}" as course_id,
+                    username, 
+
+                    sum(total_time_5) as total_time_5,
+                    sum(total_time_30) as total_time_30,
+
+                    sum(total_video_time_5) as total_video_time_5,
+                    sum(total_video_time_30) as total_video_time_30,
+
+                    sum(total_problem_time_5) as total_problem_time_5,
+                    sum(total_problem_time_30) as total_problem_time_30,
+
+            FROM [{dataset}.time_on_task]
+            GROUP BY course_id, username
+            order by username
+         """
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+
+    the_sql = SQL.format(dataset=dataset, course_id=course_id)
+
+    tablename = 'time_on_task_totals'
+
+    bqdat = bqutil.get_bq_table(dataset, tablename, the_sql,
+                                force_query=force_recompute,
+                                depends_on=[ '%s.time_on_task' % dataset ],
+                                )
+
+    return bqdat

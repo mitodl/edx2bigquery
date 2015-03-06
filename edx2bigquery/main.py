@@ -280,6 +280,7 @@ def time_on_task(param, course_id, optargs=None):
                                                       force_recompute=param.force_recompute,
                                                       use_dataset_latest=param.use_dataset_latest,
                                                       end_date=param.end_date,
+                                                      just_do_totals=param.just_do_totals,
                                                   )
     except Exception as err:
         print "===> Error completing process_course_time_on_task on %s, err=%s" % (course_id, str(err))
@@ -809,6 +810,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
     parser.add_argument("--skip-if-exists", help="skip processing in person_course if table already exists", action="store_true")
     parser.add_argument("--just-do-nightly", help="for person_course, just update activity stats for new logs", action="store_true")
     parser.add_argument("--just-do-geoip", help="for person_course, just update geoip using local db", action="store_true")
+    parser.add_argument("--just-do-totals", help="for time_task, just compute total sums", action="store_true")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
     parser.add_argument("--listings", type=str, help="path to the course listings.csv file")
@@ -837,6 +839,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
     param.listings = args.listings
     param.force_recompute = args.force_recompute
     param.end_date = args.end_date
+    param.just_do_totals = args.just_do_totals
 
     # default end date for person_course
     try:
