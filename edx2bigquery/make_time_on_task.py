@@ -34,7 +34,7 @@ from gsutil import get_gs_file_list
 #-----------------------------------------------------------------------------
 
 def process_course_time_on_task(course_id, force_recompute=False, use_dataset_latest=False, end_date=None,
-                                just_do_totals=False):
+                                just_do_totals=False, limit_query_size=False):
     '''
     Create the time_on_task table, containing time, user_id, and time
     on task stats.  This table isn't split into separate days.  It is
@@ -123,6 +123,7 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
                                      AND username is not null
                                      AND username != ""
                                      and time > TIMESTAMP("{last_date}")
+                                     {hash_limit}
                     )
                   )
                 WHERE last_time is not null
@@ -142,7 +143,9 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
                                                      use_dataset_latest=use_dataset_latest,
                                                      end_date=end_date,
                                                      get_date_function=gdf,
-                                                     days_delta=0)
+                                                     days_delta=0,
+                                                     has_hash_limit=True,
+                                                     limit_query_size=limit_query_size)
 
     return process_time_on_task_totals(course_id, force_recompute=False, use_dataset_latest=False)
 

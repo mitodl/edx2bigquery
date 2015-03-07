@@ -5,6 +5,7 @@
 import sys
 import datetime
 import bqutil
+import math
 
 def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use_dataset_latest=False, 
                                end_date=None, 
@@ -12,7 +13,10 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                                existing=None,
                                log_dates=None,
                                days_delta=1,
-                               skip_last_day=False):
+                               skip_last_day=False,
+                               has_hash_limit=False,
+                               table_max_size_mb=100,
+                               limit_query_size=False):
     '''
     make a certain table (with SQL given) for specified course_id.
 
@@ -99,6 +103,68 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
         sys.stdout.flush()
         overwrite = 'append'
 
+    if overwrite=='append':
+        print "Appending to %s table for course %s (start=%s, end=%s, last_date=%s) [%s]"  % (table, course_id, min_date, max_date, last_date, datetime.datetime.now())
+    else:
+        print "Making new %s table for course %s (start=%s, end=%s) [%s]"  % (table, course_id, min_date, max_date, datetime.datetime.now())
+    sys.stdout.flush()
+
+    if limit_query_size:
+        # do only one day's tracking logs, and force use of hash if table is too large
+        print '--> limiting query size, so doing only one day at a time, and checking tracking log table size as we go'
+        the_max_date = max_date	# save max_date information
+        max_date = min_date
+        print '    min_date = max_date = %s' % min_date
+        tablename = 'tracklog_%s' % min_date.replace('-', '')
+        tablesize_mb = bqutil.get_bq_table_size_bytes(log_dataset, tablename) / (1024.0*1024)
+        nhashes =  int(math.ceil(tablesize_mb / table_max_size_mb))
+        from_datasets = "[%s.%s]" % (log_dataset, tablename)
+        print "--> table %s.%s size %s MB > max=%s MB, using %d hashes" % (log_dataset, tablename, tablesize_mb, table_max_size_mb, nhashes)
+        sys.stdout.flush()
+
+        if nhashes:
+            if not has_hash_limit:
+                print "--> ERROR! table %s.%s size %s MB > max=%s MB, but no hash_limit in SQL available" % (log_dataset, tablename, 
+                                                                                                             tablesize_mb, table_max_size_mb)
+                print "SQL: ", SQL
+                raise Exception("[process_tracking_logs] table too large")
+
+            for k in range(nhashes):
+                hash_limit = "AND ABS(HASH(username)) %% %d = %d" % (nhashes, k)
+                the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets, last_date=last_date, hash_limit=hash_limit)
+                print "   Hash %d" % k
+                sys.stdout.flush()
+                try:
+                    bqutil.create_bq_table(dataset, table, the_sql, wait=True, overwrite=overwrite, allowLargeResults=True)
+                except Exception as err:
+                    print the_sql
+                    raise
+                overwrite = "append"
+        else:
+            the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets, last_date=last_date, hash_limit="")
+            try:
+                bqutil.create_bq_table(dataset, table, the_sql, wait=True, overwrite=overwrite, allowLargeResults=True)
+            except Exception as err:
+                print the_sql
+                raise
+
+        print "----> Done with day %s" % max_date
+
+        if the_max_date > max_date:
+            # more days still to be done
+            print "--> Moving on to another day (max_date=%s)" % the_max_date
+            run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, 
+                                       use_dataset_latest=use_dataset_latest,
+                                       end_date=end_date, 
+                                       get_date_function=get_date_function,
+                                       existing=existing,
+                                       log_dates=log_dates,
+                                       has_hash_limit=has_hash_limit,
+                                       table_max_size_mb=table_max_size_mb,
+                                       limit_query_size=limit_query_size,
+                                   )
+        return
+
     from_datasets = """(
                   TABLE_QUERY({dataset},
                        "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) BETWEEN {start} and {end}"
@@ -106,25 +172,36 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                   )
          """.format(dataset=log_dataset, start=min_date, end=max_date)
 
-    the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets, last_date=last_date)
-
-    if overwrite=='append':
-        print "Appending to %s table for course %s (start=%s, end=%s, last_date=%s) [%s]"  % (table, course_id, min_date, max_date, last_date, datetime.datetime.now())
-    else:
-        print "Making new %s table for course %s (start=%s, end=%s) [%s]"  % (table, course_id, min_date, max_date, datetime.datetime.now())
-    sys.stdout.flush()
+    the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets, last_date=last_date, hash_limit="")
 
     try:
-        bqutil.create_bq_table(dataset, table, the_sql, wait=True, overwrite=overwrite)
+        bqutil.create_bq_table(dataset, table, the_sql, wait=True, overwrite=overwrite, allowLargeResults=True)
     except Exception as err:
-        if ('Resources exceeded during query execution' in str(err)) or ('Response too large to return.' in str(err)):
+        if ( ('Response too large to return.' in str(err)) and has_hash_limit ):
+            # try using hash limit on username
+            # e.g. WHERE ABS(HASH(username)) % 4 = 0
+
+            for k in range(4):
+                hash_limit = "AND ABS(HASH(username)) %% 4 = %d" % k
+                the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets, last_date=last_date, hash_limit=hash_limit)
+                bqutil.create_bq_table(dataset, table, the_sql, wait=True, overwrite=overwrite, allowLargeResults=True)
+                overwrite = "append"
+
+        elif ('Resources exceeded during query execution' in str(err)):
             if True:
                 # figure out time interval in days, and split that in half
                 start_date = datetime.datetime.strptime(min_date, '%Y%m%d')
                 end_date = datetime.datetime.strptime(max_date, '%Y%m%d')
                 ndays = (end_date - start_date).days
+                if ndays < 1:
+                    print "====> ERROR with resources exceeded during query execution; ndays=%d, cannot split -- ABORTING!" % ndays
+                    raise
+                
                 nd1 = int(ndays/2)
                 nd2 = ndays - nd1
+                #if nd2 > nd1:
+                #    nd1 = nd2
+                #    nd2 = ndays - nd1
                 print "====> ERROR with resources exceeded during query execution; re-trying based on splitting %d days into %d + %d days" % (ndays, nd1, nd2)
                 sys.stdout.flush()
 
@@ -135,6 +212,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                                            use_dataset_latest=use_dataset_latest,
                                            end_date=end_date, 
                                            get_date_function=get_date_function,
+                                           has_hash_limit=has_hash_limit,
                                            # existing=existing,
                                            log_dates=log_dates)
 
@@ -145,6 +223,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                                            use_dataset_latest=use_dataset_latest,
                                            end_date=end_date, 
                                            get_date_function=get_date_function,
+                                           has_hash_limit=has_hash_limit,
                                            # existing=existing,
                                            log_dates=log_dates)
                 print "--> Done with %d + %d days!" % (nd1, nd2)
@@ -172,6 +251,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                                                use_dataset_latest=use_dataset_latest,
                                                end_date=end_date, 
                                                get_date_function=get_date_function,
+                                               has_hash_limit=has_hash_limit,
                                                # existing=existing,
                                                log_dates=log_dates)
                     force_recompute = False		# after first, don't force recompute
