@@ -785,7 +785,7 @@ get_table_data <dataset>    : dump table data as JSON text to stdout
                <table_id>
 
 get_course_data <course_id> : retrieve table data as CSV file, saved as CID__tablename.csv, with CID being the course_id with slashes
-       --table <table_id>     replaced by double underscore ("__")
+       --table <table_id>     replaced by double underscore ("__").  May specify --project-id and --gzip and --combine-into <output_filename>
 
 get_table_info <dataset>    : dump meta-data information about the specified dataset.table_id from BigQuery.
                <table_id>
@@ -823,6 +823,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
     parser.add_argument("--project-id", type=str, help="project-id to use (overriding the default; used by get_course_data)")
     parser.add_argument("--table", type=str, help="bigquery table to use, specified as dataset_id.table_id or just as table_id (for get_course_data)")
     parser.add_argument("--org", type=str, help="organization ID to use")
+    parser.add_argument("--combine-into", type=str, help="combine outputs into the specified file as output (used by get_course_data)")
     parser.add_argument("--collection", type=str, help="mongodb collection name to use for mongo2gs")
     parser.add_argument("--output-project-id", type=str, help="project-id where the report output should go (used by the report and combinepc commands)")
     parser.add_argument("--output-dataset-id", type=str, help="dataset-id where the report output should go (used by the report and combinepc commands)")
@@ -1039,18 +1040,56 @@ delete_stats_tables         : delete stats_activity_by_day tables
             optargs['project_id'] = args.project_id
             print "Using %s as the project ID" % args.project_id
 
+        if args.combine_into:
+            cofn = args.combine_into
+            do_gzip = cofn.endswith(".gz")
+            if args.gzip and not do_gzip:
+                cofn += ".gz"
+                do_gzip = True
+            print "Combining outputs into a single merged CSV file %s" % cofn
+            if do_gzip:
+                print "  output will be gzip compressed"
+                cofp = gzip.GzipFile(cofn, 'w')
+            else:
+                cofp = codecs.open(cofn, 'w', encoding='utf8')
+            the_header = None
+
         for course_id in get_course_ids(args):
             dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
-            ofn = '%s__%s.csv' % (course_id.replace('/', '__'), tablename)
-            if args.gzip:
-                ofn += ".gz"
-            print "Retrieving %s.%s as %s" % (dataset, tablename, ofn)
-            sys.stdout.flush()
-            if args.gzip:
-                ofp = gzip.GzipFile(ofn, 'w')
+
+            if args.combine_into:
+                print "Retrieving %s.%s for %s" % (dataset, tablename, cofn)
             else:
-                ofp = codecs.open(ofn, 'w', encoding='utf8')
-            ofp.write(bqutil.get_table_data(dataset, tablename, return_csv=True, **optargs))
+                ofn = '%s__%s.csv' % (course_id.replace('/', '__'), tablename)
+                if args.gzip:
+                    ofn += ".gz"
+                print "Retrieving %s.%s as %s" % (dataset, tablename, ofn)
+            sys.stdout.flush()
+
+            bqdat = bqutil.get_table_data(dataset, tablename, return_csv=True, **optargs)
+
+            if args.combine_into:
+                header, data_no_header = bqdat.split('\n',1)
+                if not the_header:
+                    the_header = header
+                    cofp.write(bqdat)
+                else:
+                    if not header==the_header:
+                        print "--> ERROR!  Cannot combine data from %s: CSV file header is different" % course_id
+                        print "Other courses' table file header: %s" % the_header
+                        print "This courses' table file header: %s" % header
+                        raise Exception("[get_course_data] Mismatched table data format")
+                    cofp.write(data_no_header)
+                
+            else:
+                if args.gzip:
+                    ofp = gzip.GzipFile(ofn, 'w')
+                else:
+                    ofp = codecs.open(ofn, 'w', encoding='utf8')
+                ofp.write(bqdat)
+            
+        if args.combine_into:
+            print "Done with output file %s" % cofn
 
     elif (args.command=='get_table_info'):
         import bqutil
