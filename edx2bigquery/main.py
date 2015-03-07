@@ -795,6 +795,9 @@ delete_empty_tables         : delete empty tables form the tracking logs dataset
 
 delete_stats_tables         : delete stats_activity_by_day tables 
             <course_id> ...   Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
+
+check_for_duplicates        : check list of courses for duplicates
+      --clist <cid_list>...   
 """
 
     parser.add_argument("command", help=cmd_help)
@@ -1029,6 +1032,19 @@ delete_stats_tables         : delete stats_activity_by_day tables
         import bqutil
         dataset = args.courses[0].replace('/', '__').replace('.', '_')
         print json.dumps(bqutil.get_table_data(dataset, args.courses[1]), indent=4)
+
+    elif (args.command=='check_for_duplicates'):
+        courses = []
+        ndup = 0
+        ntot = 0
+        for course_id in get_course_ids(args):
+            if course_id in courses:
+                print "Duplicate course_id %s" % course_id
+                ndup += 1
+            else:
+                courses.append(course_id)
+            ntot += 1
+        print "Summary: %d course_id's, with %d duplicates" % (ntot, ndup)
 
     elif (args.command=='get_course_data'):
         import bqutil
