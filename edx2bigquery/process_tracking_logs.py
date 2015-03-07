@@ -162,6 +162,9 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                 print the_sql
                 raise
 
+        txt = '[%s] added tracking log data from %s' % (datetime.datetime.now(), tablename)
+        bqutil.add_description_to_table(dataset, table, txt, append=True)
+
         print "----> Done with day %s" % max_date
 
         if the_max_date > max_date:
