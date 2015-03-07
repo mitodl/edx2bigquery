@@ -784,6 +784,9 @@ get_tables <dataset>        : dump information about the tables in the specified
 get_table_data <dataset>    : dump table data as JSON text to stdout
                <table_id>
 
+get_course_data <course_id> : retrieve table data as CSV file, saved as CID__tablename.csv, with CID being the course_id with slashes
+       --table <table_id>     replaced by double underscore ("__")
+
 get_table_info <dataset>    : dump meta-data information about the specified dataset.table_id from BigQuery.
                <table_id>
 
@@ -817,7 +820,8 @@ delete_stats_tables         : delete stats_activity_by_day tables
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
     parser.add_argument("--listings", type=str, help="path to the course listings.csv file")
     parser.add_argument("--dbname", type=str, help="mongodb db name to use for mongo2gs")
-    parser.add_argument("--table", type=str, help="bigquery table to use, specified as dataset_id.table_id") 
+    parser.add_argument("--project-id", type=str, help="project-id to use (overriding the default; used by get_course_data)")
+    parser.add_argument("--table", type=str, help="bigquery table to use, specified as dataset_id.table_id or just as table_id (for get_course_data)")
     parser.add_argument("--org", type=str, help="organization ID to use")
     parser.add_argument("--collection", type=str, help="mongodb collection name to use for mongo2gs")
     parser.add_argument("--output-project-id", type=str, help="project-id where the report output should go (used by the report and combinepc commands)")
@@ -826,6 +830,7 @@ delete_stats_tables         : delete stats_activity_by_day tables
     parser.add_argument("--dynamic-dates", help="split tracking logs using dates determined by each log line entry, and not filename", action="store_true")
     parser.add_argument("--logfn-keepdir", help="keep directory name in tracking which tracking logs have been loaded already", action="store_true")
     parser.add_argument("--skip-last-day", help="skip last day of tracking log data in processing pcday, to avoid partial-day data contamination", action="store_true")
+    parser.add_argument("--gzip", help="compress the output file (e.g. for get_course_data)", action="store_true")
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
     
     args = parser.parse_args()
@@ -1023,6 +1028,29 @@ delete_stats_tables         : delete stats_activity_by_day tables
         import bqutil
         dataset = args.courses[0].replace('/', '__').replace('.', '_')
         print json.dumps(bqutil.get_table_data(dataset, args.courses[1]), indent=4)
+
+    elif (args.command=='get_course_data'):
+        import bqutil
+        import gzip
+        import codecs
+        tablename = args.table
+        optargs = {}
+        if args.project_id:
+            optargs['project_id'] = args.project_id
+            print "Using %s as the project ID" % args.project_id
+
+        for course_id in get_course_ids(args):
+            dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
+            ofn = '%s__%s.csv' % (course_id.replace('/', '__'), tablename)
+            if args.gzip:
+                ofn += ".gz"
+            print "Retrieving %s.%s as %s" % (dataset, tablename, ofn)
+            sys.stdout.flush()
+            if args.gzip:
+                ofp = gzip.GzipFile(ofn, 'w')
+            else:
+                ofp = codecs.open(ofn, 'w', encoding='utf8')
+            ofp.write(bqutil.get_table_data(dataset, tablename, return_csv=True, **optargs))
 
     elif (args.command=='get_table_info'):
         import bqutil

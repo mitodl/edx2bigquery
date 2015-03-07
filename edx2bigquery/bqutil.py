@@ -104,15 +104,30 @@ def get_list_of_table_ids(dataset_id):
     table_id_list = [ x['tableReference']['tableId'] for x in tables_info ]
     return table_id_list
 
+def convert_data_dict_to_csv(tdata):
+    '''
+    Convert dict format data from get_table_data into CSV file content, as a string.
+    '''
+    import unicodecsv as csv
+    from StringIO import StringIO
+
+    sfp = StringIO()
+    dw = csv.DictWriter(sfp, fieldnames=tdata['field_names'])
+    dw.writeheader()
+    for row in tdata['data']:
+        dw.writerow(row)
+    return sfp.getvalue()
+
 def get_table_data(dataset_id, table_id, key=None, logger=default_logger, 
                    project_id=DEFAULT_PROJECT_ID, 
+                   return_csv=False,
                    startIndex=None, maxResults=1000000):
     '''
-    Retrieve data from a specific BQ table.  Return as a dict, with
+    Retrieve data from a specific BQ table.  Normally return this as a dict, with
 
     fields      = schema fields
-    field_names = name of top-level schema fields
-    data        = list of data
+    field_names = list of names of top-level schema fields
+    data        = list of data, where each data item is a dict of field name, field value
     data_by_key = dict of data, with key being the value of the fieldname specified as the key arg
 
     Arguments:
@@ -121,6 +136,7 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
     maxResults  = maximum number of results to return
     startIndex  = zero-based index of starting row to read; make this negative to return from 
                   end of table
+    return_csv  = return data as CSV (as a big string) if True
     '''
     table = get_bq_table_info(dataset_id, table_id, project_id)
     nrows = int(table['numRows'])
@@ -180,6 +196,9 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
                 the_key = key['keymap'](the_key)
             if the_key not in ret['data_by_key']:
                 ret['data_by_key'][the_key] = values
+
+    if return_csv:
+        return convert_data_dict_to_csv(ret)
 
     return ret
 
