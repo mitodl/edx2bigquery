@@ -15,7 +15,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                                days_delta=1,
                                skip_last_day=False,
                                has_hash_limit=False,
-                               table_max_size_mb=100,
+                               table_max_size_mb=600,
                                limit_query_size=False):
     '''
     make a certain table (with SQL given) for specified course_id.
@@ -54,6 +54,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
     if log_dates is None:
         log_tables = [x for x in bqutil.get_list_of_table_ids(log_dataset) if x.startswith('tracklog_20')]
         log_dates = [x[9:] for x in log_tables]
+        log_dates.sort()
 
     if skip_last_day:
         old_max_date = max(log_dates)
@@ -66,7 +67,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
     max_date = max(log_dates)
 
     if end_date is not None:
-        print "[run_query_on_tracking_logs] %s: Using end_date=%s for max_date cutoff" % (table, end_date)
+        print "[run_query_on_tracking_logs] %s: min_date=%s, max_date=%s, using end_date=%s for max_date cutoff" % (table, min_date, max_date, end_date)
         sys.stdout.flush()
         the_end_date = end_date.replace('-','')	# end_date should be YYYY-MM-DD
         if the_end_date < max_date:
@@ -113,6 +114,19 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
         # do only one day's tracking logs, and force use of hash if table is too large
         print '--> limiting query size, so doing only one day at a time, and checking tracking log table size as we go'
         the_max_date = max_date	# save max_date information
+
+        while min_date not in log_dates:
+            print "  tracklog_%s does not exist!" % min_date
+            for ld in log_dates:
+                if ld < min_date:
+                    continue
+                if (ld > min_date) and (ld <= max_date):
+                    min_date = ld
+                    break
+        if min_date not in log_dates:
+            print "--> ERROR! Cannot find tracking log file for %s, aborting!" % min_date
+            raise Exception("[process_tracking_logs] missing tracking log")
+
         max_date = min_date
         print '    min_date = max_date = %s' % min_date
         tablename = 'tracklog_%s' % min_date.replace('-', '')
