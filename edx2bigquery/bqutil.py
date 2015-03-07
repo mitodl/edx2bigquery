@@ -122,7 +122,7 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
     startIndex  = zero-based index of starting row to read; make this negative to return from 
                   end of table
     '''
-    table = get_bq_table_info(dataset_id, table_id)
+    table = get_bq_table_info(dataset_id, table_id, project_id)
     nrows = int(table['numRows'])
 
     table_ref = dict(datasetId=dataset_id, projectId=project_id, tableId=table_id)
@@ -183,16 +183,16 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
 
     return ret
 
-def delete_zero_size_tables(dataset_id, verbose=False):
+def delete_zero_size_tables(dataset_id, verbose=False, project_id=DEFAULT_PROJECT_ID):
     '''
     Delete tables which have zero rows, in the specified dataset
     '''
     for table_id in get_list_of_table_ids(dataset_id):
-        if get_bq_table_size_rows(dataset_id, table_id)==0:
+        if get_bq_table_size_rows(dataset_id, table_id, project_id)==0:
             if verbose:
                 print "Deleting %s.%s" % (dataset_id, table_id)
                 sys.stdout.flush()
-            delete_bq_table(dataset_id, table_id)
+            delete_bq_table(dataset_id, table_id, project_id)
 
 def delete_bq_table(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
     '''
@@ -201,20 +201,20 @@ def delete_bq_table(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
     table_ref = dict(datasetId=dataset_id, projectId=project_id, tableId=table_id)
     tables.delete(**table_ref).execute()    
 
-def get_bq_table_size_rows(dataset_id, table_id):
+def get_bq_table_size_rows(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
     '''
     Retrieve number of rows of specified BQ table
     '''
-    tinfo = get_bq_table_info(dataset_id, table_id)
+    tinfo = get_bq_table_info(dataset_id, table_id, project_id)
     if tinfo is not None:
         return int(tinfo['numRows'])
     return None
 
-def get_bq_table_size_bytes(dataset_id, table_id):
+def get_bq_table_size_bytes(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
     '''
     Retrieve number of bytes of specified BQ table
     '''
-    tinfo = get_bq_table_info(dataset_id, table_id)
+    tinfo = get_bq_table_info(dataset_id, table_id, project_id)
     if tinfo is not None:
         return int(tinfo['numBytes'])
     return None
@@ -227,20 +227,20 @@ def bq_timestamp_milliseconds_to_datetime(timestamp):
         return datetime.datetime.utcfromtimestamp(float(timestamp)/1000.0)
     return None
 
-def get_bq_table_creation_datetime(dataset_id, table_id):
+def get_bq_table_creation_datetime(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
     '''
     Retrieve datetime of table creation
     '''
-    tinfo = get_bq_table_info(dataset_id, table_id)
+    tinfo = get_bq_table_info(dataset_id, table_id, project_id)
     if tinfo is not None:
         return tinfo['creationTime']
     return None
 
-def get_bq_table_last_modified_datetime(dataset_id, table_id):
+def get_bq_table_last_modified_datetime(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
     '''
     Retrieve datetime of table last modification
     '''
-    tinfo = get_bq_table_info(dataset_id, table_id)
+    tinfo = get_bq_table_info(dataset_id, table_id, project_id)
     if tinfo is not None:
         return tinfo['lastModifiedTime']
     return None
