@@ -330,7 +330,8 @@ def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, forc
 
 def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, wait=True, 
                     logger=default_logger, project_id=DEFAULT_PROJECT_ID,
-                    output_project_id=DEFAULT_PROJECT_ID):
+                    output_project_id=DEFAULT_PROJECT_ID,
+                    allowLargeResults=False):
     '''
     Run SQL query to create a new table.
     '''
@@ -348,6 +349,7 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
     config = {'query': { 'query': sql,
                          'destinationTable': table_ref,
                          'writeDisposition': wd,
+                         'allowLargeResults': allowLargeResults,
                          }
               }
               
