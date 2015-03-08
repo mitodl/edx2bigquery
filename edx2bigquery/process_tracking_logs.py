@@ -112,7 +112,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
 
     if limit_query_size:
         # do only one day's tracking logs, and force use of hash if table is too large
-        print '--> limiting query size, so doing only one day at a time, and checking tracking log table size as we go'
+        print '--> limiting query size, so doing only one day at a time, and checking tracking log table size as we go (max=%s MB)' % table_max_size_mb
         the_max_date = max_date	# save max_date information
 
         while min_date not in log_dates:
