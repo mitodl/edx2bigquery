@@ -282,6 +282,7 @@ def time_on_task(param, course_id, optargs=None):
                                                       end_date=param.end_date,
                                                       just_do_totals=param.just_do_totals,
                                                       limit_query_size=param.limit_query_size,
+                                                      table_max_size_mb=(param.table_max_size_mb or 800),
                                                   )
     except Exception as err:
         print "===> Error completing process_course_time_on_task on %s, err=%s" % (course_id, str(err))
@@ -819,6 +820,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--just-do-geoip", help="for person_course, just update geoip using local db", action="store_true")
     parser.add_argument("--just-do-totals", help="for time_task, just compute total sums", action="store_true")
     parser.add_argument("--limit-query-size", help="for time_task, limit query size to one day at a time and use hashing for large tables", action="store_true")
+    parser.add_argument("--table-max-size-mb", type=int, help="maximum log table size for query size limit processing, in MB (defaults to 800)")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
     parser.add_argument("--listings", type=str, help="path to the course listings.csv file")
@@ -852,6 +854,7 @@ check_for_duplicates        : check list of courses for duplicates
     param.end_date = args.end_date
     param.just_do_totals = args.just_do_totals
     param.limit_query_size = args.limit_query_size
+    param.table_max_size_mb = args.table_max_size_mb
 
     # default end date for person_course
     try:
