@@ -53,7 +53,7 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
     '''
 
     if just_do_totals:
-        return process_time_on_task_totals(course_id, force_recompute=False, use_dataset_latest=False)
+        return process_time_on_task_totals(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
 
     SQL = """
             SELECT 
@@ -73,13 +73,22 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
                     SUM( case when (dt_problem is not null) and (dt_problem < 5*60) then dt_problem end ) as total_problem_time_5,
                     SUM( case when (dt_problem is not null) and (dt_problem < 30*60) then dt_problem end ) as total_problem_time_30,
 
+                    # total time spent on forum
+                    SUM( case when (dt_forum is not null) and (dt_forum < 5*60) then dt_forum end ) as total_forum_time_5,
+                    SUM( case when (dt_forum is not null) and (dt_forum < 30*60) then dt_forum end ) as total_forum_time_30,
+
+                    # total time spent with textbook or wiki
+                    SUM( case when (dt_text is not null) and (dt_text < 5*60) then dt_text end ) as total_text_time_5,
+                    SUM( case when (dt_text is not null) and (dt_text < 30*60) then dt_text end ) as total_text_time_30,
             FROM
               (
               SELECT time,
                 username,
-                (time - last_time)/1.0E6 as dt,		# dt is in seconds
+                (time - last_time)/1.0E6 as dt,         # dt is in seconds
                 case when is_video then (time - last_time_video)/1.0E6 end as dt_video,
                 case when is_problem then (time - last_time_problem)/1.0E6 end as dt_problem,
+                case when is_forum then (time - last_time_forum)/1.0E6 end as dt_forum,
+                case when is_text then (time - last_time_text)/1.0E6 end as dt_text,
               FROM
                 (
                 SELECT time, 
@@ -94,6 +103,10 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
                     (case when is_problem then USEC_TO_TIMESTAMP(last_time_problem) end) as last_time_problem,
                     # last_username_problem,
                     # last_event_problem,
+                    is_forum,
+                    is_text,
+                    (case when is_forum then USEC_TO_TIMESTAMP(last_time_forum) end) as last_time_forum,
+                    (case when is_text then USEC_TO_TIMESTAMP(last_time_text) end) as last_time_text,
                 FROM
                   (SELECT time,
                     username,
@@ -101,14 +114,20 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
                     lag(username, 1) over (partition by username order by time) last_username,
                     is_video,
                     is_problem,
+                    is_forum,
+                    is_text,
                     case when is_problem then username else '' end as uname_problem,
                     case when is_video then username else '' end as uname_video,
+                    case when is_forum then username else '' end as uname_forum,
+                    case when is_text then username else '' end as uname_text,
                     lag(time, 1) over (partition by uname_video order by time) last_time_video,
                     # lag(event_type, 1) over (partition by uname_video order by time) last_event_video,
                     # lag(uname_video, 1) over (partition by uname_video order by time) last_username_video,
                     lag(time, 1) over (partition by uname_problem order by time) last_time_problem,
                     # lag(event_type, 1) over (partition by uname_problem order by time) last_event_problem,
                     # lag(uname_problem, 1) over (partition by uname_problem order by time) last_username_problem,
+                    lag(time, 1) over (partition by uname_forum order by time) last_time_forum,
+                    lag(time, 1) over (partition by uname_text order by time) last_time_text,
                   FROM
                     (SELECT time, 
                       username,
@@ -117,6 +136,12 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
                                or REGEXP_MATCH(event_type, r'\w+_transcript')
                               ) then True else False end as is_video,
                       case when REGEXP_MATCH(event_type, r'problem_\w+') then True else False end as is_problem,
+                      case when (REGEXP_MATCH(event_type ,r'^edx\.forum\..*')
+                               or event_type contains "/discussion/forum"
+                              ) then True else False end as is_forum,
+                      case when (REGEXP_MATCH(event_type ,r'^textbook\..*')
+                               or event_type contains "/wiki/"
+                              ) then True else False end as is_text,
                     FROM {DATASETS}
                     WHERE       
                                      NOT event_type contains "/xblock/"
@@ -147,7 +172,7 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
                                                      has_hash_limit=True,
                                                      limit_query_size=limit_query_size)
 
-    return process_time_on_task_totals(course_id, force_recompute=False, use_dataset_latest=False)
+    return process_time_on_task_totals(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
 
 
 def process_time_on_task_totals(course_id, force_recompute=False, use_dataset_latest=False):
@@ -166,6 +191,12 @@ def process_time_on_task_totals(course_id, force_recompute=False, use_dataset_la
                     sum(total_problem_time_5) as total_problem_time_5,
                     sum(total_problem_time_30) as total_problem_time_30,
 
+                    sum(total_forum_time_5) as total_forum_time_5,
+                    sum(total_forum_time_30) as total_forum_time_30,
+
+                    sum(total_text_time_5) as total_text_time_5,
+                    sum(total_text_time_30) as total_text_time_30,
+
             FROM [{dataset}.time_on_task]
             GROUP BY course_id, username
             order by username
@@ -176,6 +207,9 @@ def process_time_on_task_totals(course_id, force_recompute=False, use_dataset_la
     the_sql = SQL.format(dataset=dataset, course_id=course_id)
 
     tablename = 'time_on_task_totals'
+
+    print "Computing %s for %s" % (tablename, dataset)
+    sys.stdout.flush()
 
     bqdat = bqutil.get_bq_table(dataset, tablename, the_sql,
                                 force_query=force_recompute,

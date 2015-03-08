@@ -15,7 +15,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                                days_delta=1,
                                skip_last_day=False,
                                has_hash_limit=False,
-                               table_max_size_mb=600,
+                               table_max_size_mb=800,
                                limit_query_size=False):
     '''
     make a certain table (with SQL given) for specified course_id.
