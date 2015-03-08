@@ -37,6 +37,7 @@ class CourseReport(object):
         self.all_pc_tables = {}
         self.all_pcday_ip_counts_tables = {}
         self.all_uic_tables = {}
+        self.all_tott_tables = {}
         for cd in course_datasets:
             try:
                 table = bqutil.get_bq_table_info(cd, 'person_course')
@@ -64,14 +65,33 @@ class CourseReport(object):
                 continue
             self.all_uic_tables[cd] = table
 
+            try:
+                table = bqutil.get_bq_table_info(cd, 'time_on_task_totals')
+            except Exception as err:
+                continue
+            if table is None:
+                continue
+            self.all_tott_tables[cd] = table
+
         pc_tables = ',\n'.join(['[%s.person_course]' % x for x in datasets_with_pc])
         pcday_ip_counts_tables = ',\n'.join(['[%s.pcday_ip_counts]' % x for x in self.all_pcday_ip_counts_tables])
         uic_tables = ',\n'.join(['[%s.user_info_combo]' % x for x in self.all_uic_tables])
+        tott_tables = ',\n'.join(['[%s.time_on_task_totals]' % x for x in self.all_tott_tables])
+
+        # find latest combined person_course table
+        cpc_tables = [ x for x in bqutil.get_list_of_table_ids(self.dataset) if x.startswith("person_course_") ]
+        if cpc_tables:
+            the_cpc_table = "[%s.%s]" % (self.dataset, max(cpc_tables))
+        else:
+            the_cpc_table = None
+        print "[make_course_report_tables] ==> Using %s as the latest combined person_course table" % the_cpc_table
 
         self.parameters = {'dataset': self.dataset,
                            'pc_tables': pc_tables,
                            'uic_tables': uic_tables,
+                           'tott_tables': tott_tables,
                            'pcday_ip_counts_tables': pcday_ip_counts_tables,
+                           'combined_person_course': the_cpc_table,
                            }
         print "[make_course_report_tables] ==> Using these datasets (with person_course tables): %s" % datasets_with_pc
 
@@ -84,9 +104,10 @@ class CourseReport(object):
         bqutil.create_dataset_if_nonexistent(self.dataset, project_id=output_project_id)
 
         self.nskip = nskip
-        self.make_totals_by_course()
-        self.make_medians_by_course()
+        self.make_time_on_task_stats_by_course()
         if 1:
+            self.make_totals_by_course()
+            self.make_medians_by_course()
             self.make_table_of_email_addresses()
             self.make_global_modal_ip_table()
             self.make_enrollment_by_day()
@@ -179,6 +200,79 @@ class CourseReport(object):
 
         cv_sql = the_sql.format(constraint="certified and viewed", **self.parameters)
         self.do_table(cv_sql, 'certified_median_stats_by_course')
+
+    def make_time_on_task_stats_by_course(self):
+
+        if not self.parameters['combined_person_course']:
+            print "Need combined person_course table for make_time_on_task_stats_by_course, skipping..."
+            return
+
+        the_sql = '''
+select course_id, 
+
+sum(total_hours) as sum_total_hours,
+sum(problem_hours) as sum_problem_hours,
+sum(video_hours) as sum_video_hours,
+sum(forum_hours) as sum_forum_hours,
+
+max(median_total_hours) as median_total_hours,
+max(median_problem_hours) as median_problem_hours,
+max(median_video_hours) as median_video_hours,
+max(median_forum_hours) as median_forum_hours,
+
+max(median_total_hours_viewed) as median_total_hours_viewed,
+max(median_problem_hours_viewed) as median_problem_hours_viewed,
+max(median_video_hours_viewed) as median_video_hours_viewed,
+max(median_forum_hours_viewed) as median_forum_hours_viewed,
+
+max(median_total_hours_certified) as median_total_hours_certified,
+max(median_problem_hours_certified) as median_problem_hours_certified,
+max(median_video_hours_certified) as median_video_hours_certified,
+max(median_forum_hours_certified) as median_forum_hours_certified,
+
+FROM (
+ SELECT   
+          course_id, total_hours, video_hours, problem_hours, forum_hours, viewed, certified,
+          (case when viewed then course_id end) as viewed_course_id,
+          (case when certified then course_id end) as cert_course_id,
+           PERCENTILE_DISC(0.5) over (partition by course_id order by total_hours) as median_total_hours,
+           PERCENTILE_DISC(0.5) over (partition by course_id order by problem_hours) as median_problem_hours,
+           PERCENTILE_DISC(0.5) over (partition by course_id order by video_hours) as median_video_hours,
+           PERCENTILE_DISC(0.5) over (partition by course_id order by forum_hours) as median_forum_hours,
+
+           PERCENTILE_DISC(0.5) over (partition by viewed_course_id order by total_hours) as median_total_hours_viewed,
+           PERCENTILE_DISC(0.5) over (partition by viewed_course_id order by problem_hours) as median_problem_hours_viewed,
+           PERCENTILE_DISC(0.5) over (partition by viewed_course_id order by video_hours) as median_video_hours_viewed,
+           PERCENTILE_DISC(0.5) over (partition by viewed_course_id order by forum_hours) as median_forum_hours_viewed,
+
+           PERCENTILE_DISC(0.5) over (partition by cert_course_id order by total_hours) as median_total_hours_certified,
+           PERCENTILE_DISC(0.5) over (partition by cert_course_id order by problem_hours) as median_problem_hours_certified,
+           PERCENTILE_DISC(0.5) over (partition by cert_course_id order by video_hours) as median_video_hours_certified,
+           PERCENTILE_DISC(0.5) over (partition by cert_course_id order by forum_hours) as median_forum_hours_certified,
+ FROM
+  (
+    SELECT TT.course_id as course_id,
+           (TT.total_time_30)/60.0/60 as total_hours,
+           (TT.total_video_time_30)/60.0/60 as video_hours,
+           (TT.total_problem_time_30)/60.0/60 as problem_hours,
+           (TT.total_forum_time_30)/60.0/60 as forum_hours,
+           PC.viewed as viewed,
+           PC.certified as certified,
+
+      FROM (
+            SELECT * FROM {tott_tables} 
+      ) as TT
+      JOIN EACH {combined_person_course} as PC
+      ON TT.course_id = PC.course_id and TT.username=PC.username
+      order by course_id
+   )
+)
+group by course_id
+order by course_id;
+        '''.format(**self.parameters)
+        
+        self.do_table(the_sql, 'time_on_task_stats_by_course')
+
 
     def make_totals_by_course(self):
 
