@@ -1087,6 +1087,11 @@ check_for_duplicates        : check list of courses for duplicates
 
             bqdat = bqutil.get_table_data(dataset, tablename, return_csv=True, **optargs)
 
+            if not bqdat:
+                print "--> No data for %s!" % course_id
+                sys.stdout.flush()
+                continue
+
             if args.combine_into:
                 header, data_no_header = bqdat.split('\n',1)
                 if not the_header:
