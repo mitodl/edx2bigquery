@@ -261,13 +261,14 @@ def analyze_course_single(param, course_id, optargs=None):
         sys.stdout.flush()
         raise
 
-def time_on_task(param, course_id, optargs=None):
+def time_on_task(param, course_id, optargs=None, skip_totals=False):
     '''
     update time_task table based on tracking logs
 
     param = (dict) run parameters
     course_id = (string) course_id of course to run on
     optargs is ignored
+    skip_totals typically set to True for nightly runs
     '''
     print "="*100
     print "Updating time_task table for %s" % course_id
@@ -283,6 +284,7 @@ def time_on_task(param, course_id, optargs=None):
                                                       just_do_totals=param.just_do_totals,
                                                       limit_query_size=param.limit_query_size,
                                                       table_max_size_mb=(param.table_max_size_mb or 800),
+                                                      skip_totals=skip_totals,
                                                   )
     except Exception as err:
         print "===> Error completing process_course_time_on_task on %s, err=%s" % (course_id, str(err))
@@ -547,6 +549,7 @@ def run_nightly_single(param, course_id, args=None):
         person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
         problem_check(param, course_id, args)
         analyze_ora(param, course_id, args)
+        time_on_task(param, course_id, args, skip_totals=True)
     except Exception as err:
         print "="*100
         print "ERROR: %s" % str(err)
