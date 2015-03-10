@@ -350,7 +350,8 @@ def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, forc
 def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, wait=True, 
                     logger=default_logger, project_id=DEFAULT_PROJECT_ID,
                     output_project_id=DEFAULT_PROJECT_ID,
-                    allowLargeResults=False):
+                    allowLargeResults=False,
+                    sql_for_description=None):
     '''
     Run SQL query to create a new table.
     '''
@@ -461,7 +462,7 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
             txt = 'Computed by %s / bqutil at %s processing %s bytes in %8.2f sec\nwith this SQL: %s' % (me, datetime.datetime.now(), 
                                                                                                          nbytes,
                                                                                                          dt,
-                                                                                                         sql)
+                                                                                                         sql_for_description or sql)
             project_name = get_project_name(project_id)
             output_project_name = get_project_name(output_project_id)
     
@@ -489,7 +490,7 @@ def add_description_to_table(dataset_id, table_id, description, append=False, pr
     try:
         table = tables.patch(body=patch, **table_ref).execute()
     except Exception as err:
-        print "[bqutil] oops, failed in adding description to table, patch=%s, err=%s, table=%s" % (patch, str(err), table)
+        print "[bqutil] oops, failed in adding description to table, patch=%s, err=%s, table=%s" % (patch, str(err), table_id)
         raise
     return table
 

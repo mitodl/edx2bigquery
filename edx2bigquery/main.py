@@ -825,6 +825,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--limit-query-size", help="for time_task, limit query size to one day at a time and use hashing for large tables", action="store_true")
     parser.add_argument("--table-max-size-mb", type=int, help="maximum log table size for query size limit processing, in MB (defaults to 800)")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
+    parser.add_argument("--only-step", type=str, help="specify single step to take in processing, e.g. for report")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
     parser.add_argument("--listings", type=str, help="path to the course listings.csv file")
     parser.add_argument("--dbname", type=str, help="mongodb db name to use for mongo2gs")
@@ -858,6 +859,7 @@ check_for_duplicates        : check list of courses for duplicates
     param.just_do_totals = args.just_do_totals
     param.limit_query_size = args.limit_query_size
     param.table_max_size_mb = args.table_max_size_mb
+    param.only_step = args.only_step
 
     # default end date for person_course
     try:
@@ -1210,6 +1212,7 @@ check_for_duplicates        : check list of courses for duplicates
                                                output_dataset_id=args.output_dataset_id,
                                                output_bucket=args.output_bucket or edx2bigquery_config.GS_BUCKET,
                                                use_dataset_latest=param.use_dataset_latest,
+                                               only_step=param.only_step,
                                                )
 
     elif (args.command=='combinepc'):

@@ -17,8 +17,20 @@ class CourseReport(object):
                  output_dataset_id=None, 
                  output_bucket=None,
                  use_dataset_latest=False,
+                 only_step=None,
                  ):
+        '''
+        Compute course report tables, based on combination of all person_course and other individual course tables.
+
+        only_step: specify a single course report step to be executed; runs all reports, if None
+        '''
         
+        self.only_step = only_step
+
+        if not course_id_set:
+            print "ERROR! Must specify list of course_id's for report.  Aborting."
+            return
+
         org = course_id_set[0].split('/',1)[0]	# extract org from first course_id
 
         self.output_project_id = output_project_id
@@ -104,13 +116,13 @@ class CourseReport(object):
         bqutil.create_dataset_if_nonexistent(self.dataset, project_id=output_project_id)
 
         self.nskip = nskip
-        self.make_time_on_task_stats_by_course()
         if 1:
             self.make_totals_by_course()
             self.make_medians_by_course()
             self.make_table_of_email_addresses()
             self.make_global_modal_ip_table()
             self.make_enrollment_by_day()
+            self.make_time_on_task_stats_by_course()
             self.make_total_populations_by_course()
             self.make_table_of_n_courses_registered()
             self.make_geographic_distributions()
@@ -120,19 +132,37 @@ class CourseReport(object):
         print "Done with course report tables"
         sys.stdout.flush()
 
-    def do_table(self, the_sql, tablename, the_dataset=None):
+    def do_table(self, the_sql, tablename, the_dataset=None, sql_for_description=None):
         if self.nskip:
             self.nskip += -1
             print "Skipping %s" % tablename
             return
 
+        if self.only_step:
+            if type(self.only_step)==list:
+                if tablename not in self.only_step:
+                    print "Skipping %s because not specified in only_step" % tablename
+                    return
+            else:
+                if not self.only_step == tablename:
+                    print "Skipping %s because not specified in only_step" % tablename
+                    return
+
         if the_dataset is None:
             the_dataset = self.dataset
 
         print("Computing %s in BigQuery" % tablename)
-        ret = bqutil.create_bq_table(the_dataset, tablename, the_sql, 
-                                     overwrite=True,
-                                     output_project_id=self.output_project_id)
+        try:
+            ret = bqutil.create_bq_table(the_dataset, tablename, the_sql, 
+                                         overwrite=True,
+                                         output_project_id=self.output_project_id,
+                                         sql_for_description=sql_for_description or the_sql,
+                                     )
+        except Exception as err:
+            print "ERROR! Failed on SQL="
+            print the_sql
+            raise
+
         gsfn = "%s/%s.csv" % (self.gsbucket, tablename)
         bqutil.extract_table_to_gs(the_dataset, tablename, gsfn, 
                                    format='csv', 
@@ -146,7 +176,7 @@ class CourseReport(object):
 
     def make_medians_by_course(self):
 
-        the_sql = '''
+        outer_sql = '''
             select course_id, 
                 max(nplay_video_median) as nplay_video_median,
                 max(ndays_act_median) as ndays_act_median,
@@ -164,42 +194,100 @@ class CourseReport(object):
                 max(avg_dt_median) as avg_dt_median,
                 max(sum_dt_median) as sum_dt_median,
                 max(age_in_2014_median) as age_in_2014_median,
-             FROM (
-                   SELECT course_id,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by nplay_video) as nplay_video_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by ndays_act) as ndays_act_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by nchapters) as nchapters_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by nevents) as nevents_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by nforum_posts) as nforum_posts_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by grade) as grade_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by nforum_votes) as nforum_votes_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by nforum_endorsed) as nforum_endorsed_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by nforum_threads) as nforum_threads_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by nforum_comments) as nforum_comments_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by nprogcheck) as nprogcheck_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by nshow_answer) as nshow_answer_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by npause_video) as npause_video_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by avg_dt) as avg_dt_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by sum_dt) as sum_dt_median,
-                          PERCENTILE_DISC(0.5) over (partition by course_id order by age) as age_in_2014_median,
-                    FROM 
-                         (
-                            select *, (2014-YoB) as age, FROM 
-                                {pc_tables}
-                         )
-                    WHERE {constraint} and ((forumRoles_isStudent = 1) or (forumRoles_isStudent is null))
-                   )
+                count(nplay_video) as n_nonzero_play_video,
+                count(grade) as n_nonzero_grade,
+                count(nforum_posts) as n_nonzero_forum_posts,
+             FROM
+                    {sub_sql}
               group by course_id
               order by course_id;
         '''
+
+        sub_sql = """
+                   SELECT course_id,
+                          (case when nplay_video is not null then course_id end) as cid_nplay_video,
+                          (case when ndays_act is not null then course_id end) as cid_ndays_act,
+                          (case when nchapters is not null then course_id end) as cid_nchapters,
+                          (case when nevents is not null then course_id end) as cid_nevents,
+                          (case when nforum_posts is not null then course_id end) as cid_nforum_posts,
+                          (case when grade is not null then course_id end) as cid_grade,
+                          (case when nforum_votes is not null then course_id end) as cid_nforum_votes,
+                          (case when nforum_endorsed is not null then course_id end) as cid_nforum_endorsed,
+                          (case when nforum_threads is not null then course_id end) as cid_nforum_threads,
+                          (case when nforum_comments is not null then course_id end) as cid_nforum_comments,
+                          (case when nprogcheck is not null then course_id end) as cid_nprogcheck,
+                          (case when nshow_answer is not null then course_id end) as cid_nshow_answer,
+                          (case when npause_video is not null then course_id end) as cid_npause_video,
+                          (case when avg_dt is not null then course_id end) as cid_avg_dt,
+                          (case when sum_dt is not null then course_id end) as cid_sum_dt,
+                          (case when age is not null then course_id end) as cid_age,
+                          nforum_posts,
+                          grade,
+                          nplay_video,
+
+                          PERCENTILE_DISC(0.5) over (partition by cid_nplay_video order by nplay_video) as nplay_video_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_ndays_act order by ndays_act) as ndays_act_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_nchapters order by nchapters) as nchapters_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_nevents order by nevents) as nevents_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_nforum_posts order by nforum_posts) as nforum_posts_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_grade order by grade) as grade_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_nforum_votes order by nforum_votes) as nforum_votes_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_nforum_endorsed order by nforum_endorsed) as nforum_endorsed_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_nforum_threads order by nforum_threads) as nforum_threads_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_nforum_comments order by nforum_comments) as nforum_comments_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_nprogcheck order by nprogcheck) as nprogcheck_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_nshow_answer order by nshow_answer) as nshow_answer_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_npause_video order by npause_video) as npause_video_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_avg_dt order by avg_dt) as avg_dt_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_sum_dt order by sum_dt) as sum_dt_median,
+                          PERCENTILE_DISC(0.5) over (partition by cid_age order by age) as age_in_2014_median,
+                    FROM 
+                         (
+                            select course_id,
+                                   viewed,
+                                   explored,
+                                   certified,
+                                   verified,
+                                   nplay_video,
+                                   ndays_act,
+                                   nchapters,
+                                   nevents,
+                                   nforum_posts,
+                                   grade,
+                                   nforum_votes,
+                                   nforum_endorsed,
+                                   nforum_threads,
+                                   nforum_comments,
+                                   nprogcheck,
+                                   nshow_answer,
+                                   npause_video,
+                                   avg_dt,
+                                   sum_dt,
+                                   (2014-YoB) as age, 
+                                   forumRoles_isStudent,
+                            FROM 
+                                {pc_tables}
+                         )
+                    WHERE {constraint} and ((forumRoles_isStudent = 1) or (forumRoles_isStudent is null))
+                           AND ABS(HASH(course_id)) %% 4 = %d
+        """
+
+        sub_sql_all = ','.join(["(%s)" % (sub_sql % k) for k in range(4)])
+        the_sql = outer_sql.format(sub_sql=sub_sql_all)
+
+        sql_for_description = "outer SQL:\n%s\n\nInner SQL:\n%s" % (outer_sql, sub_sql)
+
         v_sql = the_sql.format(constraint="viewed", **self.parameters)
-        self.do_table(v_sql, 'viewed_median_stats_by_course')
+        self.do_table(v_sql, 'viewed_median_stats_by_course', sql_for_description=sql_for_description)
 
         ev_sql = the_sql.format(constraint="explored and viewed", **self.parameters)
-        self.do_table(ev_sql, 'explored_median_stats_by_course')
+        self.do_table(ev_sql, 'explored_median_stats_by_course', sql_for_description=sql_for_description)
 
         cv_sql = the_sql.format(constraint="certified and viewed", **self.parameters)
-        self.do_table(cv_sql, 'certified_median_stats_by_course')
+        self.do_table(cv_sql, 'certified_median_stats_by_course', sql_for_description=sql_for_description)
+
+        cv_sql = the_sql.format(constraint="verified and viewed", **self.parameters)
+        self.do_table(cv_sql, 'verified_median_stats_by_course', sql_for_description=sql_for_description)
 
     def make_time_on_task_stats_by_course(self):
 
