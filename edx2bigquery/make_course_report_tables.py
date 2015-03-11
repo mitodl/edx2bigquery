@@ -25,7 +25,7 @@ class CourseReport(object):
         only_step: specify a single course report step to be executed; runs all reports, if None
         '''
         
-        if ',' in only_step:
+        if only_step and ',' in only_step:
             only_step = only_step.split(',')
         self.only_step = only_step
 

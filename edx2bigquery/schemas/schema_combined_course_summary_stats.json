@@ -452,17 +452,17 @@
 	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_explored_frac_nonzero_play_video",
 	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_explored_frac_nonzero_grade",
 	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_explored_frac_nonzero_forum_posts",
 	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
@@ -531,19 +531,19 @@
         "name": "msbc_certified_sum_dt_median"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_certified_age_in_2014_median"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_certified_frac_nonzero_play_video"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_certified_frac_nonzero_grade"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_certified_frac_nonzero_forum_posts"
     }, 
     {
@@ -611,19 +611,19 @@
         "name": "msbc_viewed_sum_dt_median"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_viewed_age_in_2014_median"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_viewed_frac_nonzero_play_video"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_viewed_frac_nonzero_grade"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_viewed_frac_nonzero_forum_posts"
     }, 
     {
@@ -691,19 +691,19 @@
         "name": "msbc_verified_sum_dt_median"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_verified_age_in_2014_median"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_verified_frac_nonzero_play_video"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_verified_frac_nonzero_grade"
     }, 
     {
-        "type": "INTEGER", 
+        "type": "FLOAT", 
         "name": "msbc_verified_frac_nonzero_forum_posts"
     }, 
     {
