@@ -5,7 +5,8 @@
     }, 
     {
         "type": "STRING", 
-        "name": "listings_Institution"
+        "name": "listings_Institution",
+	"description": "From course listings file"
     }, 
     {
         "type": "STRING", 
@@ -281,11 +282,13 @@
     }, 
     {
         "type": "STRING", 
-        "name": "cbr_course_id"
+        "name": "cbr_course_id",
+	"description": "From stats_cert_rates_by_registration table"
     }, 
     {
         "type": "FLOAT", 
-        "name": "cbr_wrap_date"
+        "name": "cbr_wrap_date",
+	"description": "From stats_cert_rates_by_registration table"
     }, 
     {
         "type": "INTEGER", 
@@ -365,71 +368,103 @@
     }, 
     {
         "type": "STRING", 
-        "name": "msbc_explored_course_id"
+        "name": "msbc_explored_course_id",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_nplay_video_median"
+        "name": "msbc_explored_nplay_video_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_ndays_act_median"
+        "name": "msbc_explored_ndays_act_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_nchapters_median"
+        "name": "msbc_explored_nchapters_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_nevents_median"
+        "name": "msbc_explored_nevents_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_nforum_posts_median"
+        "name": "msbc_explored_nforum_posts_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "FLOAT", 
-        "name": "msbc_explored_grade_median"
+        "name": "msbc_explored_grade_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_nforum_votes_median"
+        "name": "msbc_explored_nforum_votes_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_nforum_endorsed_median"
+        "name": "msbc_explored_nforum_endorsed_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_nforum_threads_median"
+        "name": "msbc_explored_nforum_threads_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_nforum_comments_median"
+        "name": "msbc_explored_nforum_comments_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_nprogcheck_median"
+        "name": "msbc_explored_nprogcheck_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_nshow_answer_median"
+        "name": "msbc_explored_nshow_answer_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_npause_video_median"
+        "name": "msbc_explored_npause_video_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "FLOAT", 
-        "name": "msbc_explored_avg_dt_median"
+        "name": "msbc_explored_avg_dt_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "FLOAT", 
-        "name": "msbc_explored_sum_dt_median"
+        "name": "msbc_explored_sum_dt_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_age_in_2014_median"
+        "name": "msbc_explored_age_in_2014_median",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "msbc_explored_n_nonzero_play_video",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "msbc_explored_n_nonzero_grade",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "msbc_explored_n_nonzero_forum_posts",
+	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "STRING", 
@@ -500,6 +535,18 @@
         "name": "msbc_certified_age_in_2014_median"
     }, 
     {
+        "type": "INTEGER", 
+        "name": "msbc_certified_n_nonzero_play_video"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "msbc_certified_n_nonzero_grade"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "msbc_certified_n_nonzero_forum_posts"
+    }, 
+    {
         "type": "STRING", 
         "name": "msbc_viewed_course_id"
     }, 
@@ -566,6 +613,18 @@
     {
         "type": "INTEGER", 
         "name": "msbc_viewed_age_in_2014_median"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "msbc_viewed_n_nonzero_play_video"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "msbc_viewed_n_nonzero_grade"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "msbc_viewed_n_nonzero_forum_posts"
     }, 
     {
         "type": "STRING", 
@@ -637,7 +696,20 @@
     }, 
     {
         "type": "INTEGER", 
-        "name": "course_length_days"
+        "name": "msbc_verified_n_nonzero_play_video"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "msbc_verified_n_nonzero_grade"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "msbc_verified_n_nonzero_forum_posts"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "course_length_days",
+	"description": "from course_metainfo tables"
     }, 
     {
         "type": "FLOAT", 
