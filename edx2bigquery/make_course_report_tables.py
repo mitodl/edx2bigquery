@@ -25,6 +25,8 @@ class CourseReport(object):
         only_step: specify a single course report step to be executed; runs all reports, if None
         '''
         
+        if ',' in only_step:
+            only_step = only_step.split(',')
         self.only_step = only_step
 
         if not course_id_set:
@@ -250,7 +252,7 @@ class CourseReport(object):
                                    viewed,
                                    explored,
                                    certified,
-                                   verified,
+                                   mode,
                                    nplay_video,
                                    ndays_act,
                                    nchapters,
@@ -289,7 +291,7 @@ class CourseReport(object):
         cv_sql = the_sql.format(constraint="certified and viewed", **self.parameters)
         self.do_table(cv_sql, 'certified_median_stats_by_course', sql_for_description=sql_for_description)
 
-        cv_sql = the_sql.format(constraint="verified and viewed", **self.parameters)
+        cv_sql = the_sql.format(constraint="(mode='verified') and viewed", **self.parameters)
         self.do_table(cv_sql, 'verified_median_stats_by_course', sql_for_description=sql_for_description)
 
     def make_time_on_task_stats_by_course(self):
