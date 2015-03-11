@@ -320,6 +320,7 @@ def analyze_course_content(course_id,
         msbc_tables = {'msbc_viewed': "viewed_median_stats_by_course",
                        'msbc_explored': 'explored_median_stats_by_course',
                        'msbc_certified': 'certified_median_stats_by_course',
+                       'msbc_verified': 'verified_median_stats_by_course',
                        }
         for prefix, mtab in msbc_tables.items():
             print "--> Merging median stats data from %s" % mtab
