@@ -42,6 +42,14 @@
     }, 
     {
         "type": "STRING", 
+        "name": "listings_4_way_Category_by_name"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_4_way__CS_STEM_HSocSciGov_HumHistRel"
+    }, 
+    {
+        "type": "STRING", 
         "name": "listings_Registration_Open"
     }, 
     {
@@ -1290,5 +1298,85 @@
     {
         "type": "INTEGER", 
         "name": "count_fieldset"
+    },
+    {
+        "type": "FLOAT", 
+        "name": "ToT_sum_total_hours", 
+        "description": "Time on task: sum of total hours spent by all registrants on the course, based on a 30 minute idle cutoff"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_sum_problem_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_sum_video_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_sum_forum_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_total_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_problem_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_video_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_forum_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_total_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_problem_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_video_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_forum_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_total_hours_certified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_problem_hours_certified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_video_hours_certified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "ToT_median_forum_hours_certified", 
+        "mode": "NULLABLE"
     }
 ]

@@ -2,7 +2,7 @@
 
 import os
 import sys
-import csv
+import unicodecsv as csv
 import gsutil
 import bqutil
 import json
@@ -95,7 +95,12 @@ def analyze_course_content(course_id,
 
     Also, from the course listings file, compute the number of weeks the course was open.
 
-    if do_upload then upload all accumulated data to the course report dataset as the "stats_course_content" table.
+    If do_upload (triggered by --force-recompute) then upload all accumulated data to the course report dataset 
+    as the "stats_course_content" table.  Also generate a "course_summary_stats" table, stored in the
+    course_report_ORG or course_report_latest dataset.  The course_summary_stats table combines
+    data from many reports,, including stats_course_content, the medians report, the listings file,
+    broad_stats_by_course, and time_on_task_stats_by_course.
+    
     '''
 
     if do_upload:
@@ -332,6 +337,21 @@ def analyze_course_content(course_id,
                 for field, value in entry.items():
                     cmci['%s_%s' % (prefix, field)] = value
 
+        # add time on task data
+
+        tot_table = "time_on_task_stats_by_course"
+        prefix = "ToT"
+        print "--> Merging time on task data from %s" % tot_table
+        sys.stdout.flush()
+        bqdat = bqutil.get_table_data(dataset, tot_table)
+        for entry in bqdat['data']:
+            course_id = entry['course_id']
+            cmci = c_sum_stats[course_id]
+            for field, value in entry.items():
+                if field=='course_id':
+                    continue
+                cmci['%s_%s' % (prefix, field)] = value
+
         # setup list of keys, for CSV output
 
         css_keys = c_sum_stats.values()[0].keys()
@@ -343,12 +363,15 @@ def analyze_course_content(course_id,
         bqdat = bqutil.get_table_data(dataset, table)
 
         def make_key(key):
-            return key.replace(' ', '_').replace("'", "_").replace('/', '_')
+            key = key.strip()
+            key = key.replace(' ', '_').replace("'", "_").replace('/', '_').replace('(','').replace(')','').replace('-', '_').replace(',', '')
+            return key
 
         listings_keys = map(make_key, ["Institution", "Semester", "New or Rerun", "Andrew Recodes New/Rerun", 
                                        "Course Number", "Short Title", "Andrew's Short Titles", "Title", 
                                        "Instructors", "Registration Open", "Course Launch", "Course Wrap", "course_id",
-                                       "Empirical Course Wrap", "Andrew's Order", "certifies", "MinPassGrade"
+                                       "Empirical Course Wrap", "Andrew's Order", "certifies", "MinPassGrade",
+                                       '4-way Category by name', "4-way (CS, STEM, HSocSciGov, HumHistRel)"
                                        ])
         listings_keys.reverse()
         
@@ -394,6 +417,20 @@ def analyze_course_content(course_id,
             else:
                 entry['nforum_posts_per_week'] = None
         css_keys.append('nforum_posts_per_week')
+
+        # read in listings file and merge that in also
+        if listings_file:
+            if listings_file.endswith('.csv'):
+                listings = csv.DictReader(open(listings_file))
+            else:
+                listings = [ json.loads(x) for x in open(listings_file) ]
+            for entry in listings:
+                course_id = entry['course_id']
+                cmci = c_sum_stats[course_id]
+                for field, value in entry.items():
+                    lkey = "listings_%s" % make_key(field)
+                    if not (lkey in cmci) or (not cmci[lkey]):
+                        cmci[lkey] = value
 
         print "Storing these fields: %s" % css_keys
 
