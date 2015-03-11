@@ -355,8 +355,26 @@ def analyze_course_content(course_id,
         for lk in listings_keys:
             css_keys.insert(1, "listings_%s" % lk)
 
+        COUNTS_TO_KEEP = ['discussion', 'problem', 'optionresponse', 'checkboxgroup', 'optioninput', 
+                          'choiceresponse', 'video', 'choicegroup', 'vertical', 'choice', 'sequential', 
+                          'multiplechoiceresponse', 'numericalresponse', 'chapter', 'solution', 'img', 
+                          'formulaequationinput', 'responseparam', 'selfassessment', 'track', 'task', 'rubric', 
+                          'stringresponse', 'combinedopenended', 'description', 'textline', 'prompt', 'category', 
+                          'option', 'lti', 'annotationresponse', 
+                          'annotatable', 'colgroup', 'tag_prompt', 'comment', 'annotationinput', 'image', 
+                          'options', 'comment_prompt', 'conditional', 
+                          'answer', 'poll_question', 'section', 'wrapper', 'map', 'area', 
+                          'customtag', 'transcript', 
+                          'split_test', 'word_cloud', 
+                          'openended', 'openendedparam', 'answer_display', 'code', 
+                          'drag_and_drop_input', 'customresponse', 'draggable', 'mentoring', 
+                          'textannotation', 'imageannotation', 'videosequence', 
+                          'feedbackprompt', 'assessments', 'openassessment', 'assessment', 'explanation', 'criterion']
+
         for entry in bqdat['data']:
             thekey = make_key(entry['key'])
+            # if thekey.startswith('count_') and thekey[6:] not in COUNTS_TO_KEEP:
+            #     continue
             if thekey.startswith('listings_') and thekey[9:] not in listings_keys:
                 # print "dropping key=%s for course_id=%s" % (thekey, entry['course_id'])
                 continue
@@ -379,28 +397,42 @@ def analyze_course_content(course_id,
 
         print "Storing these fields: %s" % css_keys
 
+        # get schema
+        mypath = os.path.dirname(os.path.realpath(__file__))
+        the_schema = json.loads(open('%s/schemas/schema_combined_course_summary_stats.json' % mypath).read())
+        schema_dict = { x['name'] : x for x in the_schema }
+
         # write out CSV
         css_table = "course_summary_stats"
         ofn = "%s__%s.csv" % (dataset, css_table)
-        print "Writing data to %s" % ofn
+        ofn2 = "%s__%s.json" % (dataset, css_table)
+        print "Writing data to %s and %s" % (ofn, ofn2)
 
         ofp = open(ofn, 'w')
+        ofp2 = open(ofn2, 'w')
         dw = csv.DictWriter(ofp, fieldnames=css_keys)
         dw.writeheader()
         for cid, entry in c_sum_stats.items():
+            for ek in entry:
+                if ek not in schema_dict:
+                    entry.pop(ek)
+                # entry[ek] = str(entry[ek])	# coerce to be string
+            ofp2.write(json.dumps(entry) + "\n")
             for key in css_keys:
                 if key not in entry:
                     entry[key] = None
             dw.writerow(entry)
         ofp.close()
+        ofp2.close()
 
         # upload to bigquery
-        the_schema = [ { 'type': 'STRING', 'name': x } for x in css_keys ]
+        # the_schema = [ { 'type': 'STRING', 'name': x } for x in css_keys ]
         if 1:
-            gsfnp = gspath / dataset / (css_table + ".csv")
-            gsutil.upload_file_to_gs(ofn, gsfnp)
-            bqutil.load_data_to_table(dataset, css_table, gsfnp, the_schema, wait=True, verbose=False,
-                                      format='csv', skiprows=1)
+            gsfnp = gspath / dataset / (css_table + ".json")
+            gsutil.upload_file_to_gs(ofn2, gsfnp)
+            # bqutil.load_data_to_table(dataset, css_table, gsfnp, the_schema, wait=True, verbose=False,
+            #                           format='csv', skiprows=1)
+            bqutil.load_data_to_table(dataset, css_table, gsfnp, the_schema, wait=True, verbose=False)
 
         return
 
@@ -532,7 +564,13 @@ def analyze_course_content(course_id,
     cmfields['course_length_days'] = str(ndays)
     cmfields.update({ ('listings_%s' % key) : value for key, value in data.items() })	# from course listings
     cmfields.update(ccd[course_id].copy())
-    cmfields.update({ ('count_%s' % key) : str(value) for key, value in counts.items() })	# from content counts
+
+    # cmfields.update({ ('count_%s' % key) : str(value) for key, value in counts.items() })	# from content counts
+
+    for key in sorted(counts):	# store counts in sorted order, so that the later generated CSV file can have a predictable structure
+        value = counts[key]
+        cmfields['count_%s' % key] =  str(value) 	# from content counts
+
     cmfields.update({ ('nexcluded_sub_20_%s' % key) : str(value) for key, value in nexcluded.items() })	# from content counts
 
     course_dir = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest)
