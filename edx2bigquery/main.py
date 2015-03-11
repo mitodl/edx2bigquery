@@ -566,6 +566,122 @@ def list_tables_in_course_db(param, courses, args):
         print "Course %s, tables=%s" % (course_id, json.dumps(table, indent=4))
 
 #-----------------------------------------------------------------------------
+# utility commands
+
+def get_data_tables(tables, args):
+    '''
+    used by get_course_data and get_data
+    arguments provide options for combing outputs, and for loading output back into BigQuery
+    '''
+    import bqutil
+    import gzip
+    import codecs
+
+    optargs = {}
+    if args.project_id:
+        optargs['project_id'] = args.project_id
+        print "Using %s as the project ID" % args.project_id
+
+    if args.combine_into:
+        cofn = args.combine_into
+        do_gzip = cofn.endswith(".gz")
+        if args.gzip and not do_gzip:
+            cofn += ".gz"
+            do_gzip = True
+        print "Combining outputs into a single merged CSV file %s" % cofn
+        if do_gzip:
+            print "  output will be gzip compressed"
+            cofp = gzip.GzipFile(cofn, 'w')
+        else:
+            # cofp = codecs.open(cofn, 'w', encoding='utf8')
+            cofp = open(cofn, 'w')
+        the_header = None
+
+    if args.combine_into_table:
+        # produce output file, load into google storage, then load into BigQuery
+        # use schema from one of the source tables
+        if not args.combine_into:
+            print "Please specify a file to store the combined data into, using --combine-into <filename>"
+            return
+        if not args.output_bucket:
+            print "Please also specify a google storage bucket using --output-bucket <bucket_path>; the data are stored there before loading into BQ"
+            return
+        output_table = args.combine_into_table
+        gspath = "%s/%s" % (args.output_bucket, cofn)
+
+    for table in tables:
+        has_project_id = False
+        dataset, tablename = table.split('.', 1)
+        if ':' in dataset:
+            project_id, dataset = dataset.split(':')
+            optargs['project_id'] = project_id
+            has_project_id = True
+        if args.combine_into:
+            print "Retrieving %s.%s for %s" % (dataset, tablename, cofn)
+        else:
+            ofn = '%s__%s.csv' % (dataset, tablename)
+            if has_project_id:
+                ofn = project_id + '__' + ofn
+            if args.gzip:
+                ofn += ".gz"
+            print "Retrieving %s as %s" % (table, ofn)
+        sys.stdout.flush()
+        bqdat = bqutil.get_table_data(dataset, tablename, return_csv=True, **optargs)
+        if not bqdat:
+            print "--> No data for %s!" % course_id
+            sys.stdout.flush()
+            continue
+        elif args.combine_into:
+            header, data_no_header = bqdat.split('\n',1)
+            if not the_header:
+                the_header = header
+                cofp.write(bqdat)
+            else:
+                if not header==the_header:
+                    print "--> ERROR!  Cannot combine data from %s: CSV file header is different" % course_id
+                    print "Other courses' table file header: %s" % the_header
+                    print "This courses' table file header: %s" % header
+                    raise Exception("[get_course_data] Mismatched table data format")
+                cofp.write(data_no_header)
+            
+        else:
+            if args.gzip:
+                ofp = gzip.GzipFile(ofn, 'w')
+            else:
+                # ofp = codecs.open(ofn, 'w', encoding='utf8')
+                ofp = open(ofn, 'w')
+            ofp.write(bqdat)
+            ofp.close()
+        
+    if args.combine_into:
+        cofp.close()
+        print "Done with output file %s" % cofn
+
+    if args.combine_into_table:
+        print "Loading into google storage, to %s" % gspath
+        sys.stdout.flush()
+        import gsutil
+        options = ''
+        if not args.gzip:
+            options = '-z csv,json'
+        gsutil.upload_file_to_gs(cofn, gspath, options=options)
+        print "Getting table schema..."
+        sys.stdout.flush()
+        table_info = bqutil.get_bq_table_info(dataset, tablename, **optargs)
+        schema = table_info['schema']['fields']
+        print "Loading into BigQuery %s" % output_table
+        sys.stdout.flush()
+        out_dataset, out_table = output_table.split('.', 1)
+        optargs = {}
+        if ':' in out_dataset:
+            project_id, out_dataset = out_dataset.split(':', 1)
+            optargs['project_id'] = project_id
+        bqutil.load_data_to_table(out_dataset, out_table, gspath, schema, 
+                                  format='csv',
+                                  skiprows=1,
+                                  **optargs)
+
+#-----------------------------------------------------------------------------
 # command line processing
 
 def CommandLine():
@@ -788,8 +904,11 @@ get_tables <dataset>        : dump information about the tables in the specified
 get_table_data <dataset>    : dump table data as JSON text to stdout
                <table_id>
 
-get_course_data <course_id> : retrieve table data as CSV file, saved as CID__tablename.csv, with CID being the course_id with slashes
+get_course_data <course_id> : retrieve course-specific table data as CSV file, saved as CID__tablename.csv, with CID being the course_id with slashes
        --table <table_id>     replaced by double underscore ("__").  May specify --project-id and --gzip and --combine-into <output_filename>
+
+get_data p_id:d_id.t_id ... : retrieve project:dataset.table data as CSV file, saved as project__dataset__tablename.csv
+                              May specify --gzip and --combine-into <output_filename>
 
 get_table_info <dataset>    : dump meta-data information about the specified dataset.table_id from BigQuery.
                <table_id>
@@ -832,7 +951,8 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--project-id", type=str, help="project-id to use (overriding the default; used by get_course_data)")
     parser.add_argument("--table", type=str, help="bigquery table to use, specified as dataset_id.table_id or just as table_id (for get_course_data)")
     parser.add_argument("--org", type=str, help="organization ID to use")
-    parser.add_argument("--combine-into", type=str, help="combine outputs into the specified file as output (used by get_course_data)")
+    parser.add_argument("--combine-into", type=str, help="combine outputs into the specified file as output (used by get_course_data, get_data)")
+    parser.add_argument("--combine-into-table", type=str, help="combine outputs into specified table (may be project:dataset.table) for get_data, get_course_data")
     parser.add_argument("--collection", type=str, help="mongodb collection name to use for mongo2gs")
     parser.add_argument("--output-project-id", type=str, help="project-id where the report output should go (used by the report and combinepc commands)")
     parser.add_argument("--output-dataset-id", type=str, help="dataset-id where the report output should go (used by the report and combinepc commands)")
@@ -1056,69 +1176,17 @@ check_for_duplicates        : check list of courses for duplicates
 
     elif (args.command=='get_course_data'):
         import bqutil
-        import gzip
-        import codecs
         tablename = args.table
-        optargs = {}
-        if args.project_id:
-            optargs['project_id'] = args.project_id
-            print "Using %s as the project ID" % args.project_id
-
-        if args.combine_into:
-            cofn = args.combine_into
-            do_gzip = cofn.endswith(".gz")
-            if args.gzip and not do_gzip:
-                cofn += ".gz"
-                do_gzip = True
-            print "Combining outputs into a single merged CSV file %s" % cofn
-            if do_gzip:
-                print "  output will be gzip compressed"
-                cofp = gzip.GzipFile(cofn, 'w')
-            else:
-                cofp = codecs.open(cofn, 'w', encoding='utf8')
-            the_header = None
-
+        tables = []
         for course_id in get_course_ids(args):
             dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
+            tables.append('%s.%s' % (dataset, tablename))
 
-            if args.combine_into:
-                print "Retrieving %s.%s for %s" % (dataset, tablename, cofn)
-            else:
-                ofn = '%s__%s.csv' % (course_id.replace('/', '__'), tablename)
-                if args.gzip:
-                    ofn += ".gz"
-                print "Retrieving %s.%s as %s" % (dataset, tablename, ofn)
-            sys.stdout.flush()
+        return get_data_tables(tables, args)
 
-            bqdat = bqutil.get_table_data(dataset, tablename, return_csv=True, **optargs)
-
-            if not bqdat:
-                print "--> No data for %s!" % course_id
-                sys.stdout.flush()
-                continue
-
-            if args.combine_into:
-                header, data_no_header = bqdat.split('\n',1)
-                if not the_header:
-                    the_header = header
-                    cofp.write(bqdat)
-                else:
-                    if not header==the_header:
-                        print "--> ERROR!  Cannot combine data from %s: CSV file header is different" % course_id
-                        print "Other courses' table file header: %s" % the_header
-                        print "This courses' table file header: %s" % header
-                        raise Exception("[get_course_data] Mismatched table data format")
-                    cofp.write(data_no_header)
-                
-            else:
-                if args.gzip:
-                    ofp = gzip.GzipFile(ofn, 'w')
-                else:
-                    ofp = codecs.open(ofn, 'w', encoding='utf8')
-                ofp.write(bqdat)
-            
-        if args.combine_into:
-            print "Done with output file %s" % cofn
+    elif (args.command=='get_data'):
+        tables = args.courses			# may specify project as well, with syntax project_id:dataset_id.table_id
+        return get_data_tables(tables, args)
 
     elif (args.command=='get_table_info'):
         import bqutil
