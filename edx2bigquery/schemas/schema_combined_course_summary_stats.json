@@ -1321,62 +1321,62 @@
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_total_hours_viewed", 
+        "name": "ToT_sum_total_hours_viewed", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_problem_hours_viewed", 
+        "name": "ToT_sum_problem_hours_viewed", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_video_hours_viewed", 
+        "name": "ToT_sum_video_hours_viewed", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_forum_hours_viewed", 
+        "name": "ToT_sum_forum_hours_viewed", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_total_hours_certified", 
+        "name": "ToT_sum_total_hours_certified", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_problem_hours_certified", 
+        "name": "ToT_sum_problem_hours_certified", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_video_hours_certified", 
+        "name": "ToT_sum_video_hours_certified", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_forum_hours_certified", 
+        "name": "ToT_sum_forum_hours_certified", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_total_hours_verified", 
+        "name": "ToT_sum_total_hours_verified", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_problem_hours_verified", 
+        "name": "ToT_sum_problem_hours_verified", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_video_hours_verified", 
+        "name": "ToT_sum_video_hours_verified", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_sum_forum_hours_verified", 
+        "name": "ToT_sum_forum_hours_verified", 
         "mode": "NULLABLE"
     }, 
     {
@@ -1441,22 +1441,22 @@
     },
     {
         "type": "FLOAT", 
-        "name": "TOT_median_total_hours_verified", 
+        "name": "ToT_median_total_hours_verified", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_median_problem_hours_verified", 
+        "name": "ToT_median_problem_hours_verified", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_median_video_hours_verified", 
+        "name": "ToT_median_video_hours_verified", 
         "mode": "NULLABLE"
     }, 
     {
         "type": "FLOAT", 
-        "name": "TOT_median_forum_hours_verified", 
+        "name": "ToT_median_forum_hours_verified", 
         "mode": "NULLABLE"
     }
 ]
