@@ -313,6 +313,21 @@ sum(problem_hours) as sum_problem_hours,
 sum(video_hours) as sum_video_hours,
 sum(forum_hours) as sum_forum_hours,
 
+sum(case when viewed then total_hours end) as sum_total_hours_viewed,
+sum(case when viewed then problem_hours end) as sum_problem_hours_viewed,
+sum(case when viewed then video_hours end) as sum_video_hours_viewed,
+sum(case when viewed then forum_hours end) as sum_forum_hours_viewed,
+
+sum(case when certified then total_hours end) as sum_total_hours_certified,
+sum(case when certified then problem_hours end) as sum_problem_hours_certified,
+sum(case when certified then video_hours end) as sum_video_hours_certified,
+sum(case when certified then forum_hours end) as sum_forum_hours_certified,
+
+sum(case when verified then total_hours end) as sum_total_hours_verified,
+sum(case when verified then problem_hours end) as sum_problem_hours_verified,
+sum(case when verified then video_hours end) as sum_video_hours_verified,
+sum(case when verified then forum_hours end) as sum_forum_hours_verified,
+
 max(median_total_hours) as median_total_hours,
 max(median_problem_hours) as median_problem_hours,
 max(median_video_hours) as median_video_hours,
@@ -336,7 +351,7 @@ order by course_id;
         
         sub_sql = '''
  SELECT   
-          course_id, total_hours, video_hours, problem_hours, forum_hours, viewed, certified,
+          course_id, total_hours, video_hours, problem_hours, forum_hours, viewed, certified, verified,
           (case when total_hours is not null then course_id end) as cid_total_hours,
           (case when problem_hours is not null then course_id end) as cid_problem_hours,
           (case when video_hours is not null then course_id end) as cid_video_hours,
@@ -351,6 +366,11 @@ order by course_id;
           (case when certified and (problem_hours is not null) then course_id end) as certified_cid_problem_hours,
           (case when certified and (video_hours is not null) then course_id end) as certified_cid_video_hours,
           (case when certified and (forum_hours is not null) then course_id end) as certified_cid_forum_hours,
+
+          (case when verified and (total_hours is not null) then course_id end) as verified_cid_total_hours,
+          (case when verified and (problem_hours is not null) then course_id end) as verified_cid_problem_hours,
+          (case when verified and (video_hours is not null) then course_id end) as verified_cid_video_hours,
+          (case when verified and (forum_hours is not null) then course_id end) as verified_cid_forum_hours,
 
          # (case when viewed then course_id end) as viewed_course_id,
          # (case when certified then course_id end) as cert_course_id,
@@ -369,6 +389,11 @@ order by course_id;
            PERCENTILE_DISC(0.5) over (partition by certified_cid_problem_hours order by problem_hours) as median_problem_hours_certified,
            PERCENTILE_DISC(0.5) over (partition by certified_cid_video_hours order by video_hours) as median_video_hours_certified,
            PERCENTILE_DISC(0.5) over (partition by certified_cid_forum_hours order by forum_hours) as median_forum_hours_certified,
+
+           PERCENTILE_DISC(0.5) over (partition by verified_cid_total_hours order by total_hours) as median_total_hours_verified,
+           PERCENTILE_DISC(0.5) over (partition by verified_cid_problem_hours order by problem_hours) as median_problem_hours_verified,
+           PERCENTILE_DISC(0.5) over (partition by verified_cid_video_hours order by video_hours) as median_video_hours_verified,
+           PERCENTILE_DISC(0.5) over (partition by verified_cid_forum_hours order by forum_hours) as median_forum_hours_verified,
  FROM
   (
     SELECT TT.course_id as course_id,
@@ -378,6 +403,7 @@ order by course_id;
            (TT.total_forum_time_30)/60.0/60 as forum_hours,
            PC.viewed as viewed,
            PC.certified as certified,
+           (case when PC.mode="verified" then True end) as verified,
 
       FROM (
             SELECT * FROM {tt_set}
