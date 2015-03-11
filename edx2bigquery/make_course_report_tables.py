@@ -90,6 +90,9 @@ class CourseReport(object):
         uic_tables = ',\n'.join(['[%s.user_info_combo]' % x for x in self.all_uic_tables])
         tott_tables = ',\n'.join(['[%s.time_on_task_totals]' % x for x in self.all_tott_tables])
 
+        print "%d time_on_task tables: %s" % (len(self.all_tott_tables), tott_tables)
+        sys.stdout.flush()
+
         # find latest combined person_course table
         cpc_tables = [ x for x in bqutil.get_list_of_table_ids(self.dataset) if x.startswith("person_course_") ]
         if cpc_tables:
@@ -295,7 +298,7 @@ class CourseReport(object):
             print "Need combined person_course table for make_time_on_task_stats_by_course, skipping..."
             return
 
-        the_sql = '''
+        outer_sql = '''
 select course_id, 
 
 sum(total_hours) as sum_total_hours,
@@ -318,25 +321,47 @@ max(median_problem_hours_certified) as median_problem_hours_certified,
 max(median_video_hours_certified) as median_video_hours_certified,
 max(median_forum_hours_certified) as median_forum_hours_certified,
 
-FROM (
+FROM {sub_sql}
+
+group by course_id
+order by course_id;
+        '''
+        
+        sub_sql = '''
  SELECT   
           course_id, total_hours, video_hours, problem_hours, forum_hours, viewed, certified,
-          (case when viewed then course_id end) as viewed_course_id,
-          (case when certified then course_id end) as cert_course_id,
-           PERCENTILE_DISC(0.5) over (partition by course_id order by total_hours) as median_total_hours,
-           PERCENTILE_DISC(0.5) over (partition by course_id order by problem_hours) as median_problem_hours,
-           PERCENTILE_DISC(0.5) over (partition by course_id order by video_hours) as median_video_hours,
-           PERCENTILE_DISC(0.5) over (partition by course_id order by forum_hours) as median_forum_hours,
+          (case when total_hours is not null then course_id end) as cid_total_hours,
+          (case when problem_hours is not null then course_id end) as cid_problem_hours,
+          (case when video_hours is not null then course_id end) as cid_video_hours,
+          (case when forum_hours is not null then course_id end) as cid_forum_hours,
 
-           PERCENTILE_DISC(0.5) over (partition by viewed_course_id order by total_hours) as median_total_hours_viewed,
-           PERCENTILE_DISC(0.5) over (partition by viewed_course_id order by problem_hours) as median_problem_hours_viewed,
-           PERCENTILE_DISC(0.5) over (partition by viewed_course_id order by video_hours) as median_video_hours_viewed,
-           PERCENTILE_DISC(0.5) over (partition by viewed_course_id order by forum_hours) as median_forum_hours_viewed,
+          (case when viewed and (total_hours is not null) then course_id end) as viewed_cid_total_hours,
+          (case when viewed and (problem_hours is not null) then course_id end) as viewed_cid_problem_hours,
+          (case when viewed and (video_hours is not null) then course_id end) as viewed_cid_video_hours,
+          (case when viewed and (forum_hours is not null) then course_id end) as viewed_cid_forum_hours,
 
-           PERCENTILE_DISC(0.5) over (partition by cert_course_id order by total_hours) as median_total_hours_certified,
-           PERCENTILE_DISC(0.5) over (partition by cert_course_id order by problem_hours) as median_problem_hours_certified,
-           PERCENTILE_DISC(0.5) over (partition by cert_course_id order by video_hours) as median_video_hours_certified,
-           PERCENTILE_DISC(0.5) over (partition by cert_course_id order by forum_hours) as median_forum_hours_certified,
+          (case when certified and (total_hours is not null) then course_id end) as certified_cid_total_hours,
+          (case when certified and (problem_hours is not null) then course_id end) as certified_cid_problem_hours,
+          (case when certified and (video_hours is not null) then course_id end) as certified_cid_video_hours,
+          (case when certified and (forum_hours is not null) then course_id end) as certified_cid_forum_hours,
+
+         # (case when viewed then course_id end) as viewed_course_id,
+         # (case when certified then course_id end) as cert_course_id,
+
+           PERCENTILE_DISC(0.5) over (partition by cid_total_hours order by total_hours) as median_total_hours,
+           PERCENTILE_DISC(0.5) over (partition by cid_problem_hours order by problem_hours) as median_problem_hours,
+           PERCENTILE_DISC(0.5) over (partition by cid_video_hours order by video_hours) as median_video_hours,
+           PERCENTILE_DISC(0.5) over (partition by cid_forum_hours order by forum_hours) as median_forum_hours,
+
+           PERCENTILE_DISC(0.5) over (partition by viewed_cid_total_hours order by total_hours) as median_total_hours_viewed,
+           PERCENTILE_DISC(0.5) over (partition by viewed_cid_problem_hours order by problem_hours) as median_problem_hours_viewed,
+           PERCENTILE_DISC(0.5) over (partition by viewed_cid_video_hours order by video_hours) as median_video_hours_viewed,
+           PERCENTILE_DISC(0.5) over (partition by viewed_cid_forum_hours order by forum_hours) as median_forum_hours_viewed,
+
+           PERCENTILE_DISC(0.5) over (partition by certified_cid_total_hours order by total_hours) as median_total_hours_certified,
+           PERCENTILE_DISC(0.5) over (partition by certified_cid_problem_hours order by problem_hours) as median_problem_hours_certified,
+           PERCENTILE_DISC(0.5) over (partition by certified_cid_video_hours order by video_hours) as median_video_hours_certified,
+           PERCENTILE_DISC(0.5) over (partition by certified_cid_forum_hours order by forum_hours) as median_forum_hours_certified,
  FROM
   (
     SELECT TT.course_id as course_id,
@@ -348,18 +373,33 @@ FROM (
            PC.certified as certified,
 
       FROM (
-            SELECT * FROM {tott_tables} 
+            SELECT * FROM {tt_set}
       ) as TT
       JOIN EACH {combined_person_course} as PC
       ON TT.course_id = PC.course_id and TT.username=PC.username
       order by course_id
    )
-)
-group by course_id
-order by course_id;
-        '''.format(**self.parameters)
+'''
+
+        tott_tables = self.parameters['tott_tables'].split(',\n')
+
+        sub_sql_list = []
+        nmax = 10
+
+        # break up query to use only at most nmax tables at a time
+        # elses BQ may run out of resources, due to the window functions
         
-        self.do_table(the_sql, 'time_on_task_stats_by_course')
+        while len(tott_tables):
+            tt_set = ',\n'.join(tott_tables[:nmax])
+            tott_tables = tott_tables[nmax:]
+            sub_sql_list.append(sub_sql.format(tt_set=tt_set, **self.parameters))
+            
+        sub_sql_all = ','.join(["(%s)" % x for x in sub_sql_list])
+        the_sql = outer_sql.format(sub_sql=sub_sql_all)
+        
+        sql_for_description = "outer SQL:\n%s\n\nInner SQL:\n%stt_set=%s" % (outer_sql, sub_sql, self.parameters['tott_tables'])
+
+        self.do_table(the_sql, 'time_on_task_stats_by_course', sql_for_description=sql_for_description)
 
 
     def make_totals_by_course(self):
