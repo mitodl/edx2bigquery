@@ -384,6 +384,8 @@ order by course_id;
       ) as TT
       JOIN EACH {combined_person_course} as PC
       ON TT.course_id = PC.course_id and TT.username=PC.username
+      WHERE
+                ((PC.forumRoles_isStudent = 1) or (PC.forumRoles_isStudent is null))
       order by course_id
    )
 '''
