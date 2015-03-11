@@ -199,9 +199,14 @@ class CourseReport(object):
                 max(avg_dt_median) as avg_dt_median,
                 max(sum_dt_median) as sum_dt_median,
                 max(age_in_2014_median) as age_in_2014_median,
-                count(nplay_video) as n_nonzero_play_video,
-                count(grade) as n_nonzero_grade,
-                count(nforum_posts) as n_nonzero_forum_posts,
+                sum(case when (nplay_video is not null) and (nplay_video > 0) then 1 else 0 end) / count(*) as frac_nonzero_play_video,
+                sum(case when (nplay_video is not null) and (nplay_video > 0) then 1 else 0 end) as sum_n_nonzero_play_video,
+                sum(case when (grade is not null) and (grade > 0) then 1 else 0 end) / count(*) as frac_nonzero_grade,
+                sum(case when (grade is not null) and (grade > 0) then 1 else 0 end) as sum_n_nonzero_grade,
+                sum(case when (nforum_posts is not null) and (nforum_posts > 0) then 1 else 0 end) / count(*) as frac_nonzero_forum_posts,
+                sum(case when (nforum_posts is not null) and (nforum_posts > 0) then 1 else 0 end) as sum_n_nonzeo_nforum_posts,
+                # sum(case when nforum_posts is not null then 1 else 0 end) as n_non_null_nforum_posts,
+                count(*) as n_records,
              FROM
                     {sub_sql}
               group by course_id

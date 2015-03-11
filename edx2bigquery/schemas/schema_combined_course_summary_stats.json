@@ -453,17 +453,17 @@
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_n_nonzero_play_video",
+        "name": "msbc_explored_frac_nonzero_play_video",
 	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_n_nonzero_grade",
+        "name": "msbc_explored_frac_nonzero_grade",
 	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_explored_n_nonzero_forum_posts",
+        "name": "msbc_explored_frac_nonzero_forum_posts",
 	"description": "From explored_median_stats_by_course table, computed in course reports"
     }, 
     {
@@ -536,15 +536,15 @@
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_certified_n_nonzero_play_video"
+        "name": "msbc_certified_frac_nonzero_play_video"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_certified_n_nonzero_grade"
+        "name": "msbc_certified_frac_nonzero_grade"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_certified_n_nonzero_forum_posts"
+        "name": "msbc_certified_frac_nonzero_forum_posts"
     }, 
     {
         "type": "STRING", 
@@ -616,15 +616,15 @@
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_viewed_n_nonzero_play_video"
+        "name": "msbc_viewed_frac_nonzero_play_video"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_viewed_n_nonzero_grade"
+        "name": "msbc_viewed_frac_nonzero_grade"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_viewed_n_nonzero_forum_posts"
+        "name": "msbc_viewed_frac_nonzero_forum_posts"
     }, 
     {
         "type": "STRING", 
@@ -696,15 +696,15 @@
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_verified_n_nonzero_play_video"
+        "name": "msbc_verified_frac_nonzero_play_video"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_verified_n_nonzero_grade"
+        "name": "msbc_verified_frac_nonzero_grade"
     }, 
     {
         "type": "INTEGER", 
-        "name": "msbc_verified_n_nonzero_forum_posts"
+        "name": "msbc_verified_frac_nonzero_forum_posts"
     }, 
     {
         "type": "INTEGER", 
