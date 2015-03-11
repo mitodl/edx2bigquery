@@ -426,6 +426,8 @@ def analyze_course_content(course_id,
                 listings = [ json.loads(x) for x in open(listings_file) ]
             for entry in listings:
                 course_id = entry['course_id']
+                if course_id not in c_sum_stats:
+                    continue
                 cmci = c_sum_stats[course_id]
                 for field, value in entry.items():
                     lkey = "listings_%s" % make_key(field)
