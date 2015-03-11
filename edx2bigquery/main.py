@@ -582,13 +582,18 @@ def get_data_tables(tables, args):
         optargs['project_id'] = args.project_id
         print "Using %s as the project ID" % args.project_id
 
+    if args.output_format_json:
+        out_fmt = 'json'
+    else:
+        out_fmt = 'csv'
+
     if args.combine_into:
         cofn = args.combine_into
         do_gzip = cofn.endswith(".gz")
         if args.gzip and not do_gzip:
             cofn += ".gz"
             do_gzip = True
-        print "Combining outputs into a single merged CSV file %s" % cofn
+        print "Combining outputs into a single merged %s file %s" % (out_fmt, cofn)
         if do_gzip:
             print "  output will be gzip compressed"
             cofp = gzip.GzipFile(cofn, 'w')
@@ -619,30 +624,34 @@ def get_data_tables(tables, args):
         if args.combine_into:
             print "Retrieving %s.%s for %s" % (dataset, tablename, cofn)
         else:
-            ofn = '%s__%s.csv' % (dataset, tablename)
+            ofn = '%s__%s.%s' % (dataset, tablename, out_fmt)
             if has_project_id:
                 ofn = project_id + '__' + ofn
             if args.gzip:
                 ofn += ".gz"
             print "Retrieving %s as %s" % (table, ofn)
         sys.stdout.flush()
-        bqdat = bqutil.get_table_data(dataset, tablename, return_csv=True, **optargs)
+        bqdat = bqutil.get_table_data(dataset, tablename, return_csv=(out_fmt=='csv'), **optargs)
         if not bqdat:
             print "--> No data for %s!" % course_id
             sys.stdout.flush()
             continue
         elif args.combine_into:
-            header, data_no_header = bqdat.split('\n',1)
-            if not the_header:
-                the_header = header
-                cofp.write(bqdat)
+            if out_fmt=='csv':
+                header, data_no_header = bqdat.split('\n',1)
+                if not the_header:
+                    the_header = header
+                    cofp.write(bqdat)
+                else:
+                    if not header==the_header:
+                        print "--> ERROR!  Cannot combine data from %s: CSV file header is different" % table
+                        print "Other courses' table file header: %s" % the_header
+                        print "This courses' table file header: %s" % header
+                        raise Exception("[get_course_data] Mismatched table data format")
+                    cofp.write(data_no_header)
             else:
-                if not header==the_header:
-                    print "--> ERROR!  Cannot combine data from %s: CSV file header is different" % table
-                    print "Other courses' table file header: %s" % the_header
-                    print "This courses' table file header: %s" % header
-                    raise Exception("[get_course_data] Mismatched table data format")
-                cofp.write(data_no_header)
+                # output JSON - just concatenate
+                cofp.write('\n'.join([ json.dumps(x) for x in bqdat['data'] ]))
             
         else:
             if args.gzip:
@@ -650,7 +659,10 @@ def get_data_tables(tables, args):
             else:
                 # ofp = codecs.open(ofn, 'w', encoding='utf8')
                 ofp = open(ofn, 'w')
-            ofp.write(bqdat)
+            if out_fmt=='csv':
+                ofp.write(bqdat)
+            else:
+                ofp.write('\n'.join([ json.dumps(x) for x in bqdat['data'] ]))
             ofp.close()
         
     if args.combine_into:
@@ -676,10 +688,10 @@ def get_data_tables(tables, args):
         if ':' in out_dataset:
             project_id, out_dataset = out_dataset.split(':', 1)
             optargs['project_id'] = project_id
-        bqutil.load_data_to_table(out_dataset, out_table, gspath, schema, 
-                                  format='csv',
-                                  skiprows=1,
-                                  **optargs)
+        if out_fmt=='csv':
+            optargs['format'] = 'csv'
+            optargs['skiprows'] = 1
+        bqutil.load_data_to_table(out_dataset, out_table, gspath, schema, **optargs)
 
 #-----------------------------------------------------------------------------
 # command line processing
@@ -953,6 +965,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--org", type=str, help="organization ID to use")
     parser.add_argument("--combine-into", type=str, help="combine outputs into the specified file as output (used by get_course_data, get_data)")
     parser.add_argument("--combine-into-table", type=str, help="combine outputs into specified table (may be project:dataset.table) for get_data, get_course_data")
+    parser.add_argument("--output-format-json", help="output data in JSON format instead of CSV (the default); used by get_course_data, get_data", action="store_true")
     parser.add_argument("--collection", type=str, help="mongodb collection name to use for mongo2gs")
     parser.add_argument("--output-project-id", type=str, help="project-id where the report output should go (used by the report and combinepc commands)")
     parser.add_argument("--output-dataset-id", type=str, help="dataset-id where the report output should go (used by the report and combinepc commands)")
