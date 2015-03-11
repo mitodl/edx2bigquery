@@ -631,6 +631,14 @@ def get_data_tables(tables, args):
                 ofn += ".gz"
             print "Retrieving %s as %s" % (table, ofn)
         sys.stdout.flush()
+
+        if args.just_get_schema:
+            tinfo = bqutil.get_bq_table_info(dataset, tablename, **optargs)
+            ofn = '%s__%s__schema.json' % (dataset, tablename)
+            print "Saving schema file as %s" % ofn
+            open(ofn, 'w').write(json.dumps(tinfo['schema']['fields'], indent=4))
+            continue
+
         bqdat = bqutil.get_table_data(dataset, tablename, return_csv=(out_fmt=='csv'), **optargs)
         if not bqdat:
             print "--> No data for %s!" % course_id
@@ -953,6 +961,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--just-do-nightly", help="for person_course, just update activity stats for new logs", action="store_true")
     parser.add_argument("--just-do-geoip", help="for person_course, just update geoip using local db", action="store_true")
     parser.add_argument("--just-do-totals", help="for time_task, just compute total sums", action="store_true")
+    parser.add_argument("--just-get-schema", help="for get_course_data and get_data, just return the table schema as a json file", action="store_true")
     parser.add_argument("--limit-query-size", help="for time_task, limit query size to one day at a time and use hashing for large tables", action="store_true")
     parser.add_argument("--table-max-size-mb", type=int, help="maximum log table size for query size limit processing, in MB (defaults to 800)")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
