@@ -638,7 +638,7 @@ def get_data_tables(tables, args):
                 cofp.write(bqdat)
             else:
                 if not header==the_header:
-                    print "--> ERROR!  Cannot combine data from %s: CSV file header is different" % course_id
+                    print "--> ERROR!  Cannot combine data from %s: CSV file header is different" % table
                     print "Other courses' table file header: %s" % the_header
                     print "This courses' table file header: %s" % header
                     raise Exception("[get_course_data] Mismatched table data format")
