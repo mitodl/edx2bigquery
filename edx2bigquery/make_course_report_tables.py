@@ -333,18 +333,24 @@ max(median_problem_hours) as median_problem_hours,
 max(median_video_hours) as median_video_hours,
 max(median_forum_hours) as median_forum_hours,
 
-max(median_total_hours_viewed) as median_total_hours_viewed,
-max(median_problem_hours_viewed) as median_problem_hours_viewed,
-max(median_video_hours_viewed) as median_video_hours_viewed,
-max(median_forum_hours_viewed) as median_forum_hours_viewed,
+max(case when viewed then median_total_hours_viewed end) as median_total_hours_viewed,
+max(case when viewed then median_problem_hours_viewed end) as median_problem_hours_viewed,
+max(case when viewed then median_video_hours_viewed end) as median_video_hours_viewed,
+max(case when viewed then median_forum_hours_viewed end) as median_forum_hours_viewed,
 
-max(median_total_hours_certified) as median_total_hours_certified,
-max(median_problem_hours_certified) as median_problem_hours_certified,
-max(median_video_hours_certified) as median_video_hours_certified,
-max(median_forum_hours_certified) as median_forum_hours_certified,
+max(case when certified then median_total_hours_certified end) as median_total_hours_certified,
+max(case when certified then median_problem_hours_certified end) as median_problem_hours_certified,
+max(case when certified then median_video_hours_certified end) as median_video_hours_certified,
+max(case when certified then median_forum_hours_certified end) as median_forum_hours_certified,
+
+max(case when verified then median_total_hours_verified end) as median_total_hours_verified,
+max(case when verified then median_problem_hours_verified end) as median_problem_hours_verified,
+max(case when verified then median_video_hours_verified end) as median_video_hours_verified,
+max(case when verified then median_forum_hours_verified end) as median_forum_hours_verified,
 
 FROM {sub_sql}
 
+where course_id is not null
 group by course_id
 order by course_id;
         '''
