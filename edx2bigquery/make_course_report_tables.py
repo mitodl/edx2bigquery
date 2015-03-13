@@ -18,6 +18,7 @@ class CourseReport(object):
                  output_bucket=None,
                  use_dataset_latest=False,
                  only_step=None,
+                 end_date=None,
                  ):
         '''
         Compute course report tables, based on combination of all person_course and other individual course tables.
@@ -29,11 +30,14 @@ class CourseReport(object):
             only_step = only_step.split(',')
         self.only_step = only_step
 
+        self.end_date = end_date;
+
         if not course_id_set:
             print "ERROR! Must specify list of course_id's for report.  Aborting."
             return
 
         org = course_id_set[0].split('/',1)[0]	# extract org from first course_id
+        self.org = org
 
         self.output_project_id = output_project_id
 
@@ -43,6 +47,7 @@ class CourseReport(object):
         self.dataset = output_dataset_id or crname
 
         self.gsbucket = gsutil.gs_path_from_course_id(crname, gsbucket=output_bucket)
+        self.course_id_set = course_id_set
 
         course_datasets = [ bqutil.course_id2dataset(x, use_dataset_latest=use_dataset_latest) for x in course_id_set]
 
@@ -131,27 +136,34 @@ class CourseReport(object):
             self.make_total_populations_by_course()
             self.make_table_of_n_courses_registered()
             self.make_geographic_distributions()
+            self.count_tracking_log_events()
             self.make_overall_totals()
     
         print "="*100
         print "Done with course report tables"
         sys.stdout.flush()
 
-    def do_table(self, the_sql, tablename, the_dataset=None, sql_for_description=None):
+    def skip_or_do_step(self, tablename):
         if self.nskip:
             self.nskip += -1
             print "Skipping %s" % tablename
-            return
+            return -1
 
         if self.only_step:
             if type(self.only_step)==list:
                 if tablename not in self.only_step:
                     print "Skipping %s because not specified in only_step" % tablename
-                    return
+                    return -1
             else:
                 if not self.only_step == tablename:
                     print "Skipping %s because not specified in only_step" % tablename
-                    return
+                    return -1
+        return 0
+
+    def do_table(self, the_sql, tablename, the_dataset=None, sql_for_description=None):
+
+        if self.skip_or_do_step(tablename) < 0:
+            return	# skip step
 
         if the_dataset is None:
             the_dataset = self.dataset
@@ -704,3 +716,40 @@ order by course_id;
         
         self.do_table(the_sql, 'populations_stats_by_course')
         
+    def count_tracking_log_events(self):
+        '''
+        Loop over all tracking logs up to cutoff date, and sum up number of entries, by
+        doing table info lookups, with no SQL queries.
+        '''
+        if self.skip_or_do_step("count_events") < 0:
+            return	# skip step
+
+        tlend = self.end_date.replace('-', '')	# end_date normally specified as YYYY-MM-DD
+
+        log_event_counts = {}
+
+        # iterate over each course, one at a time
+        for course_id in self.course_id_set:
+            log_dataset = bqutil.course_id2dataset(course_id, dtype="logs")
+            # get list of all tracking log files for this course
+            log_tables = [x for x in bqutil.get_list_of_table_ids(log_dataset) if x.startswith('tracklog_20')]
+
+            log_tables_todo = [x for x in log_tables if x[9:] <= tlend]
+            log_tables_todo.sort()
+            print "[count_tracking_log_events] for course %s using %d tracking log tables, from %s to %s" % (course_id, 
+                                                                                                             len(log_tables_todo),
+                                                                                                             log_tables_todo[0], 
+                                                                                                             log_tables_todo[-1])
+            sys.stdout.flush()
+
+            # go through all log files and get size on each
+            row_sizes = [ bqutil.get_bq_table_size_rows(log_dataset, x) for x in log_tables_todo ]
+            
+            log_event_counts[course_id] = sum(row_sizes)
+            print "                         For %s found %d total tracking log events" % (course_id, log_event_counts[course_id])
+            sys.stdout.flush()
+
+        self.log_event_counts = log_event_counts
+        
+        self.total_events = sum(log_event_counts.values())
+        print "--> Total number of events for %s = %d" % (self.org, self.total_events)

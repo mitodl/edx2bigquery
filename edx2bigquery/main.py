@@ -390,6 +390,19 @@ def attempts_correct(param, courses, args):
             traceback.print_exc()
             sys.stdout.flush()
 
+def show_answer_table(param, course_id, args=None):
+    import make_problem_analysis
+    try:
+        make_problem_analysis.make_show_answer_table(course_id, 
+                                                     force_recompute=param.force_recompute,
+                                                     use_dataset_latest=param.use_dataset_latest,
+                                                     )
+    except Exception as err:
+        print err
+        traceback.print_exc()
+        sys.stdout.flush()
+        raise
+
 def analyze_ora(param, courses, args):
     import make_openassessment_analysis
     for course_id in get_course_ids(courses):
@@ -521,6 +534,7 @@ def doall(param, course_id, args, stdout=None):
         enrollment_day(param, course_id, args)
         person_course(param, course_id, args)
         problem_check(param, course_id, args)
+        show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
         success = True
 
@@ -548,6 +562,7 @@ def run_nightly_single(param, course_id, args=None):
         pcday_ip(param, course_id, args)	# needed for modal IP
         person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
         problem_check(param, course_id, args)
+        show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, skip_totals=True)
     except Exception as err:
@@ -909,6 +924,9 @@ problem_check <c_id> ...    : Create or update problem_check table, which has al
 attempts_correct <c_id> ... : Create or update stats_attempts_correct table, which records the percentages of attempts which were correct
                               for a given user in a specified course.
 
+show_answer <course_id> ... : Create or update show_answer table, which has all the show_answer events from all the course's
+                              tracking logs.
+
 --- TESTING & DEBUGGING COMMANDS
 
 rephrase_logs               : process input tracking log lines one at a time from standard input, and rephrase them to fit the
@@ -1254,7 +1272,9 @@ check_for_duplicates        : check list of courses for duplicates
             fp.writerow(line[:-1].split('\t'))
 
     elif (args.command=='analyze_problems'):
-        analyze_problems(param, args, args)
+        courses = get_course_ids(args)
+        run_parallel_or_serial(analyze_problems, param, courses, args, parallel=args.parallel)
+        # analyze_problems(param, args, args)
 
     elif (args.command=='attempts_correct'):
         attempts_correct(param, args, args)
@@ -1268,6 +1288,10 @@ check_for_duplicates        : check list of courses for duplicates
 
     elif (args.command=='problem_check'):
         problem_check(param, args, args)
+
+    elif (args.command=='show_answer'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(show_answer_table, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='axis2bq'):
         axis2bq(param, args, args)
@@ -1303,6 +1327,7 @@ check_for_duplicates        : check list of courses for duplicates
                                                output_bucket=args.output_bucket or edx2bigquery_config.GS_BUCKET,
                                                use_dataset_latest=param.use_dataset_latest,
                                                only_step=param.only_step,
+                                               end_date=(param.end_date or param.DEFAULT_END_DATE),
                                                )
 
     elif (args.command=='combinepc'):
