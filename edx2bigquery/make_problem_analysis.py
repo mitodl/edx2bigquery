@@ -427,12 +427,12 @@ FROM
           CONCAT('i4x://', module_id) as module_id,  # studentmodule module_id has i4x:// prefix
           count(*) as n_show_answer,
         FROM [{dataset}.show_answer]
-        group each by module_id, username
+        group by module_id, username
         order by username
     ) as SA
     ON SA.username = PG.username
        AND SA.module_id = PG.module_id
-    GROUP EACH BY user_id, explored, certified, verified
+    GROUP BY user_id, explored, certified, verified
 )
 ORDER BY user_id
                 """.format(dataset=dataset)

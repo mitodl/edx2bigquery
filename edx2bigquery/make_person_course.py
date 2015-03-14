@@ -938,7 +938,7 @@ class PersonCourse(object):
                      mip.modal_ip as course_modal_ip,
                      mip.ip_count as course_ip_count,
                      "" as global_modal_ip,
-                     CASE when course_modal_ip !="" then 'course' else 'missing' end as source,
+                     CASE when mip.modal_ip !="" then 'course' else 'missing' end as source,
               FROM [{dataset}.user_info_combo] as uic
               LEFT JOIN {each} [{dataset}.course_modal_ip] as mip
               ON uic.username = mip.username
