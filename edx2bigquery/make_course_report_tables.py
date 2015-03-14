@@ -127,6 +127,7 @@ class CourseReport(object):
 
         self.nskip = nskip
         if 1:
+            self.combine_show_answer_stats_by_course()
             self.make_totals_by_course()
             self.make_medians_by_course()
             self.make_table_of_email_addresses()
@@ -136,7 +137,7 @@ class CourseReport(object):
             self.make_total_populations_by_course()
             self.make_table_of_n_courses_registered()
             self.make_geographic_distributions()
-            self.count_tracking_log_events()
+            # self.count_tracking_log_events()
             self.make_overall_totals()
     
         print "="*100
@@ -160,15 +161,17 @@ class CourseReport(object):
                     return -1
         return 0
 
-    def do_table(self, the_sql, tablename, the_dataset=None, sql_for_description=None):
+    def do_table(self, the_sql, tablename, the_dataset=None, sql_for_description=None, check_skip=True):
 
-        if self.skip_or_do_step(tablename) < 0:
-            return	# skip step
+        if check_skip:
+            if self.skip_or_do_step(tablename) < 0:
+                return	# skip step
 
         if the_dataset is None:
             the_dataset = self.dataset
 
         print("Computing %s in BigQuery" % tablename)
+        sys.stdout.flush()
         try:
             ret = bqutil.create_bq_table(the_dataset, tablename, the_sql, 
                                          overwrite=True,
@@ -753,3 +756,34 @@ order by course_id;
         
         self.total_events = sum(log_event_counts.values())
         print "--> Total number of events for %s = %d" % (self.org, self.total_events)
+        
+    def combine_show_answer_stats_by_course(self):
+        '''
+        combine show_answer_stats_by_course over all courses, into one table,
+        stored in the course_report dataset.
+        '''
+        tablename = "show_answer_stats_by_course"
+        if self.skip_or_do_step(tablename) < 0:
+            return	# skip step
+
+        # which datasets have stats_by_course?
+
+        datasets_with_sasbc = []
+        for cd in course_datasets:
+            try:
+                table = bqutil.get_bq_table_info(cd, tablename)
+            except Exception as err:
+                print "[make-course_report_tables] Err: %s" % str(err)
+                continue
+            if table is None:
+                continue
+            datasets_with_sasbc.append(cd)
+        
+        sasbc_tables = ',\n'.join(['[%s.%s]' % (x, tablenamee) for x in datasets_with_sasbc])
+
+        SQL = """
+              SELECT * from {tables}
+              """.format(tables=sasbc_tables)
+        
+        self.do_table(SQL, tablename, check_skip=False)
+        

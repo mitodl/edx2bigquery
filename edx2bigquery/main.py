@@ -375,6 +375,7 @@ def analyze_problems(param, courses, args):
             print err
             traceback.print_exc()
             sys.stdout.flush()
+            raise
     
 
 def attempts_correct(param, courses, args):
