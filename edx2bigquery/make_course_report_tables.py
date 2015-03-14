@@ -769,7 +769,7 @@ order by course_id;
         # which datasets have stats_by_course?
 
         datasets_with_sasbc = []
-        for cd in course_datasets:
+        for cd in self.course_datasets:
             try:
                 table = bqutil.get_bq_table_info(cd, tablename)
             except Exception as err:
@@ -779,7 +779,7 @@ order by course_id;
                 continue
             datasets_with_sasbc.append(cd)
         
-        sasbc_tables = ',\n'.join(['[%s.%s]' % (x, tablenamee) for x in datasets_with_sasbc])
+        sasbc_tables = ',\n'.join(['[%s.%s]' % (x, tablename) for x in datasets_with_sasbc])
 
         SQL = """
               SELECT * from {tables}
