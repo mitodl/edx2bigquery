@@ -281,6 +281,7 @@ def get_bq_table_info(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
 
 def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, force_query=False, logger=default_logger,
                  depends_on=None,
+                 allowLargeResults=False,
                  newer_than=None,
                  startIndex=None, maxResults=1000000):
     '''
@@ -332,7 +333,7 @@ def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, forc
                                                                                                           table_date, newer_than))
 
     if force_query:
-        create_bq_table(dataset, tablename, sql, logger=logger, overwrite=True)
+        create_bq_table(dataset, tablename, sql, logger=logger, overwrite=True, allowLargeResults=allowLargeResults)
         return get_table_data(dataset, tablename, key=key, logger=logger,
                               startIndex=startIndex, maxResults=maxResults)
     try:
@@ -340,7 +341,7 @@ def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, forc
                              startIndex=startIndex, maxResults=maxResults)
     except Exception as err:
         if 'Not Found' in str(err) and allow_create and (sql is not None) and sql:
-            create_bq_table(dataset, tablename, sql, logger=logger)
+            create_bq_table(dataset, tablename, sql, logger=logger, allowLargeResults=allowLargeResults)
             return get_table_data(dataset, tablename, key=key, logger=logger,
                                   startIndex=startIndex, maxResults=maxResults)
         else:

@@ -331,6 +331,7 @@ def make_problem_grades_table(course_id, dataset, force_recompute):
     sys.stdout.flush()
     bqdat = bqutil.get_bq_table(dataset, pg_table, pg_sql, force_query=force_recompute,
                                 depends_on=["%s.studentmodule" % dataset],
+                                allowLargeResults=True,
                                 startIndex=-2)
         
 #-----------------------------------------------------------------------------
@@ -426,12 +427,12 @@ FROM
           CONCAT('i4x://', module_id) as module_id,  # studentmodule module_id has i4x:// prefix
           count(*) as n_show_answer,
         FROM [{dataset}.show_answer]
-        group by module_id, username
+        group each by module_id, username
         order by username
     ) as SA
     ON SA.username = PG.username
        AND SA.module_id = PG.module_id
-    GROUP BY user_id, explored, certified, verified
+    GROUP EACH BY user_id, explored, certified, verified
 )
 ORDER BY user_id
                 """.format(dataset=dataset)
@@ -555,7 +556,7 @@ FROM
     (case when verified and  pct_show_answer_partial is not null then true end) as has_pct_show_answer_partial_verified,
     PERCENTILE_DISC(0.5) over (partition by has_pct_show_answer_partial_verified order by pct_show_answer_partial) as median_pct_show_answer_partial_verified,
 
-  FROM [HarvardX__SW12_5x__2T2014.show_answer_stats_by_user]
+  FROM [{dataset}.show_answer_stats_by_user]
 )
           """.format(dataset=dataset, course_id=course_id)
 
@@ -564,7 +565,7 @@ FROM
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
                                 depends_on=["%s.show_answer_stats_by_user" % dataset,
                                             ],
-                                newer_than=datetime.datetime(2015, 3, 13, 20, 0),
+                                newer_than=datetime.datetime(2015, 3, 14, 18, 21),
                                 startIndex=-1)
     fields = ['avg_pct_show_answer_problem_seen', 'avg_pct_show_answer_attempted', 'avg_pct_show_answer_perfect',
               'median_pct_show_answer_problem_seen', 'median_pct_show_answer_attempted', 'median_pct_show_answer_perfect',
