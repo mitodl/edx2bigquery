@@ -11,6 +11,7 @@ import bqutil
 import gsutil
 import datetime
 import json
+from collections import OrderedDict
 
 class CourseReport(object):
     def __init__(self, course_id_set, output_project_id=None, nskip=0, 
@@ -53,44 +54,41 @@ class CourseReport(object):
 
         # check to see which datasets have person_course tables
         datasets_with_pc = []
-        self.all_pc_tables = {}
-        self.all_pcday_ip_counts_tables = {}
-        self.all_uic_tables = {}
-        self.all_tott_tables = {}
+        self.all_pc_tables = OrderedDict()
+        self.all_pcday_ip_counts_tables = OrderedDict()
+        self.all_uic_tables = OrderedDict()
+        self.all_tott_tables = OrderedDict()
         for cd in course_datasets:
             try:
                 table = bqutil.get_bq_table_info(cd, 'person_course')
             except Exception as err:
                 print "[make-course_report_tables] Err: %s" % str(err)
-                continue
-            if table is None:
-                continue
-            self.all_pc_tables[cd] = table
-            datasets_with_pc.append(cd)
+                table = None
+            if table is not None:
+                self.all_pc_tables[cd] = table
+                datasets_with_pc.append(cd)
 
             try:
                 table = bqutil.get_bq_table_info(cd, 'pcday_ip_counts')
             except Exception as err:
-                continue
-            if table is None:
-                continue
-            self.all_pcday_ip_counts_tables[cd] = table
+                table = None
+            if table is not None:
+                self.all_pcday_ip_counts_tables[cd] = table
 
             try:
                 table = bqutil.get_bq_table_info(cd, 'user_info_combo')
             except Exception as err:
-                continue
-            if table is None:
-                continue
-            self.all_uic_tables[cd] = table
+                table = None
+            if table is not None:
+                self.all_uic_tables[cd] = table
 
             try:
                 table = bqutil.get_bq_table_info(cd, 'time_on_task_totals')
             except Exception as err:
-                continue
-            if table is None:
-                continue
-            self.all_tott_tables[cd] = table
+                print "[make-course_report_tables] Err: %s" % str(err)
+                table = None
+            if table is not None:
+                self.all_tott_tables[cd] = table
 
         pc_tables = ',\n'.join(['[%s.person_course]' % x for x in datasets_with_pc])
         pcday_ip_counts_tables = ',\n'.join(['[%s.pcday_ip_counts]' % x for x in self.all_pcday_ip_counts_tables])
@@ -440,7 +438,7 @@ order by course_id;
         tott_tables = self.parameters['tott_tables'].split(',\n')
 
         sub_sql_list = []
-        nmax = 10
+        nmax = 6
 
         # break up query to use only at most nmax tables at a time
         # elses BQ may run out of resources, due to the window functions
