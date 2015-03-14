@@ -415,12 +415,12 @@ FROM
           PG.grade as grade,
           PG.module_id as module_id
         FROM [{dataset}.problem_grades] as PG
-        JOIN [{dataset}.person_course] as PC
+        JOIN EACH [{dataset}.person_course] as PC
         ON PG.user_id = PC.user_id
         WHERE ((PC.forumRoles_isStudent = 1) or (PC.forumRoles_isStudent is null))  # exclude staff
         ORDER BY user_id
     ) as PG
-    LEFT JOIN
+    LEFT JOIN EACH
     (
         SELECT username,
           CONCAT('i4x://', module_id) as module_id,  # studentmodule module_id has i4x:// prefix
