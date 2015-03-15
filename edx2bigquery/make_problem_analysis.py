@@ -385,54 +385,63 @@ SELECT
 FROM
 (
     # inner SQL: join (problem grades, person_course) with show_answer table, with one line per user
-    SELECT 
-      PG.user_id as user_id,
-      PG.explored as explored,
-      PG.certified as certified,
-      PG.verified as verified,
-      sum(case when (not PG.attempted) and (n_show_answer > 0) then 1 else 0 end) as n_show_answer_not_attempted,
-      sum(case when (not PG.attempted) then 1 else 0 end) as n_not_attempted,
-
-      sum(case when PG.attempted and (n_show_answer > 0) then 1 else 0 end) as n_show_answer_attempted,
-      sum(case when PG.attempted then 1 else 0 end) as n_attempted,
-
-      sum(case when PG.perfect and (n_show_answer > 0) then 1 else 0 end) as n_show_answer_perfect,
-      sum(case when PG.perfect then 1 else 0 end) as n_perfect,
-
-      sum(case when (PG.grade > 0) and (n_show_answer > 0) then 1 else 0 end) as n_show_answer_partial,
-      sum(case when PG.grade > 0 then 1 else 0 end) as n_partial,
-
-      sum(case when n_show_answer > 0 then 1 else 0 end) as n_show_answer_problem_seen,
-      count(*) as n_problems_seen,
-    FROM 
-    (   SELECT 
-          PG.user_id as user_id,
-          PC.username as username,
-          PC.explored as explored,
-          PC.certified as certified,
-          (case when PC.mode = "verified" then true else false end) as verified,
-          PG.attempted as attempted,
-          PG.perfect as perfect,
-          PG.grade as grade,
-          PG.module_id as module_id
-        FROM [{dataset}.problem_grades] as PG
-        JOIN EACH [{dataset}.person_course] as PC
-        ON PG.user_id = PC.user_id
-        WHERE ((PC.forumRoles_isStudent = 1) or (PC.forumRoles_isStudent is null))  # exclude staff
-        ORDER BY user_id
-    ) as PG
-    LEFT JOIN EACH
+    SELECT
+        A.user_id as user_id,
+        PC.explored as explored,
+        PC.certified as certified,
+        (case when PC.mode = "verified" then true else false end) as verified,
+        A.n_show_answer_not_attempted as n_show_answer_not_attempted,
+        A.n_not_attempted as n_not_attempted,
+        A.n_show_answer_attempted as n_show_answer_attempted,
+        A.n_attempted as n_attempted,
+        A.n_show_answer_perfect as n_show_answer_perfect,
+        A.n_perfect as n_perfect,
+        A.n_show_answer_partial as n_show_answer_partial,
+        A.n_partial as n_partial,
+        A.n_show_answer_problem_seen as n_show_answer_problem_seen,
+        A.n_problems_seen as n_problems_seen,
+        
+    FROM
     (
-        SELECT username,
-          CONCAT('i4x://', module_id) as module_id,  # studentmodule module_id has i4x:// prefix
-          count(*) as n_show_answer,
-        FROM [{dataset}.show_answer]
-        group by module_id, username
-        order by username
-    ) as SA
-    ON SA.username = PG.username
-       AND SA.module_id = PG.module_id
-    GROUP BY user_id, explored, certified, verified
+        # inner-inner SQL: join problem_grades with show_answer
+        SELECT 
+          PG.user_id as user_id,
+          sum(case when (not PG.attempted) and (n_show_answer > 0) then 1 else 0 end) as n_show_answer_not_attempted,
+          sum(case when (not PG.attempted) then 1 else 0 end) as n_not_attempted,
+
+          sum(case when PG.attempted and (n_show_answer > 0) then 1 else 0 end) as n_show_answer_attempted,
+          sum(case when PG.attempted then 1 else 0 end) as n_attempted,
+
+          sum(case when PG.perfect and (n_show_answer > 0) then 1 else 0 end) as n_show_answer_perfect,
+          sum(case when PG.perfect then 1 else 0 end) as n_perfect,
+
+          sum(case when (PG.grade > 0) and (n_show_answer > 0) then 1 else 0 end) as n_show_answer_partial,
+          sum(case when PG.grade > 0 then 1 else 0 end) as n_partial,
+
+          sum(case when n_show_answer > 0 then 1 else 0 end) as n_show_answer_problem_seen,
+          count(*) as n_problems_seen,
+        FROM 
+          [{dataset}.problem_grades] as PG
+        LEFT JOIN EACH
+        (
+            SELECT PC.user_id as user_id,
+              CONCAT('i4x://', SA.module_id) as module_id,  # studentmodule module_id has i4x:// prefix
+              count(*) as n_show_answer,
+            FROM [{dataset}.show_answer] as SA
+            JOIN EACH [{dataset}.person_course] as PC
+            ON SA.username = PC.username
+            group by module_id, user_id
+            order by user_id
+        ) as SA
+        ON SA.user_id = PG.user_id
+           AND SA.module_id = PG.module_id
+        group by user_id
+     ) as A
+     JOIN EACH [{dataset}.person_course] as PC
+     ON A.user_id = PC.user_id
+       
+     WHERE A.user_id = PC.user_id
+        AND ((PC.forumRoles_isStudent = 1) or (PC.forumRoles_isStudent is null))  # exclude staff
 )
 ORDER BY user_id
                 """.format(dataset=dataset)
@@ -573,5 +582,5 @@ FROM
               ]
 
     for fn in fields:
-        print "    %30s = %s" % (fn, bqdat['data'][0][fn])
+        print "    %40s = %s" % (fn, bqdat['data'][0][fn])
     sys.stdout.flush()
