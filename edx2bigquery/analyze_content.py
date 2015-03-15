@@ -343,7 +343,28 @@ def analyze_course_content(course_id,
         prefix = "ToT"
         print "--> Merging time on task data from %s" % tot_table
         sys.stdout.flush()
-        bqdat = bqutil.get_table_data(dataset, tot_table)
+        try:
+            bqdat = bqutil.get_table_data(dataset, tot_table)
+        except Exception as err:
+            bqdat = {'data': {}}
+        for entry in bqdat['data']:
+            course_id = entry['course_id']
+            cmci = c_sum_stats[course_id]
+            for field, value in entry.items():
+                if field=='course_id':
+                    continue
+                cmci['%s_%s' % (prefix, field)] = value
+
+        # add show_answer stats
+
+        tot_table = "show_answer_stats_by_course"
+        prefix = "SAS"
+        print "--> Merging show_answer stats data from %s" % tot_table
+        sys.stdout.flush()
+        try:
+            bqdat = bqutil.get_table_data(dataset, tot_table)
+        except Exception as err:
+            bqdat = {'data': {}}
         for entry in bqdat['data']:
             course_id = entry['course_id']
             cmci = c_sum_stats[course_id]
