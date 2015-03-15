@@ -484,6 +484,9 @@ def add_description_to_table(dataset_id, table_id, description, append=False, pr
         table = tables.get(**table_ref).execute()
         old_description = table['description']
         description = old_description + '\n' + description
+        if len(description) > 16384:
+            print "[bqutil] oops, cannot add description, length=%s > 16384, returning without adding description" % len(description)
+            return
 
     patch = {'description': description,
              "tableReference": table_ref
