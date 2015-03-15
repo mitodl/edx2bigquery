@@ -230,7 +230,19 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                 start_date = datetime.datetime.strptime(min_date, '%Y%m%d')
                 end_date = datetime.datetime.strptime(max_date, '%Y%m%d')
                 ndays = (end_date - start_date).days
-                if ndays < 1:
+                if (ndays < 1) and has_hash_limit:
+                    print "----> ndays=%d; retrying with limit_query_size" % ndays
+                    sys.stdout.flush()
+                    return run_query_on_tracking_logs(SQL, table, course_id, force_recompute=force_recompute, 
+                                                      use_dataset_latest=use_dataset_latest,
+                                                      end_date=max_date, 
+                                                      get_date_function=get_date_function,
+                                                      has_hash_limit=has_hash_limit,
+                                                      # existing=existing,
+                                                      log_dates=log_dates,
+                                                      limit_query_size=True,
+                                                  )
+                elif (ndays < 1):
                     print "====> ERROR with resources exceeded during query execution; ndays=%d, cannot split -- ABORTING!" % ndays
                     raise
                 
