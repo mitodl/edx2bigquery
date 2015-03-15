@@ -18,9 +18,11 @@ def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=Fals
     if not os.path.exists(fn):
         fn = sdir / 'course-prod-analytics.xml.tar.gz'
         if not os.path.exists(fn):
-            print "---> oops, cannot generate course axis for %s, file %s (or 'course.xml.tar.gz') missing!" % (course_id, fn)
-            sys.stdout.flush()
-            return
+            fn = sdir / 'course-prod-edge-analytics.xml.tar.gz'
+            if not os.path.exists(fn):
+                print "---> oops, cannot generate course axis for %s, file %s (or 'course.xml.tar.gz' or 'course-prod-edge-analytics.xml.tar.gz') missing!" % (course_id, fn)
+                sys.stdout.flush()
+                return
 
     # TODO: only create new axis if the table is missing, or the course axis is not already created
 
