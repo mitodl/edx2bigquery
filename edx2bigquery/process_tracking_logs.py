@@ -16,6 +16,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                                days_delta=1,
                                skip_last_day=False,
                                has_hash_limit=False,
+                               newer_than=None,
                                table_max_size_mb=800,
                                limit_query_size=False):
     '''
@@ -45,9 +46,12 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
     tracking log data are incrementally loaded with a delta of less than one day.
 
     start_date = optional argument, giving min start date for logs to process, in YYYY-MM-DD format.
+
+    newer_than = if specified, as datetime, then any existing destination table must
+    be newer than this datetime, else force_recompute is made True
     '''
 
-    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)	# destination
     log_dataset = bqutil.course_id2dataset(course_id, dtype="logs")
 
     if existing is None:
@@ -81,6 +85,13 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
         the_end_date = end_date.replace('-','')	# end_date should be YYYY-MM-DD
         if the_end_date < max_date:
             max_date = the_end_date
+
+    if (table in existing) and newer_than:
+        # get date on existing table
+        table_datetime = bqutil.get_bq_table_last_modified_datetime(dataset, table)
+        if (table_datetime < newer_than):
+            print "[run_query_on_tracking_logs] existing %s.%s table last modified on %s, older than newer_than=%s, forcing recompute!" % (dataset, table, table_datetime, newer_than)
+            force_recompute = True
 
     if force_recompute:
         overwrite = True
