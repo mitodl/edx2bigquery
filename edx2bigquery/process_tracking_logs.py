@@ -8,6 +8,7 @@ import bqutil
 import math
 
 def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use_dataset_latest=False, 
+                               start_date=None,
                                end_date=None, 
                                get_date_function=None,
                                existing=None,
@@ -42,6 +43,8 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
     If skip_last_day is True then do not include the last day of tracking log data
     in the processing.  This is done to avoid processing partial data, e.g. when
     tracking log data are incrementally loaded with a delta of less than one day.
+
+    start_date = optional argument, giving min start date for logs to process, in YYYY-MM-DD format.
     '''
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
@@ -65,6 +68,12 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
 
     min_date = min(log_dates)
     max_date = max(log_dates)
+
+    if start_date:
+        start_date = start_date.replace('-','')
+        if min_date < start_date:
+            print "        --> logs start at %s, but that is before start_date, so using min_date=start_date=%s" % (min_date, start_date)
+            min_date = start_date
 
     if end_date is not None:
         print "[run_query_on_tracking_logs] %s: min_date=%s, max_date=%s, using end_date=%s for max_date cutoff" % (table, min_date, max_date, end_date)

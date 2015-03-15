@@ -281,6 +281,7 @@ def time_on_task(param, course_id, optargs=None, skip_totals=False):
                                                       force_recompute=param.force_recompute,
                                                       use_dataset_latest=param.use_dataset_latest,
                                                       end_date=param.end_date,
+                                                      start_date=param.start_date,
                                                       just_do_totals=param.just_do_totals,
                                                       limit_query_size=param.limit_query_size,
                                                       table_max_size_mb=(param.table_max_size_mb or 800),
@@ -1017,6 +1018,7 @@ check_for_duplicates        : check list of courses for duplicates
     param.listings = args.listings
     param.force_recompute = args.force_recompute
     param.end_date = args.end_date
+    param.start_date = args.start_date
     param.just_do_totals = args.just_do_totals
     param.limit_query_size = args.limit_query_size
     param.table_max_size_mb = args.table_max_size_mb
