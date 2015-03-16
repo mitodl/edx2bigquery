@@ -230,8 +230,11 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
             
         data['mongoid'] = json.dumps(vdict)
 
+    # 16-Mar-15: remove event_struct.requested_skip_interval
+
     move_fields_to_mongoid([ ['referer'],
                              ['accept_language'],
+                             ['event_struct', 'requested_skip_interval'],
                          ])
 
     #----------------------------------------
