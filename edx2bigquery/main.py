@@ -362,7 +362,7 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
             print err
             raise
 
-def analyze_problems(param, courses, args):
+def analyze_problems(param, courses, args, do_show_answer=True, do_problem_analysis=True):
     import make_problem_analysis
     for course_id in get_course_ids(courses):
         try:
@@ -371,6 +371,8 @@ def analyze_problems(param, courses, args):
                                                    datedir=param.the_datedir,
                                                    force_recompute=args.force_recompute,
                                                    use_dataset_latest=param.use_dataset_latest,
+                                                   do_show_answer=do_show_answer, 
+                                                   do_problem_analysis=do_problem_analysis,
                                                    )
         except Exception as err:
             print err

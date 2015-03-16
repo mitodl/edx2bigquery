@@ -28,6 +28,9 @@ csv.field_size_limit(1310720)
 
 def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=False,
                      use_dataset_latest=False,
+                     do_problem_grades=True,
+                     do_show_answer=True,
+                     do_problem_analysis=True,
                      ):
     '''
     1. Construct the problem_grades table, generated from the studentmodule table.
@@ -44,12 +47,23 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
 
-    make_problem_grades_table(course_id, dataset, force_recompute)
-    make_show_answer_stats_by_user_table(course_id, dataset, force_recompute)
-    make_show_answer_stats_by_course_table(course_id, dataset, force_recompute)
+    if do_problem_grades:
+        make_problem_grades_table(course_id, dataset, force_recompute)
+
+    if do_show_answer:
+        make_show_answer_stats_by_user_table(course_id, dataset, force_recompute)
+        make_show_answer_stats_by_course_table(course_id, dataset, force_recompute)
+
+    if do_problem_analysis:
+        make_problem_analysis(course_id, basedir, datedir, force_recompute=force_recompute, 
+                              use_dataset_latest=use_dataset_latest)
 
     #-----------------------------------------------------------------------------
 
+def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute=False,
+                          use_dataset_latest=False):
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     basedir = path(basedir or '')
     course_dir = course_id.replace('/','__')
     lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest)
@@ -448,6 +462,17 @@ ORDER BY user_id
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, sasbu_table, course_id)
     sys.stdout.flush()
+
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, 'show_answer')
+        has_show_answer = True
+    except Exception as err:
+        print "Error %s getting %s.%s" % (err, dataset, "show_answer")
+        has_show_answer = False
+    if not has_show_answer:
+        print "---> No show_answer table; skipping %s" % sasbu_table
+        return
+
     bqdat = bqutil.get_bq_table(dataset, sasbu_table, sasbu_sql, force_query=force_recompute,
                                 depends_on=["%s.show_answer" % dataset,
                                             "%s.problem_grades" % dataset,
@@ -571,8 +596,20 @@ FROM
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
     sys.stdout.flush()
+
+    sasbu = "show_answer_stats_by_user"
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        has_show_answer = True
+    except Exception as err:
+        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        has_show_answer = False
+    if not has_show_answer:
+        print "---> No show_answer table; skipping %s" % table
+        return
+
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
-                                depends_on=["%s.show_answer_stats_by_user" % dataset,
+                                depends_on=["%s.%s" % (dataset, sasbu),
                                             ],
                                 newer_than=datetime.datetime(2015, 3, 14, 18, 21),
                                 startIndex=-1)
