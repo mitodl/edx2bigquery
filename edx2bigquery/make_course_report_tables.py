@@ -318,48 +318,51 @@ class CourseReport(object):
             print "Need combined person_course table for make_time_on_task_stats_by_course, skipping..."
             return
 
+        if self.skip_or_do_step("time_on_task_stats_by_course") < 0:
+            return	# skip step
+
         outer_sql = '''
 select course_id, 
 
-sum(total_hours) as sum_total_hours,
-sum(problem_hours) as sum_problem_hours,
-sum(video_hours) as sum_video_hours,
-sum(forum_hours) as sum_forum_hours,
+sum(total_hours) as sum_total_{hours},
+sum(problem_hours) as sum_problem_{hours},
+sum(video_hours) as sum_video_{hours},
+sum(forum_hours) as sum_forum_{hours},
 
-sum(case when viewed then total_hours end) as sum_total_hours_viewed,
-sum(case when viewed then problem_hours end) as sum_problem_hours_viewed,
-sum(case when viewed then video_hours end) as sum_video_hours_viewed,
-sum(case when viewed then forum_hours end) as sum_forum_hours_viewed,
+sum(case when viewed then total_hours end) as sum_total_{hours}_viewed,
+sum(case when viewed then problem_hours end) as sum_problem_{hours}_viewed,
+sum(case when viewed then video_hours end) as sum_video_{hours}_viewed,
+sum(case when viewed then forum_hours end) as sum_forum_{hours}_viewed,
 
-sum(case when certified then total_hours end) as sum_total_hours_certified,
-sum(case when certified then problem_hours end) as sum_problem_hours_certified,
-sum(case when certified then video_hours end) as sum_video_hours_certified,
-sum(case when certified then forum_hours end) as sum_forum_hours_certified,
+sum(case when certified then total_hours end) as sum_total_{hours}_certified,
+sum(case when certified then problem_hours end) as sum_problem_{hours}_certified,
+sum(case when certified then video_hours end) as sum_video_{hours}_certified,
+sum(case when certified then forum_hours end) as sum_forum_{hours}_certified,
 
-sum(case when verified then total_hours end) as sum_total_hours_verified,
-sum(case when verified then problem_hours end) as sum_problem_hours_verified,
-sum(case when verified then video_hours end) as sum_video_hours_verified,
-sum(case when verified then forum_hours end) as sum_forum_hours_verified,
+sum(case when verified then total_hours end) as sum_total_{hours}_verified,
+sum(case when verified then problem_hours end) as sum_problem_{hours}_verified,
+sum(case when verified then video_hours end) as sum_video_{hours}_verified,
+sum(case when verified then forum_hours end) as sum_forum_{hours}_verified,
 
-max(median_total_hours) as median_total_hours,
-max(median_problem_hours) as median_problem_hours,
-max(median_video_hours) as median_video_hours,
-max(median_forum_hours) as median_forum_hours,
+max(median_total_hours) as median_total_{hours},
+max(median_problem_hours) as median_problem_{hours},
+max(median_video_hours) as median_video_{hours},
+max(median_forum_hours) as median_forum_{hours},
 
-max(case when viewed then median_total_hours_viewed end) as median_total_hours_viewed,
-max(case when viewed then median_problem_hours_viewed end) as median_problem_hours_viewed,
-max(case when viewed then median_video_hours_viewed end) as median_video_hours_viewed,
-max(case when viewed then median_forum_hours_viewed end) as median_forum_hours_viewed,
+max(case when viewed then median_total_hours_viewed end) as median_total_{hours}_viewed,
+max(case when viewed then median_problem_hours_viewed end) as median_problem_{hours}_viewed,
+max(case when viewed then median_video_hours_viewed end) as median_video_{hours}_viewed,
+max(case when viewed then median_forum_hours_viewed end) as median_forum_{hours}_viewed,
 
-max(case when certified then median_total_hours_certified end) as median_total_hours_certified,
-max(case when certified then median_problem_hours_certified end) as median_problem_hours_certified,
-max(case when certified then median_video_hours_certified end) as median_video_hours_certified,
-max(case when certified then median_forum_hours_certified end) as median_forum_hours_certified,
+max(case when certified then median_total_hours_certified end) as median_total_{hours}_certified,
+max(case when certified then median_problem_hours_certified end) as median_problem_{hours}_certified,
+max(case when certified then median_video_hours_certified end) as median_video_{hours}_certified,
+max(case when certified then median_forum_hours_certified end) as median_forum_{hours}_certified,
 
-max(case when verified then median_total_hours_verified end) as median_total_hours_verified,
-max(case when verified then median_problem_hours_verified end) as median_problem_hours_verified,
-max(case when verified then median_video_hours_verified end) as median_video_hours_verified,
-max(case when verified then median_forum_hours_verified end) as median_forum_hours_verified,
+max(case when verified then median_total_hours_verified end) as median_total_{hours}_verified,
+max(case when verified then median_problem_hours_verified end) as median_problem_{hours}_verified,
+max(case when verified then median_video_hours_verified end) as median_video_{hours}_verified,
+max(case when verified then median_forum_hours_verified end) as median_forum_{hours}_verified,
 
 FROM {sub_sql}
 
@@ -417,9 +420,14 @@ order by course_id;
   (
     SELECT TT.course_id as course_id,
            (TT.total_time_30)/60.0/60 as total_hours,
-           (TT.total_video_time_30)/60.0/60 as video_hours,
-           (TT.total_problem_time_30)/60.0/60 as problem_hours,
-           (TT.total_forum_time_30)/60.0/60 as forum_hours,
+           (TT.{total}_video_time_30)/60.0/60 as video_hours,
+           (TT.{total}_problem_time_30)/60.0/60 as problem_hours,
+           (TT.{total}_forum_time_30)/60.0/60 as forum_hours,
+
+           # (TT.serial_video_time_30)/60.0/60 as serial_video_hours,
+           # (TT.serial_problem_time_30)/60.0/60 as serial_problem_hours,
+           # (TT.serial_forum_time_30)/60.0/60 as serial_forum_hours,
+
            PC.viewed as viewed,
            PC.certified as certified,
            (case when PC.mode="verified" then True end) as verified,
@@ -435,25 +443,31 @@ order by course_id;
    )
 '''
 
-        tott_tables = self.parameters['tott_tables'].split(',\n')
+        psets = [{'total': 'total', 'hours': 'hours', 'table': 'time_on_task_stats_by_course'},	# parallel ToT
+                 {'total': 'serial', 'hours': 'serial_hours', 'table': 'time_on_task_serial_stats_by_course'}	# serial ToT
+                 ]
 
-        sub_sql_list = []
-        nmax = 6
+        for pset in psets:
+    
+            tott_tables = self.parameters['tott_tables'].split(',\n')
 
-        # break up query to use only at most nmax tables at a time
-        # elses BQ may run out of resources, due to the window functions
-        
-        while len(tott_tables):
-            tt_set = ',\n'.join(tott_tables[:nmax])
-            tott_tables = tott_tables[nmax:]
-            sub_sql_list.append(sub_sql.format(tt_set=tt_set, **self.parameters))
+            sub_sql_list = []
+            nmax = 6
+    
+            # break up query to use only at most nmax tables at a time
+            # elses BQ may run out of resources, due to the window functions
             
-        sub_sql_all = ','.join(["(%s)" % x for x in sub_sql_list])
-        the_sql = outer_sql.format(sub_sql=sub_sql_all)
-        
-        sql_for_description = "outer SQL:\n%s\n\nInner SQL:\n%stt_set=%s" % (outer_sql, sub_sql, self.parameters['tott_tables'])
-
-        self.do_table(the_sql, 'time_on_task_stats_by_course', sql_for_description=sql_for_description)
+            while len(tott_tables):
+                tt_set = ',\n'.join(tott_tables[:nmax])
+                tott_tables = tott_tables[nmax:]
+                sub_sql_list.append(sub_sql.format(tt_set=tt_set, total=pset['total'], hours=pset['hours'], **self.parameters))
+                
+            sub_sql_all = ','.join(["(%s)" % x for x in sub_sql_list])
+            the_sql = outer_sql.format(sub_sql=sub_sql_all, total=pset['total'], hours=pset['hours'])
+            
+            sql_for_description = "outer SQL:\n%s\n\nInner SQL:\n%stt_set=%s" % (outer_sql, sub_sql, self.parameters['tott_tables'])
+    
+            self.do_table(the_sql, pset['table'], sql_for_description=sql_for_description, check_skip=False)
 
 
     def make_totals_by_course(self):
