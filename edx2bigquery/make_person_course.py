@@ -922,16 +922,14 @@ class PersonCourse(object):
         gtable = 'global_modal_ip'
 
         try:
-            tinfo = get_bq_table_info('courses', 'global_modal_ip')            
+            tinfo = bqutil.get_bq_table_info('courses', 'global_modal_ip')            
             has_global_modal_ip = True
         except Exception as err:
+            self.log("--> looking for courses.global_modal_ip, error=%s" % str(err))
             has_global_modal_ip = False
 
-        if (not has_global_modal_ip) or  (gtable not in ctables):
-            if (gtable not in ctables):
-                self.log("---> WARNING: Table %s.%s is missing, so global modal IP's won't be included!" % (self.dataset_courses, gtable))
-            else:
-                self.log("---> WARNING: courses.global_modal_ip is missing, so global modal IP's won't be included!")
+        if (not has_global_modal_ip):
+            self.log("---> WARNING: courses.global_modal_ip is missing, so global modal IP's won't be included!")
 
             the_sql = """
               SELECT uic.username as username, 
