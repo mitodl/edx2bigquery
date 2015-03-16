@@ -1302,7 +1302,7 @@
     {
         "type": "FLOAT", 
         "name": "ToT_sum_total_hours", 
-        "description": "Time on task: sum of total hours spent by all registrants on the course, based on a 30 minute idle cutoff"
+        "description": "Time on task: sum of total hours spent by all registrants on the course, based on a 30 minute idle cutoff; uses parallel model, assuming user multitasks, so event time windows are ended only by same kind of event"
     }, 
     {
         "type": "FLOAT", 
@@ -1462,6 +1462,7 @@
     {
         "type": "FLOAT", 
         "name": "SAS_avg_pct_show_answer_problem_seen", 
+        "description": "Show Answer Statistics giving average percentage of times when show answer is clicked for problems seen",
         "mode": "NULLABLE"
     }, 
     {
@@ -1562,6 +1563,7 @@
     {
         "type": "FLOAT", 
         "name": "SAS_median_pct_show_answer_problem_seen", 
+        "description": "Show Answer Statistics giving median percentage of times when show answer is clicked for problems seen (pct's calcualted per user, then median taken)",
         "mode": "NULLABLE"
     }, 
     {
@@ -1657,6 +1659,167 @@
     {
         "type": "FLOAT", 
         "name": "SAS_median_pct_show_answer_partial_verified", 
+        "mode": "NULLABLE"
+    },
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_total_serial_hours", 
+	"description": "Serial Time on Task data giving sum of total hours; serial model assumes user doing one task at a time, making any event end the time frame of a given event",
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_problem_serial_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_video_serial_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_forum_serial_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_total_serial_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_problem_serial_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_video_serial_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_forum_serial_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_total_serial_hours_certified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_problem_serial_hours_certified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_video_serial_hours_certified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_forum_serial_hours_certified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_total_serial_hours_verified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_problem_serial_hours_verified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_video_serial_hours_verified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_sum_forum_serial_hours_verified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_total_serial_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_problem_serial_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_video_serial_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_forum_serial_hours", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_total_serial_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_problem_serial_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_video_serial_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_forum_serial_hours_viewed", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_total_serial_hours_certified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_problem_serial_hours_certified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_video_serial_hours_certified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_forum_serial_hours_certified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_total_serial_hours_verified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_problem_serial_hours_verified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_video_serial_hours_verified", 
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "SToT_median_forum_serial_hours_verified", 
         "mode": "NULLABLE"
     }
 ]

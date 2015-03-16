@@ -355,6 +355,24 @@ def analyze_course_content(course_id,
                     continue
                 cmci['%s_%s' % (prefix, field)] = value
 
+        # add serial time on task data
+
+        tot_table = "time_on_task_serial_stats_by_course"
+        prefix = "SToT"
+        print "--> Merging serial time on task data from %s" % tot_table
+        sys.stdout.flush()
+        try:
+            bqdat = bqutil.get_table_data(dataset, tot_table)
+        except Exception as err:
+            bqdat = {'data': {}}
+        for entry in bqdat['data']:
+            course_id = entry['course_id']
+            cmci = c_sum_stats[course_id]
+            for field, value in entry.items():
+                if field=='course_id':
+                    continue
+                cmci['%s_%s' % (prefix, field)] = value
+
         # add show_answer stats
 
         tot_table = "show_answer_stats_by_course"
