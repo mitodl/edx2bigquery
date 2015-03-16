@@ -918,8 +918,6 @@ class PersonCourse(object):
         # does the global_pcday_ip_counts table exist in the 'courses' dataset?
 
         depends_on = [ '%s.course_modal_ip' % self.dataset, '%s.user_info_combo' % self.dataset ]
-        ctables = bqutil.get_list_of_table_ids(self.dataset_courses)
-        gtable = 'global_modal_ip'
 
         try:
             tinfo = bqutil.get_bq_table_info('courses', 'global_modal_ip')            
