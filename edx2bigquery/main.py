@@ -530,7 +530,11 @@ def doall(param, course_id, args, stdout=None):
         print "DOALL PROCESSING %s" % course_id
         print "-"*100
         setup_sql(param, course_id, 'setup_sql')
-        analyze_problems(param, course_id, args)
+        try:
+            analyze_problems(param, course_id, args)
+        except Exception as err:
+            print "--> Failed in analyze_problems with err=%s" % str(err)
+            print "--> continuing with doall anyway"
         axis2bq(param, course_id, args)
         daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
         pcday_ip(param, course_id, args)	# needed for modal IP
