@@ -209,7 +209,12 @@ class GeoIPData(object):
         print "--> Importing %s to %s" % (gsp, self.giptable)
         sys.stdout.flush()
         bqutil.create_dataset_if_nonexistent(self.gipdataset)
-        bqutil.load_data_to_table(self.gipdataset, self.giptable, gsp, the_schema)
+        try:
+            bqutil.load_data_to_table(self.gipdataset, self.giptable, gsp, the_schema)
+        except Exception as err:
+            print "---> ERROR: failed to load %s into BigQuery %s.%s, err=%s" % (gsp, self.gipdataset, self.giptable, err)
+            print "---> Continuing anyway"
+            sys.stdout.flush()
 
     
     def make_table(self, pcds_table=None, org=None, nskip=0):
