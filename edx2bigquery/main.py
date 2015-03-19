@@ -373,6 +373,7 @@ def analyze_problems(param, courses, args, do_show_answer=True, do_problem_analy
                                                    use_dataset_latest=param.use_dataset_latest,
                                                    do_show_answer=do_show_answer, 
                                                    do_problem_analysis=do_problem_analysis,
+                                                   only_step=param.only_step,
                                                    )
         except Exception as err:
             print err
@@ -832,6 +833,7 @@ tsv2csv                     : filter, which takes lines of tab separated values 
 analyze_problems <c_id> ... : Analyze capa problem data in studentmodule table, generating the problem_analysis table as a result.  
                               Uploads the result to google cloud storage and to BigQuery.
                               This table is necessary for the analytics dashboard.
+                              Accepts --only-step=grades | show_answer | analysis
 
 analyze_ora <course_id> ... : Analyze openassessment response problem data in tracking logs, generating the ora_events table as a result.  
                               Uploads the result to google cloud storage and to BigQuery.

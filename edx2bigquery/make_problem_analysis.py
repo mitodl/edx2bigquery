@@ -31,6 +31,7 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
                      do_problem_grades=True,
                      do_show_answer=True,
                      do_problem_analysis=True,
+                     only_step=None,
                      ):
     '''
     1. Construct the problem_grades table, generated from the studentmodule table.
@@ -47,14 +48,20 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
 
-    if do_problem_grades:
-        make_problem_grades_table(course_id, dataset, force_recompute)
+    if only_step:
+        only_step = only_step.split(',')
+    else:
+        only_step = ['grades', 'show_answer', 'analysis']
 
-    if do_show_answer:
+    if do_problem_grades and ('grades' in only_step):
+        make_problem_grades_table(course_id, dataset, force_recompute)
+        make_chapter_grades_table(course_id, dataset, force_recompute)
+
+    if do_show_answer and ('show_answer' in only_step):
         make_show_answer_stats_by_user_table(course_id, dataset, force_recompute)
         make_show_answer_stats_by_course_table(course_id, dataset, force_recompute)
 
-    if do_problem_analysis:
+    if do_problem_analysis and ('analysis' in only_step):
         make_problem_analysis(course_id, basedir, datedir, force_recompute=force_recompute, 
                               use_dataset_latest=use_dataset_latest)
 
@@ -345,6 +352,71 @@ def make_problem_grades_table(course_id, dataset, force_recompute):
     sys.stdout.flush()
     bqdat = bqutil.get_bq_table(dataset, pg_table, pg_sql, force_query=force_recompute,
                                 depends_on=["%s.studentmodule" % dataset],
+                                allowLargeResults=True,
+                                startIndex=-2)
+        
+#-----------------------------------------------------------------------------
+
+def make_chapter_grades_table(course_id, dataset, force_recompute):
+    '''
+    Grades, from problems and chapters (via course axis)
+
+    Each row has one (user_id, chapter) and indicates the grade
+    obtained, via summing over equally weighted problem grades in the chapter.
+    '''
+    cg_sql = """
+        # generate one (user_id, chapter, chgrade, median_grade, chmax) row
+        # take the global-within-chapter user_chapter_max_grade over all users as the max_chapter_grade
+        # so we can then use that later for computing chapter grade histogram
+        SELECT
+            *,
+            PERCENTILE_DISC(0.5) over (partition by chapter_mid order by chgrade) as median_grade,
+            NTH_VALUE(user_chapter_max_grade, 1)
+                over (partition by chapter_mid order by user_chapter_max_grade desc) as chmax,
+        FROM
+        (
+            # sum grades for each user in chapter, weighting all problems equally within each chapter
+            SELECT
+                user_id,
+                chapter_mid,
+                course_axis_index,
+                sum(max_grade) as user_chapter_max_grade,
+                sum(grade) as chgrade,
+                max(due_date) as due_date_max,
+                min(due_date) as due_date_min,
+            FROM
+            (
+                # get chapter ID's for each problem
+                SELECT PG.user_id as user_id,
+                  PG.module_id as module_id,
+                  PG.grade as grade,
+                  PG.max_grade as max_grade,
+                  CA.name as name,
+                  CA.gformat as gformat,
+                  CA.chapter_mid as chapter_mid,
+                  CA.index as course_axis_index,
+                  CA.due as due_date,
+                FROM [{dataset}.problem_grades] as PG
+                JOIN (
+                    SELECT *,
+                        CONCAT('i4x://', module_id) as i4x_module_id,
+                    FROM [{dataset}.course_axis]
+                ) as CA
+                ON CA.i4x_module_id = PG.module_id
+                WHERE PG.grade is not null
+                order by due_date
+            )
+            group by user_id, chapter_mid, course_axis_index
+            order by course_axis_index, user_id
+        )
+        order by course_axis_index, user_id
+             """.format(dataset=dataset)
+
+    cg_table = "chapter_grades"
+    print "[analyze_problems] Creating %s.chapter_grades table for %s" % (dataset, course_id)
+    sys.stdout.flush()
+    bqdat = bqutil.get_bq_table(dataset, cg_table, cg_sql, force_query=force_recompute,
+                                depends_on=["%s.problem_grades" % dataset, "%s.course_axis" % dataset],
                                 allowLargeResults=True,
                                 startIndex=-2)
         
