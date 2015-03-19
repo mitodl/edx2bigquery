@@ -791,6 +791,11 @@ order by course_id;
                 continue
             datasets_with_sasbc.append(cd)
         
+        if not datasets_with_sasbc:
+            print '[make_course_report_tables] combine_show_answer_stats_by_course: no datasets have show_answer_stats_by_course!'
+            print '--> Aborting creation of %s' %  show_answer_stats_by_course
+            print '--> This may cause problems with report creation.  Run analyze_problems on at least one course to resolve'
+
         sasbc_tables = ',\n'.join(['[%s.%s]' % (x, tablename) for x in datasets_with_sasbc])
 
         SQL = """
