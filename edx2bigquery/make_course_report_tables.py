@@ -487,6 +487,9 @@ order by course_id;
                    sum(case when ((LoE="b") or (LoE="m") or (LoE="p") or (LoE="p_oth") or (LoE="p_se")) then 1 else 0 end) as n_bachplus_in_reg,
                    sum(case when (viewed and ((LoE="b") or (LoE="m") or (LoE="p") or (LoE="p_oth") or (LoE="p_se"))) then 1 else 0 end) as n_bachplus_in_viewed,
 
+                   sum(case when ((LoE="a") or (LoE="el") or (LoE="hs") or (LoE="jhs") or (LoE="none")) then 1 else 0 end) as n_not_bachplus_in_reg,
+                   sum(case when (viewed and ((LoE="a") or (LoE="el") or (LoE="hs") or (LoE="jhs") or (LoE="none"))) then 1 else 0 end) as n_not_bachplus_in_viewed,
+
                    sum(case when (viewed and gender='m') then 1 else 0 end) as n_male_viewed,
                    sum(case when (viewed and gender='f') then 1 else 0 end) as n_female_viewed,
 
