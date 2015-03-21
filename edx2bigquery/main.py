@@ -408,6 +408,19 @@ def show_answer_table(param, course_id, args=None):
         sys.stdout.flush()
         raise
 
+def enrollment_events_table(param, course_id, args=None):
+    import make_enrollment_day
+    try:
+        make_enrollment_day.make_enrollment_events(course_id, 
+                                                   force_recompute=param.force_recompute,
+                                                   use_dataset_latest=param.use_dataset_latest,
+                                                   )
+    except Exception as err:
+        print err
+        traceback.print_exc()
+        sys.stdout.flush()
+        raise
+
 def analyze_ora(param, courses, args):
     import make_openassessment_analysis
     for course_id in get_course_ids(courses):
@@ -937,6 +950,9 @@ attempts_correct <c_id> ... : Create or update stats_attempts_correct table, whi
 show_answer <course_id> ... : Create or update show_answer table, which has all the show_answer events from all the course's
                               tracking logs.
 
+enrollment_events <cid> ... : Create or update enrollment_events table, which has all the ed.course.enrollment events from all the course's
+                              tracking logs.
+
 --- TESTING & DEBUGGING COMMANDS
 
 rephrase_logs               : process input tracking log lines one at a time from standard input, and rephrase them to fit the
@@ -1303,6 +1319,10 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='show_answer'):
         courses = get_course_ids(args)
         run_parallel_or_serial(show_answer_table, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='enrollment_events'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(enrollment_events_table, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='axis2bq'):
         axis2bq(param, args, args)

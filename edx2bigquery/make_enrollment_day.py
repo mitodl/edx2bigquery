@@ -186,3 +186,41 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
                                                      end_date=end_date,
                                                      get_date_function=gdf,
                                                      days_delta=0)
+        
+#-----------------------------------------------------------------------------
+
+def make_enrollment_events(course_id, force_recompute=False, use_dataset_latest=False, end_date=None):
+    '''
+    Create an enrollment_events table, based on scanning the tracking logs.
+    Record all enrollment events, ordered by time.
+    '''
+
+    SQL = """
+            SELECT 
+  		    "{course_id}" as course_id,
+	            time,
+                    (case when (event_struct.user_id is not null) then event_struct.user_id
+                         when (context.user_id is not null) then context.user_id end) as user_id,
+                    (case when (event_struct.mode is not null) then event_struct.mode
+                         else JSON_EXTRACT_SCALAR(event, "$.mode") end) as mode,
+                    (case when (event_type = "edx.course.enrollment.activated") then True else False end) as activated,
+                    (case when (event_type = "edx.course.enrollment.deactivated") then True else False end) as deactivated,
+                    (case when (event_type = "edx.course.enrollment.mode_changed") then True else False end) as mode_changed,
+                    (case when (event_type = "edx.course.enrollment.upgrade.succeeded") then True else False end) as upgraded,
+                    event_type,
+            FROM {DATASETS} 
+            where (event_type contains "edx.course.enrollment")
+                  and time > TIMESTAMP("{last_date}")
+            order by time;
+            """
+
+    table = 'enrollment_events'
+
+    def gdf(row):
+        return datetime.datetime.utcfromtimestamp(float(row['time']))
+
+    process_tracking_logs.run_query_on_tracking_logs(SQL, table, course_id, force_recompute=force_recompute,
+                                                     use_dataset_latest=use_dataset_latest,
+                                                     end_date=end_date,
+                                                     get_date_function=gdf,
+                                                     days_delta=0)

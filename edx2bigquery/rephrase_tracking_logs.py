@@ -92,6 +92,8 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                    'show_answer',
                    'edx.course.enrollment.activated',
                    'edx.course.enrollment.deactivated',
+                   'edx.course.enrollment.mode_changed',
+                   'edx.course.enrollment.upgrade.succeeded',
                    'speed_change_video',
                    'problem_check', 
                    'problem_save', 
