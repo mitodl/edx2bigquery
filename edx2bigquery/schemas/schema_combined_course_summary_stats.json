@@ -110,11 +110,25 @@
     }, 
     {
         "type": "INTEGER", 
+	"description": "sum(case when ((LoE=\"b\") or (LoE=\"m\") or (LoE=\"p\") or (LoE=\"p_oth\") or (LoE=\"p_se\")) then 1 else 0 end)",
         "name": "n_bachplus_in_reg"
     }, 
     {
         "type": "INTEGER", 
+	"description": "sum(case when (viewed and ((LoE=\"b\") or (LoE=\"m\") or (LoE=\"p\") or (LoE=\"p_oth\") or (LoE=\"p_se\"))) then 1 else 0 end)",
         "name": "n_bachplus_in_viewed"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "n_not_bachplus_in_reg", 
+	"description": "sum(case when ((LoE=\"a\") or (LoE=\"el\") or (LoE=\"hs\") or (LoE=\"jhs\") or (LoE=\"none\")) then 1 else 0 end)",
+        "mode": "NULLABLE"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "n_not_bachplus_in_viewed", 
+	"description": "sum(case when (viewed and ((LoE=\"a\") or (LoE=\"el\") or (LoE=\"hs\") or (LoE=\"jhs\") or (LoE=\"none\"))) then 1 else 0 end)",
+        "mode": "NULLABLE"
     }, 
     {
         "type": "INTEGER", 
