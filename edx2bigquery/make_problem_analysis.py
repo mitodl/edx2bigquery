@@ -379,7 +379,7 @@ def make_chapter_grades_table(course_id, dataset, force_recompute):
             SELECT
                 user_id,
                 chapter_mid,
-                course_axis_index,
+                # course_axis_index,
                 sum(max_grade) as user_chapter_max_grade,
                 sum(grade) as chgrade,
                 max(due_date) as due_date_max,
@@ -394,7 +394,7 @@ def make_chapter_grades_table(course_id, dataset, force_recompute):
                   CA.name as name,
                   CA.gformat as gformat,
                   CA.chapter_mid as chapter_mid,
-                  CA.index as course_axis_index,
+                  # CA.index as course_axis_index,	# this is the problem's index, not the chapter's!
                   CA.due as due_date,
                 FROM [{dataset}.problem_grades] as PG
                 JOIN (
@@ -406,17 +406,26 @@ def make_chapter_grades_table(course_id, dataset, force_recompute):
                 WHERE PG.grade is not null
                 order by due_date
             )
-            group by user_id, chapter_mid, course_axis_index
-            order by course_axis_index, user_id
+            group by user_id, chapter_mid
+            order by user_id
         )
-        order by course_axis_index, user_id
+        order by user_id
              """.format(dataset=dataset)
 
     cg_table = "chapter_grades"
     print "[analyze_problems] Creating %s.chapter_grades table for %s" % (dataset, course_id)
     sys.stdout.flush()
+
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, 'course_axis')
+    except Exception as err:
+        print " --> Err: missing %s.%s?  Skipping creation of chapter_grades" % (dataset, "course_axis")
+        sys.stdout.flush()
+        return
+
     bqdat = bqutil.get_bq_table(dataset, cg_table, cg_sql, force_query=force_recompute,
                                 depends_on=["%s.problem_grades" % dataset, "%s.course_axis" % dataset],
+                                newer_than=datetime.datetime(2015, 3, 20, 18, 21),
                                 allowLargeResults=True,
                                 startIndex=-2)
         
