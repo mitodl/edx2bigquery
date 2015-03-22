@@ -21,6 +21,21 @@
 	    "description": "two-level country code"
         },
         {
+            "type": "STRING",
+            "name": "postalCode",
+	    "description": "local postal code, e.g. zip code in the US"
+        },
+        {
+            "type": "STRING",
+            "name": "continent",
+	    "description": "name of continent"
+        },
+        {
+            "type": "STRING",
+            "name": "subdivision",
+	    "description": "name of subdivision, e.g. state in the US"
+        },
+        {
             "type": "FLOAT",
             "name": "latitude",
 	    "description": "latitude"
