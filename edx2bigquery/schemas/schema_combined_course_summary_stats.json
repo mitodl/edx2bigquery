@@ -99,7 +99,7 @@
     {
         "type": "INTEGER", 
 	"description": "Number of registrants who are either certified or explored; necessary because certified may or may not be explored",
-        "name": "certified_or_explored_sum", 
+        "name": "certified_or_explored_sum" 
     }, 
     {
         "type": "INTEGER", 
