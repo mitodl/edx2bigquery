@@ -103,6 +103,11 @@
     }, 
     {
         "type": "INTEGER", 
+	"description": "Number of registrants who are both certified and explored; necessary because certified may or may not be explored",
+        "name": "certified_and_explored_sum" 
+    }, 
+    {
+        "type": "INTEGER", 
         "name": "n_male"
     }, 
     {
