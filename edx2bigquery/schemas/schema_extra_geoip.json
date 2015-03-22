@@ -33,7 +33,12 @@
         {
             "type": "STRING",
             "name": "subdivision",
-	    "description": "name of subdivision, e.g. state in the US"
+	    "description": "full name of subdivision, e.g. state in the US"
+        },
+        {
+            "type": "STRING",
+            "name": "region",
+	    "description": "iso_code name of region, e.g. state two-letter code in the US"
         },
         {
             "type": "FLOAT",

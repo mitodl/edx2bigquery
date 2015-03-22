@@ -113,7 +113,7 @@ class GeoIPData(object):
         return
     
     def lookup_ip(self, ip):
-        if (ip in self.geoipdat) and ('postalCode' in self.geoipdat[ip]):
+        if (ip in self.geoipdat) and ('region' in self.geoipdat[ip]):
             return self.geoipdat[ip]
         try:
             if self.version==1:
@@ -139,6 +139,7 @@ class GeoIPData(object):
                                      'postalCode': rec.get('postal_code'),	# JUST A GUESS - CHECK THIS
                                      'continent': rec.get('continent'),		# JUST A GUESS - CHECK THIS
                                      'subdivision': rec.get('subdivision_name'),	# JUST A GUESS - CHECK THIS
+                                     'region': rec.get('region'),	# JUST A GUESS - CHECK THIS
                                      }
             else:
                 self.geoipdat[ip] = {'ip': ip, 
@@ -147,9 +148,10 @@ class GeoIPData(object):
                                      'country': rec.country.iso_code,
                                      'latitude': rec.location.latitude,
                                      'longitude': rec.location.longitude,
-                                     'postalCode': rec.postal.code,
+                                     'postalCode': rec.postal.code,		# in the US, this is the zip code
                                      'continent': rec.continent.name,
                                      'subdivision': rec.subdivisions.most_specific.name,
+                                     'region': rec.subdivisions.most_specific.iso_code,	# in the US, this is the state
                                      }
         except Exception as err:
             print "Oops, bad geoip record for ip=%s, error=%s, got rec=%s" % (ip, str(err), rec)
