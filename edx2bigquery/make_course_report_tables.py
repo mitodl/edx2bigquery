@@ -478,6 +478,7 @@ order by course_id;
                    sum(case when viewed then 1 else 0 end) as viewed_sum,
                    sum(case when explored and viewed then 1 else 0 end) as explored_sum,
                    sum(case when certified and viewed then 1 else 0 end) as certified_sum,
+                   sum(case when (certified or explored) and viewed then 1 else 0 end) as certified_or_explored_sum,
     
                    sum(case when gender='m' then 1 else 0 end) as n_male,
                    sum(case when gender='f' then 1 else 0 end) as n_female,
