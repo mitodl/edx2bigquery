@@ -3,262 +3,302 @@
         {
             "type": "STRING",
             "name": "course_id",
-	    "description": "course ID in the standard format as org/number/semester"
+            "description": "course ID in the standard format as org/number/semester"
         },
         {
             "type": "INTEGER",
             "name": "user_id",
-	    "description": "user ID number"
+            "description": "user ID number"
         },
         {
             "type": "STRING",
             "name": "username",
-	    "description": "username"
+            "description": "username"
         },
         {
             "type": "BOOLEAN",
             "name": "registered",
-	    "description": "Boolean flag, indicating that the user registered in the course (obsolete: should always be 1 or true)"
+            "description": "Boolean flag, indicating that the user registered in the course (obsolete: should always be 1 or true)"
         },
         {
             "type": "BOOLEAN",
             "name": "viewed",
-	    "description": "Boolean flag, indicating that the user visited the course at least once"
+            "description": "Boolean flag, indicating that the user visited the course at least once"
         },
         {
             "type": "BOOLEAN",
             "name": "explored",
-	    "description": "Boolean flag, indicating that the user viewed at least half of the chapters of the course"
+            "description": "Boolean flag, indicating that the user viewed at least half of the chapters of the course"
         },
         {
             "type": "BOOLEAN",
             "name": "certified",
-	    "description": "Boolean flag, indicating that the user earned a certificate in the course"
+            "description": "Boolean flag, indicating that the user earned a certificate in the course"
         },
         {
             "type": "STRING",
             "name": "ip",
-	    "description": "Modal value of the IP address from which this user connected, from tracking logs"
+            "description": "Modal value of the IP address from which this user connected, from tracking logs"
         },
         {
             "type": "STRING",
             "name": "cc_by_ip",
-	    "description": "Two-letter country code corresponding to the modal IP address"
+            "description": "Two-letter country code corresponding to the modal IP address"
         },
         {
             "type": "STRING",
             "name": "countryLabel",
-	    "description": "Full name of country corresponding to modal IP address"
+            "description": "Full name of country corresponding to modal IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "continent",
+            "description": "Full name of continent corresponding to modal IP address"
         },
         {
             "type": "STRING",
             "name": "city",
-	    "description": "Full name of city corresponding to modal IP address"
+            "description": "Full name of city corresponding to modal IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "region",
+            "description": "Two-Letter code of region or U.S. State corresponding to modal IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "subdivision",
+            "description": "Full name of region/subdivision or U.S. State corresponding to modal IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "postalCode",
+            "description": "Postal code corresponding to modal IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "un_major_region",
+            "description": "UN defined sub-continent major geographic regions corresponding to modal IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "un_economic_group",
+            "description": "UN defined major geographical economic groups (developing and developed nations) corresponding to modal IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "un_developing_nation",
+            "description": "UN defined developing nation groups files corresponding to modal IP address"
+        },
+        {
+            "type": "STRING",
+            "name": "un_special_region",
+            "description": "Special Regions Set 1 files: Latin America and the Caribbean.csv,Sub-Saharan-Africa.csv corresponding to modal IP address"
         },
         {
             "type": "FLOAT",
             "name": "latitude",
-	    "description": "Latitude of city corresponding to modal IP address"
+            "description": "Latitude of city corresponding to modal IP address"
         },
         {
             "type": "FLOAT",
             "name": "longitude",
-	    "description": "Longitude of city corresponding to modal IP address"
+            "description": "Longitude of city corresponding to modal IP address"
         },
         {
             "type": "STRING",
             "name": "LoE",
-	    "description": "Level of education"
+            "description": "Level of education"
         },
         {
             "type": "INTEGER",
             "name": "YoB",
-	    "description": "Year of birth"
+            "description": "Year of birth"
         },
         {
             "type": "STRING",
             "name": "gender",
-	    "description": "gender, one of 'm', 'f', or 'o' (or NULL)"
+            "description": "gender, one of 'm', 'f', or 'o' (or NULL)"
         },
         {
             "type": "FLOAT",
             "name": "grade",
-	    "description": "Final grade earned in the course, out of 100 points"
+            "description": "Final grade earned in the course, out of 100 points"
         },
         {
             "type": "TIMESTAMP",
             "name": "start_time",
-	    "description": "Date of enrollment in the course"
+            "description": "Date of enrollment in the course"
         },
         {
             "type": "TIMESTAMP",
             "name": "last_event",
-	    "description": "Date of last event of user, from tracking logs"
+            "description": "Date of last event of user, from tracking logs"
         },
         {
             "type": "INTEGER",
             "name": "nevents",
-	    "description": "Number of tracking log events"
+            "description": "Number of tracking log events"
         },
         {
             "type": "INTEGER",
             "name": "ndays_act",
-	    "description": "Number of days with activity, from tracking logs"
+            "description": "Number of days with activity, from tracking logs"
         },
         {
             "type": "INTEGER",
             "name": "nplay_video",
-	    "description": "Number of video play events from tracking logs"
+            "description": "Number of video play events from tracking logs"
         },
         {
             "type": "INTEGER",
             "name": "nchapters",
-	    "description": "Number of chapters visited by the user"
+            "description": "Number of chapters visited by the user"
         },
         {
             "type": "INTEGER",
             "name": "nforum_posts",
-	    "description": "Number of forum posts and comments made by user"
+            "description": "Number of forum posts and comments made by user"
         },
         {
             "type": "INTEGER",
             "name": "nforum_votes",
-	    "description": "Number of votes received by user's forum posts"
+            "description": "Number of votes received by user's forum posts"
         },
         {
             "type": "INTEGER",
             "name": "nforum_endorsed",
-	    "description": "Number of endorsed forum posts by user"
+            "description": "Number of endorsed forum posts by user"
         },
         {
             "type": "INTEGER",
             "name": "nforum_threads",
-	    "description": "Number of forum post threads by user"
+            "description": "Number of forum post threads by user"
         },
         {
             "type": "INTEGER",
             "name": "nforum_comments",
-	    "description": "Number of forum post comments by user"
+            "description": "Number of forum post comments by user"
         },
         {
             "type": "INTEGER",
             "name": "nforum_pinned",
-	    "description": "Number of forum posts by user which were pinned (good indicator of staff)"
+            "description": "Number of forum posts by user which were pinned (good indicator of staff)"
         },
         {
             "type": "STRING",
             "name": "roles",
-	    "description": "Roles played by the user in the course, e.g. instructor, course_staff"
+            "description": "Roles played by the user in the course, e.g. instructor, course_staff"
         },
         {
             "type": "INTEGER",
             "name": "nprogcheck",
-	    "description": "Number of progress check events from tracking logs"
+            "description": "Number of progress check events from tracking logs"
         },
         {
             "type": "INTEGER",
             "name": "nproblem_check",
-	    "description": "Number of problem check events from tracking logs"
+            "description": "Number of problem check events from tracking logs"
         },
         {
             "type": "INTEGER",
             "name": "nforum_events",
-	    "description": "Number of all kinds of forum events, from tracking logs"
+            "description": "Number of all kinds of forum events, from tracking logs"
         },
         {
             "type": "STRING",
             "name": "mode",
-	    "description": "Mode of registrant, e.g. honor, audit, verified"
+            "description": "Mode of registrant, e.g. honor, audit, verified"
         },
         {
             "type": "INTEGER",
             "name": "is_active",
-	    "description": "1 if enrollment active on date of this data, else 0"
+            "description": "1 if enrollment active on date of this data, else 0"
         },
         {
             "type": "STRING",
             "name": "cert_created_date",
-	    "description": "date when certificate was generated (if applicable)"
+            "description": "date when certificate was generated (if applicable)"
         },
         {
             "type": "STRING",
             "name": "cert_modified_date",
-	    "description": "date when certificate was modified (if applicable)"
+            "description": "date when certificate was modified (if applicable)"
         },
         {
             "type": "STRING",
             "name": "cert_status",
-	    "description": "one of 'downloadable', 'notpassing', or 'unavailable', where downloadable & unavailable should = earned"
+            "description": "one of 'downloadable', 'notpassing', or 'unavailable', where downloadable & unavailable should = earned"
         },
         {
             "type": "STRING",
             "name": "profile_country",
-	    "description": "two-letter country code as specified by user in their profile (only available after ~mid-2014)"
+            "description": "two-letter country code as specified by user in their profile (only available after ~mid-2014)"
         },
         {
             "type": "INTEGER",
             "name": "y1_anomalous",
-	    "description": "if this user was anomlously missing and had to be side-loaded from mongo then this field = 1, else null"
+            "description": "if this user was anomlously missing and had to be side-loaded from mongo then this field = 1, else null"
         },
         {
             "type": "STRING",
             "name": "email_domain",
-	    "description": "domain of the email address of the user, i.e. what appears after the '@'"
+            "description": "domain of the email address of the user, i.e. what appears after the '@'"
         },
         {
             "type": "INTEGER",
             "name": "ntranscript",
-	    "description": "Number of video transcript events from tracking logs"
+            "description": "Number of video transcript events from tracking logs"
         },
         {
             "type": "INTEGER",
             "name": "nshow_answer",
-	    "description": "Number of show answer events from tracking logs"
+            "description": "Number of show answer events from tracking logs"
         },
         {
             "type": "INTEGER",
             "name": "nvideo",
-	    "description": "Number of video events (of all kinds) from tracking logs"
+            "description": "Number of video events (of all kinds) from tracking logs"
         },
         {
             "type": "INTEGER",
             "name": "nseq_goto",
-	    "description": "Number of 'sequence goto' navigational events from tracking logs"
+            "description": "Number of 'sequence goto' navigational events from tracking logs"
         },
         {
             "type": "INTEGER",
             "name": "nseek_video",
-	    "description": "Number of 'video seek' events from tracking logs"
+            "description": "Number of 'video seek' events from tracking logs"
         },
         {
             "type": "INTEGER",
             "name": "npause_video",
-	    "description": "Number of 'video pause' events from tracking logs"
+            "description": "Number of 'video pause' events from tracking logs"
         },
         {
             "type": "FLOAT",
             "name": "avg_dt",
-	    "description": "Average time difference in seconds between consecutive events from tracking logs"
+            "description": "Average time difference in seconds between consecutive events from tracking logs"
         },
         {
             "type": "FLOAT",
             "name": "sdv_dt",
-	    "description": "Standard deviation of difference in seconds between consecutive events from tracking logs"
+            "description": "Standard deviation of difference in seconds between consecutive events from tracking logs"
         },
         {
             "type": "FLOAT",
             "name": "max_dt",
-	    "description": "Maximum difference in seconds between consecutive events from tracking logs"
+            "description": "Maximum difference in seconds between consecutive events from tracking logs"
         },
         {
             "type": "INTEGER",
             "name": "n_dt",
-	    "description": "Number of consecutive events used in time difference computations, from tracking logs"
+            "description": "Number of consecutive events used in time difference computations, from tracking logs"
         },
         {
             "type": "FLOAT",
             "name": "sum_dt",
-	    "description": "Total elapsed time (in seconds) spent by user on this course, based on time difference of consecutive events, with 5 min max cutoff, from tracking logs"
+            "description": "Total elapsed time (in seconds) spent by user on this course, based on time difference of consecutive events, with 5 min max cutoff, from tracking logs"
         },
         {
             "type": "INTEGER", 
