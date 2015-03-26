@@ -488,7 +488,12 @@ class PersonCourse(object):
             self.log("Skipping fourth phase - pc_geoip table is None")
             return
 
-        pcd_fields = [['country', 'cc_by_ip'], 'latitude', 'longitude']
+        pcd_fields = [['country', 'cc_by_ip'], 'latitude', 'longitude',
+                      ['region_code', 'region'], 'subdivision', 'postalCode', 'continent',
+                      ['un_region', 'un_major_region'],
+                      ['econ_group', 'un_economic_group'],
+                      ['developing_nation', 'un_developing_nation'],
+                      ['special_region1', 'un_special_region']]
 
         for key, pcent in self.pctab.iteritems():
             username = pcent['username']
@@ -520,7 +525,9 @@ class PersonCourse(object):
         def c2pc(field, gdata):
             pcent[field] = gdata[field]
 
-        gfields = ['city', 'countryLabel', 'latitude', 'longitude']
+        gfields = ['city', 'countryLabel', 'latitude', 'longitude',
+                   'region', 'subdivision', 'postalCode', 'continent']
+        # GeoIP Table does not have data for 'un_region', 'econ_group', 'developing_nation', 'special_region1' => These will be blank
 
         nnew = 0
         nmissing_geo = 0
@@ -1066,7 +1073,8 @@ class PersonCourse(object):
         http://googlecloudplatform.blogspot.com/2014/03/geoip-geolocation-with-google-bigquery.html        
         '''
         the_sql = '''
-            SELECT username, country, city, countryLabel, latitude, longitude
+            SELECT username, country, city, countryLabel, latitude, longitude,
+                   region_code, subdivision, postalCode, continent, un_region, econ_group, developing_nation, special_region1
             FROM (
              SELECT
                username,
@@ -1076,7 +1084,7 @@ class PersonCourse(object):
                [{dataset}.pc_modal_ip]
              WHERE modal_ip IS NOT NULL
                ) AS a
-            JOIN EACH [fh-bigquery:geocode.geolite_city_bq_b2b] AS b
+            JOIN EACH [geocode.GeoIPCityCountry] AS b
             ON a.classB = b.classB
             WHERE a.clientIpNum BETWEEN b.startIpNum AND b.endIpNum
             AND city != ''
