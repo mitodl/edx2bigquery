@@ -509,7 +509,7 @@ class PersonCourse(object):
         '''
 
         if self.skip_geoip:
-            print "--> Skipping geoip"
+            self.log("--> Skipping geoip")
             return
 
         import make_geoip_table
@@ -1069,12 +1069,51 @@ class PersonCourse(object):
 
     def load_pc_geoip(self):
         '''
-        geoip information from modal_ip, using bigquery join with maxmine public geoip dataset
+        geoip information from modal_ip, using bigquery join with maxmind public geoip dataset
         http://googlecloudplatform.blogspot.com/2014/03/geoip-geolocation-with-google-bigquery.html        
+
+        The public table is fh-bigquery:geocode.geolite_city_bq_b2b
+
+        If a private version is available use that instead.
         '''
+
+        try:
+            private_geoip_tinfo = bqutil.get_bq_table_info('geocode', 'GeoIPCityCountry')
+        except Exception as err:
+            private_geoip_tinfo = None
+
+        use_private_geoip = False
+        geoip_table = "fh-bigquery:geocode.geolite_city_bq_b2b"
+        sql_extra_geoip = """
+                  "" as region_code,
+                  "" as subdivision,
+                  postalCode, 
+                  "" as continent,
+                  "" as un_region,
+                  "" as econ_group,
+                  "" as developing_nation,
+                  "" as special_region1,
+        """
+
+        if private_geoip_tinfo:
+            use_private_geoip = True
+            geoip_table = "geocode.GeoIPCityCountry"
+            sql_extra_geoip = """
+                  region_code,
+                  subdivision,
+                  postalCode, 
+                  continent,
+                  un_region,
+                  econ_group,
+                  developing_nation,
+                  special_region1,
+            """
+        self.log("    Using %s for geoip information" % geoip_table)
+
         the_sql = '''
             SELECT username, country, city, countryLabel, latitude, longitude,
-                   region_code, subdivision, postalCode, continent, un_region, econ_group, developing_nation, special_region1
+                   # region_code, subdivision, postalCode, continent, un_region, econ_group, developing_nation, special_region1
+                   {sql_extra_geoip}
             FROM (
              SELECT
                username,
@@ -1084,12 +1123,12 @@ class PersonCourse(object):
                [{dataset}.pc_modal_ip]
              WHERE modal_ip IS NOT NULL
                ) AS a
-            JOIN EACH [geocode.GeoIPCityCountry] AS b
+            JOIN EACH [{geoip_table}] AS b
             ON a.classB = b.classB
             WHERE a.clientIpNum BETWEEN b.startIpNum AND b.endIpNum
             AND city != ''
             ORDER BY username
-        '''.format(**self.sql_parameters)
+        '''.format(geoip_table=geoip_table, sql_extra_geoip=sql_extra_geoip, **self.sql_parameters)
         
         tablename = 'pc_geoip'
 
