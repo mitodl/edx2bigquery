@@ -670,6 +670,12 @@ order by course_id;
         Make table of global modal ip addresses, based on each course's IP address counts, found in 
         individual course's pcday_ip_counts tables.
         '''
+        ntables = len(self.all_pcday_ip_counts_tables)
+        if (ntables > 30):
+            print "--> Too many pcday_ip_counts tables (%d): using hash for computing global modal_ip" % ntables
+            sys.stdout.flush()
+            return self.make_global_modal_ip_table_with_hash()
+
         the_sql = '''
               SELECT username, IP as modal_ip, ip_count, n_different_ip,
               FROM
@@ -685,6 +691,45 @@ order by course_id;
                   order by username
         '''.format(**self.parameters)
         
+        self.do_table(the_sql, 'global_modal_ip', the_dataset='courses')
+
+    def make_global_modal_ip_table_with_hash(self):
+        '''
+        Use hashing to reduce number of usernames which need to partitioned, in computing
+        global modal ip.
+        '''
+        inner_sql = '''
+                  SELECT username, ip, ip_count,
+                          RANK() over (partition by username order by ip_count ASC) n_different_ip,
+                          RANK() over (partition by username order by ip_count DESC) rank,
+                    from ( select username, ip, sum(ipcount) as ip_count
+                           from {pcday_ip_counts_tables}
+                           WHERE {hash_limit}
+                           GROUP EACH BY username, ip
+                    )
+        '''
+        
+        outer_sql = '''
+              SELECT username, IP as modal_ip, ip_count, n_different_ip,
+              FROM
+                 {inner_sql_set}
+                  where rank=1
+                  order by username
+        '''
+
+        ntables = len(self.all_pcday_ip_counts_tables)
+        dn = 30
+        nhash = ntables / dn
+        if nhash * dn < ntables:
+            nhash += 1
+        iss = []
+        for k in range(nhash):
+            hash_limit = "ABS(HASH(username)) %% %d = %d" % (nhash, k)
+            iss.append(inner_sql.format(hash_limit=hash_limit, **self.parameters))
+
+        iss_str = ','.join(['( %s )\n' % x for x in iss])
+        the_sql = outer_sql.format(inner_sql_set=iss_str, **self.parameters)
+
         self.do_table(the_sql, 'global_modal_ip', the_dataset='courses')
 
     def make_overall_totals(self):
