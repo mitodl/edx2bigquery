@@ -207,21 +207,37 @@ def attempts_correct(course_id, force_recompute=False, use_dataset_latest=False)
     make stats_attempts_corrct table for specified course_id.
 
     This table has percentage of attempts which are correct, computed for each user.
+    Also includes fraction of all problems which were completed, where the number of
+    all problems is determined by the max over all users.
+
+    The table computes the statistics for all viewers.
     '''
     SQL = """# problem attempt correctness percentage, including whether user was certified
-             SELECT
-                 "{course_id}" as course_id,
-                 PA.user_id as user_id,
-                 PC.certified as certified,
-                 PC.explored as explored,
-                 sum(case when PA.item.correct_bool then 1 else 0 end)
-                 / count(PA.item.correct_bool) * 100.0 as percent_correct,
-                 count(PA.item.correct_bool) as nitems,
-             FROM [{dataset}.problem_analysis] as PA
-             JOIN EACH [{dataset}.person_course] as PC
-             ON PA.user_id = PC.user_id
-             where PC.certified            # only certificate earners, for this query
-             group by user_id, certified, explored
+             SELECT *, 
+                 round(nitems / total_problems, 4) as frac_complete,
+             FROM
+             (
+               SELECT *,
+                 max(nitems) over () as total_problems,
+               FROM
+               (
+                 SELECT
+                     "{course_id}" as course_id,
+                     PA.user_id as user_id,
+                     PC.certified as certified,
+                     PC.explored as explored,
+                     sum(case when PA.item.correct_bool then 1 else 0 end)
+                     / count(PA.item.correct_bool) * 100.0 as percent_correct,
+                     count(PA.item.correct_bool) as nitems,
+                 FROM [{dataset}.problem_analysis] as PA
+                 JOIN EACH [{dataset}.person_course] as PC
+                 ON PA.user_id = PC.user_id
+                 # where PC.certified            # only certificate earners, for this query
+                 where PC.viewed                 # only participants (viewers)
+                 group by user_id, certified, explored
+                 order by certified desc, explored desc, percent_correct desc
+               )
+             )
              order by certified desc, explored desc, percent_correct desc
           """
     
@@ -231,6 +247,7 @@ def attempts_correct(course_id, force_recompute=False, use_dataset_latest=False)
     the_sql = SQL.format(dataset=dataset, course_id=course_id)
     bqdat = bqutil.get_bq_table(dataset, tablename, the_sql,
                                 force_query=force_recompute, 
+                                newer_than=datetime.datetime(2015, 4, 14, 23, 00),
                                 depends_on=[ '%s.problem_analysis' % dataset ],
                                 )
     return bqdat

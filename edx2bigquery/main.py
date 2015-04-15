@@ -1304,7 +1304,9 @@ check_for_duplicates        : check list of courses for duplicates
         # analyze_problems(param, args, args)
 
     elif (args.command=='attempts_correct'):
-        attempts_correct(param, args, args)
+        courses = get_course_ids(args)
+        run_parallel_or_serial(attempts_correct, param, courses, args, parallel=args.parallel)
+        # attempts_correct(param, args, args)
 
     elif (args.command=='time_task'):
         courses = get_course_ids(args)
