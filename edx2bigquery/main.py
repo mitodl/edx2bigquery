@@ -394,6 +394,7 @@ def attempts_correct(param, courses, args):
             print err
             traceback.print_exc()
             sys.stdout.flush()
+            raise
 
 def show_answer_table(param, course_id, args=None):
     import make_problem_analysis
