@@ -396,6 +396,20 @@ def attempts_correct(param, courses, args):
             sys.stdout.flush()
             raise
 
+def ip_sybils(param, courses, args):
+    import make_problem_analysis
+    for course_id in get_course_ids(courses):
+        try:
+            make_problem_analysis.compute_ip_pair_sybils(course_id, 
+                                            force_recompute=args.force_recompute,
+                                            use_dataset_latest=param.use_dataset_latest,
+            )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+            raise
+
 def show_answer_table(param, course_id, args=None):
     import make_problem_analysis
     try:
@@ -948,6 +962,10 @@ problem_check <c_id> ...    : Create or update problem_check table, which has al
 attempts_correct <c_id> ... : Create or update stats_attempts_correct table, which records the percentages of attempts which were correct
                               for a given user in a specified course.
 
+ip_sybils <course_id> ...   : Create or update stats_ip_pair_sybils table, which records harvester-master pairs of users for which
+                              the IP address is the same, and the pair have meaningful disparities in perfomance.  Requires that 
+                              attempts_correct be run first.
+
 show_answer <course_id> ... : Create or update show_answer table, which has all the show_answer events from all the course's
                               tracking logs.
 
@@ -1308,6 +1326,11 @@ check_for_duplicates        : check list of courses for duplicates
         courses = get_course_ids(args)
         run_parallel_or_serial(attempts_correct, param, courses, args, parallel=args.parallel)
         # attempts_correct(param, args, args)
+
+    elif (args.command=='ip_sybils'):
+        courses = get_course_ids(args)
+        print "==> courses = ", courses
+        run_parallel_or_serial(ip_sybils, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='time_task'):
         courses = get_course_ids(args)
