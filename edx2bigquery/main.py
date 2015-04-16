@@ -748,6 +748,9 @@ def get_data_tables(tables, args):
         sys.stdout.flush()
         for table in tables:
             dataset, tablename = table.split('.', 1)
+            if ':' in dataset:
+                project_id, dataset = dataset.split(':')
+                optargs['project_id'] = project_id
             try:
                 table_info = bqutil.get_bq_table_info(dataset, tablename, **optargs)
             except Exception as err:
