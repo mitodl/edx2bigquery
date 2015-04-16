@@ -718,7 +718,8 @@ order by course_id;
         '''
 
         ntables = len(self.all_pcday_ip_counts_tables)
-        dn = 30
+        # dn = 30
+        dn = 50
         nhash = ntables / dn
         if nhash * dn < ntables:
             nhash += 1
