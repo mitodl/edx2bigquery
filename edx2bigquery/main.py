@@ -691,9 +691,16 @@ def get_data_tables(tables, args):
             open(ofn, 'w').write(json.dumps(tinfo['schema']['fields'], indent=4))
             continue
 
-        bqdat = bqutil.get_table_data(dataset, tablename, return_csv=(out_fmt=='csv'), **optargs)
+        try:
+            bqdat = bqutil.get_table_data(dataset, tablename, return_csv=(out_fmt=='csv'), **optargs)
+        except Exception as err:
+            if args.skip_missing and 'HttpError 404' in str(err):
+                print "--> missing table [%s.%s] Skipping..." % (dataset, tablename)
+                sys.stdout.flush()
+                continue
+            raise
         if not bqdat:
-            print "--> No data for %s!" % course_id
+            print "--> No data for [%s.%s]!" % (dataset, tablename)
             sys.stdout.flush()
             continue
         elif args.combine_into:
@@ -739,7 +746,16 @@ def get_data_tables(tables, args):
         gsutil.upload_file_to_gs(cofn, gspath, options=options)
         print "Getting table schema..."
         sys.stdout.flush()
-        table_info = bqutil.get_bq_table_info(dataset, tablename, **optargs)
+        for table in tables:
+            dataset, tablename = table.split('.', 1)
+            try:
+                table_info = bqutil.get_bq_table_info(dataset, tablename, **optargs)
+            except Exception as err:
+                if args.skip_missing and 'HttpError 404' in str(err):
+                    print "--> missing table [%s.%s] Skipping..." % (dataset, tablename)
+                    sys.stdout.flush()
+                    continue
+                raise
         schema = table_info['schema']['fields']
         print "Loading into BigQuery %s" % output_table
         sys.stdout.flush()
@@ -1037,6 +1053,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--org", type=str, help="organization ID to use")
     parser.add_argument("--combine-into", type=str, help="combine outputs into the specified file as output (used by get_course_data, get_data)")
     parser.add_argument("--combine-into-table", type=str, help="combine outputs into specified table (may be project:dataset.table) for get_data, get_course_data")
+    parser.add_argument("--skip-missing", help="for get_data, get_course_data, skip course if missing table", action="store_true")
     parser.add_argument("--output-format-json", help="output data in JSON format instead of CSV (the default); used by get_course_data, get_data", action="store_true")
     parser.add_argument("--collection", type=str, help="mongodb collection name to use for mongo2gs")
     parser.add_argument("--output-project-id", type=str, help="project-id where the report output should go (used by the report and combinepc commands)")
