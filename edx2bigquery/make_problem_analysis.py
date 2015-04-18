@@ -758,8 +758,9 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
                 # If a user in an ip group is certified and has max(show_answer) in ip group then
                 # Remove this ip since user not cheater but checked show_answer a lot after getting it right
                 # Also remove multiple users working independently behind a NAT box
+                #Filter out harvesters with greater than 70% attempts correct 
                 select *,
-                ((nshow_answer = maxsa) = certified) as remove_ip 
+                ((nshow_answer = maxsa and certified=true) or (percent_correct_attempts > 70 and certified = false)) as remove_ip 
                 from
                 (
                   # Add column for max and min number of show answers for each ip group
@@ -818,6 +819,7 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
             # Remove all ip groups with valid users who just clicked show_answer after getting it right.
             # Also remove multiple users working independently behind a NAT box
             where zero_only = 0
+            and frac_complete > .05 #don't include harvesters which didn't harvest much
             # Order by ip to group master and harvesters together. Order by certified so that we always have masters above harvester accounts.
             order by ip asc, certified desc
           """.format(dataset=dataset, course_id=course_id)
