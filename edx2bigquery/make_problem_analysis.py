@@ -760,7 +760,8 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
                 # Also remove multiple users working independently behind a NAT box
                 #Filter out harvesters with greater than 70% attempts correct 
                 select *,
-                ((nshow_answer = maxsa and certified=true) or (percent_correct_attempts > 70 and certified = false)) as remove_ip 
+                ((nshow_answer = maxsa and certified=true) 
+                 or (percent_correct_attempts > 70 and certified = false)) as remove_ip
                 from
                 (
                   # Add column for max and min number of show answers for each ip group
@@ -839,6 +840,7 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 17, 22, 00),
                                 depends_on=["%s.%s" % (dataset, sasbu),
                                         ],
                             )
