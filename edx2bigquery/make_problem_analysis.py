@@ -758,9 +758,9 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
                 # If a user in an ip group is certified and has max(show_answer) in ip group then
                 # Remove this ip since user not cheater but checked show_answer a lot after getting it right
                 # Also remove multiple users working independently behind a NAT box
-                #Filter out harvesters with greater than 60% attempts correct 
+                #Filter out harvesters with greater than 70% attempts correct 
                 select *,
-                ((nshow_answer = maxsa and certified=true) or (percent_correct_attempts > 65 and certified = false)) as remove_ip 
+                ((nshow_answer = maxsa and certified=true) or (percent_correct_attempts > 70 and certified = false)) as remove_ip 
                 from
                 (
                   # Add column for max and min number of show answers for each ip group
