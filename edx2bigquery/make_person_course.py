@@ -696,6 +696,8 @@ class PersonCourse(object):
             setattr(self, tablename, {'data': [], 'data_by_key': {}})
             return
 
+        self.log('doing nchapters, tables=%s' % tables)
+
         self.log("Loading %s from BigQuery" % tablename)
         self.pc_nchapters = bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'user_id'},
                                                 depends_on=[ '%s.studentmodule' % self.dataset ],

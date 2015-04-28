@@ -137,9 +137,13 @@ def date_parse(datestr, retbad=False):
     if not datestr:
         return None
 
+    if datestr.startswith('"') and datestr.endswith('"'):
+        datestr = datestr[1:-1]
+
     formats = ['%Y-%m-%dT%H:%M:%SZ',    	# 2013-11-13T21:00:00Z
                '%Y-%m-%dT%H:%M:%S.%f',    	# 2012-12-04T13:48:28.427430
                '%Y-%m-%dT%H:%M:%S',
+               '%Y-%m-%dT%H:%M:%S+00:00',	# 2014-12-09T15:00:00+00:00 
                '%Y-%m-%dT%H:%M',		# 2013-02-12T19:00
                '%B %d, %Y',			# February 25, 2013
                '%B %d, %H:%M, %Y', 		# December 12, 22:00, 2012
@@ -482,11 +486,16 @@ def fix_duplicate_url_name_vertical(axis):
 
 #-----------------------------------------------------------------------------
 
-def process_course(dir, use_dataset_latest=False):
+def process_course(dir, use_dataset_latest=False, force_course_id=None):
+    '''
+    if force_course_id is specified, then that value is used as the course_id
+    '''
     ret = make_axis(dir)
 
     # save data as csv and txt: loop through each course (multiple policies can exist withing a given course dir)
-    for cid, cdat in ret.iteritems():
+    for default_cid, cdat in ret.iteritems():
+
+        cid = force_course_id or default_cid
 
         print "================================================== (%s)" % cid
 
@@ -494,7 +503,7 @@ def process_course(dir, use_dataset_latest=False):
 
         # write out xbundle to xml file
         bfn = '%s/xbundle_%s.xml' % (DATADIR, cid.replace('/','__'))
-        codecs.open(bfn,'w',encoding='utf8').write(ret[cid]['bundle'])
+        codecs.open(bfn,'w',encoding='utf8').write(ret[default_cid]['bundle'])
 
         print "Writing out xbundle to %s" % bfn
         
@@ -512,11 +521,11 @@ def process_course(dir, use_dataset_latest=False):
 
         # optional save to mongodb
         if DO_SAVE_TO_MONGO:
-            save_data_to_mongo(cid, cdat, caset, ret[cid]['bundle'])
+            save_data_to_mongo(cid, cdat, caset, ret[default_cid]['bundle'])
         
         # optional save to bigquery
         if DO_SAVE_TO_BIGQUERY:
-            save_data_to_bigquery(cid, cdat, caset, ret[cid]['bundle'], DATADIR, log_msg, use_dataset_latest=use_dataset_latest)
+            save_data_to_bigquery(cid, cdat, caset, ret[default_cid]['bundle'], DATADIR, log_msg, use_dataset_latest=use_dataset_latest)
 
         # print out to text file
         afp = codecs.open('%s/axis_%s.txt' % (DATADIR, cid.replace('/','__')),'w', encoding='utf8')
@@ -544,7 +553,7 @@ def process_course(dir, use_dataset_latest=False):
 
 # <codecell>
 
-def process_xml_tar_gz_file(fndir, use_dataset_latest=False):
+def process_xml_tar_gz_file(fndir, use_dataset_latest=False, force_course_id=None):
     '''
     convert *.xml.tar.gz to course axis
     This could be improved to use the python tar & gzip libraries.
@@ -556,7 +565,7 @@ def process_xml_tar_gz_file(fndir, use_dataset_latest=False):
     os.system(cmd)
     newfn = glob.glob('%s/*' % tdir)[0]
     print "Using %s as the course xml directory" % newfn
-    process_course(newfn, use_dataset_latest=use_dataset_latest)
+    process_course(newfn, use_dataset_latest=use_dataset_latest, force_course_id=force_course_id)
     print "removing temporary files %s" % tdir
     os.system('rm -rf %s' % tdir)
 

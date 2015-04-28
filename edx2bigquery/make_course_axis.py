@@ -28,7 +28,8 @@ def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=Fals
 
     try:
         edx2course_axis.process_xml_tar_gz_file(fn,
-                                               use_dataset_latest=use_dataset_latest)
+                                                use_dataset_latest=use_dataset_latest,
+                                                force_course_id=course_id)
     except Exception as err:
         print err
         # raise
