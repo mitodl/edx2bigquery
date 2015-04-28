@@ -139,6 +139,10 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
     return_csv  = return data as CSV (as a big string) if True
     '''
     table = get_bq_table_info(dataset_id, table_id, project_id)
+    if not table:
+        logger('[bqutil.get_table_data] table %s:%s.%s not found!' % (project_id, dataset_id, table_id))
+        return None
+        
     nrows = int(table['numRows'])
 
     table_ref = dict(datasetId=dataset_id, projectId=project_id, tableId=table_id)
@@ -275,6 +279,8 @@ def get_bq_table_info(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
         if 'Not Found' in str(err):
             raise
         table = None
+    if not table:
+        return
     table['lastModifiedTime'] = bq_timestamp_milliseconds_to_datetime(table['lastModifiedTime'])
     table['creationTime'] = bq_timestamp_milliseconds_to_datetime(table['creationTime'])
     return table
@@ -318,6 +324,9 @@ def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, forc
                 force_query = True
                 logger("[get_bq_table] Forcing query recomputation of %s.%s, table_date=%s, latest=%s" % (dataset, tablename,
                                                                                                           table_date, latest))
+        else:
+            force_query = True
+
     if (not force_query) and newer_than and (sql is not None):
         # get the mod time of the computed table, if it exists
         try:
