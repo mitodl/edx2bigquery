@@ -742,85 +742,98 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
               "{course_id}" as course_id,
               user_id, username, ip, nshow_answer,
               percent_correct_attempts,frac_complete, certified, 
-              verified,
+              verified, countryLabel,
               start_time, last_event,
               nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
-            from
-            (
-              # If any user in an ip group was flagged remove_ip = true
-              # then their entire ip group will be flagged non-zero
-              select *,
-                sum(remove_ip) over (partition by ip) as zero_only
-              from 
-              ( 
-                # Add column that we will later user to filter out valid users who earn a
-                # certificate but click show_answer afterwards EVEN WHEN THEY GET IT RIGHT.
-                # If a user in an ip group is certified and has max(show_answer) in ip group then
-                # Remove this ip since user not cheater but checked show_answer a lot after getting it right
-                # Also remove multiple users working independently behind a NAT box
-                #Filter out harvesters with greater than 70% attempts correct 
+            FROM
+            (  
+              SELECT
+                *,
+                sum(certified = true) over (partition by ip) as sum_cert_true,
+                sum(certified = false) over (partition by ip) as sum_cert_false
+              from
+              (
+                # If any user in an ip group was flagged remove_ip = true
+                # then their entire ip group will be flagged non-zero
                 select *,
-                ((nshow_answer = maxsa and certified=true) 
-                 or (percent_correct_attempts > 70 and certified = false)) as remove_ip
-                from
-                (
-                  # Add column for max and min number of show answers for each ip group
+                  sum(remove_ip_group) over (partition by ip) as zero_only,
+                  #filter users with greater than 70% attempts correct or less 5 show answers
+                  certified = false and (percent_correct_attempts > 70 or nshow_answer <= 5 or frac_complete = 0) as remove
+                from 
+                ( 
+                  # Add column that we will later user to filter out valid users who earn a
+                  # certificate but click show_answer afterwards EVEN WHEN THEY GET IT RIGHT.
+                  # If a user in an ip group is certified and has max(show_answer) in ip group then
+                  # Remove this ip since user not cheater but checked show_answer a lot after getting it right
+                  # Also remove multiple users working independently behind a NAT box
+                  #Filter out harvesters with greater than 70% attempts correct or less 5 show answers
                   select *,
-                  max(nshow_answer) over (partition by ip) as maxsa,
-                  min(nshow_answer) over (partition by ip) as minsa,
+                  (nshow_answer = maxsa and certified=true) as remove_ip_group
                   from
                   (
-                  select user_id, username, ip, nshow_answer, percent_correct_attempts,
-                    frac_complete, certified, verified, start_time, last_event,
-                    nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
-                  from
-                    ( 
-                      # Find all users with >1 accounts, same ip address, different certification status
-                      select
-                        #  pc.course_id as course_id,
-                        pc.user_id as user_id,
-                        username,
-                        ip,
-                        nshow_answer,
-                        round(ac.percent_correct, 2) as percent_correct_attempts,
-                        frac_complete,
-                        ac.certified as certified,
-                        (case when pc.mode = "verified" then true else false end) as verified,
-                        start_time,
-                        last_event,
-                        nforum_posts,
-                        nprogcheck,
-                        nvideo,
-                        (sum_dt / 60 / 60/ 24) as time_active_in_days,
-                        grade,
-                        max(nshow_answer) over (partition by ip) as maxshow,
-                        min(nshow_answer) over (partition by ip) as minshow,
-                        sum(pc.certified = true) over (partition by ip) as sum_cert_true,
-                        sum(pc.certified = false) over (partition by ip) as sum_cert_false
+                    # Add column for max and min number of show answers for each ip group
+                    select *,
+                    max(nshow_answer) over (partition by ip) as maxsa,
+                    min(nshow_answer) over (partition by ip) as minsa,
+                    from
+                    (
+                    select user_id, username, ip, nshow_answer, percent_correct_attempts,
+                      frac_complete, certified, verified, countryLabel, start_time, last_event,
+                      nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
+                    from
+                      ( 
+                        # Find all users with >1 accounts, same ip address, different certification status
+                        select
+                          #  pc.course_id as course_id,
+                          pc.user_id as user_id,
+                          username,
+                          ip,
+                          nshow_answer,
+                          round(ac.percent_correct, 2) as percent_correct_attempts,
+                          frac_complete,
+                          ac.certified as certified,
+                          (case when pc.mode = "verified" then true else false end) as verified,
+                          countryLabel,
+                          start_time,
+                          last_event,
+                          nforum_posts,
+                          nprogcheck,
+                          nvideo,
+                          (sum_dt / 60 / 60/ 24) as time_active_in_days,
+                          grade,
+                          max(nshow_answer) over (partition by ip) as maxshow,
+                          min(nshow_answer) over (partition by ip) as minshow,
+                          sum(pc.certified = true) over (partition by ip) as sum_cert_true,
+                          sum(pc.certified = false) over (partition by ip) as sum_cert_false,
+                          count(ip) over (partition by ip) as ipcnt
             
-                      # Removes any user not in problem_analysis (use outer left join to include)
-                      FROM [{dataset}.person_course] as pc
-                      JOIN [{dataset}.stats_attempts_correct] as ac
-                      on pc.user_id = ac.user_id
-                      where pc.ip != ''
+                        # Removes any user not in problem_analysis (use outer left join to include)
+                        FROM [{dataset}.person_course] as pc
+                        JOIN [{dataset}.stats_attempts_correct] as ac
+                        on pc.user_id = ac.user_id
+                        where pc.ip != ''
+                      )
+                    # Remove people who just created an account they never used (small nshow_answer) and then earned a certificate validly with small nshow_answer
+                    # This also filters out people who only got a couple of answers with a second account.
+                    # We can't just say when min(nshow_answer) > threshold because master accounts wil have zero nshow_answer sometimes       
+                    where maxshow - minshow >=5
+                    # Since clicking show answer or guessing over and over cannot achieve certification, we should have
+                    # at least one (not certified) harvester, and at least one (certified) master who uses the answers.
+                    and sum_cert_true > 0
+                    and sum_cert_false > 0
+                    and ipcnt < 8 #Remove NAT or internet cafe ips
+            
                     )
-                  # Remove people who just created an account they never used (small nshow_answer) and then earned a certificate validly with small nshow_answer
-                  # This also filters out people who only got a couple of answers with a second account.
-                  # We can't just say when min(nshow_answer) > threshold because master accounts wil have zero nshow_answer sometimes       
-                  where maxshow - minshow >=5
-                  # Since clicking show answer or guessing over and over cannot achieve certification, we should have
-                  # at least one (not certified) harvester, and at least one (certified) master who uses the answers.
-                  and sum_cert_true > 0
-                  and sum_cert_false > 0
-            
                   )
                 )
               )
+              # Remove all ip groups with valid users who just clicked show_answer after getting it right.
+              # Also remove multiple users working independently behind a NAT box
+              where zero_only = 0
+              and remove = false
             )
-            # Remove all ip groups with valid users who just clicked show_answer after getting it right.
-            # Also remove multiple users working independently behind a NAT box
-            where zero_only = 0
-            and frac_complete > .05 #don't include harvesters which didn't harvest much
+            WHERE sum_cert_true > 0
+            and sum_cert_false > 0
             # Order by ip to group master and harvesters together. Order by certified so that we always have masters above harvester accounts.
             order by ip asc, certified desc
           """.format(dataset=dataset, course_id=course_id)
