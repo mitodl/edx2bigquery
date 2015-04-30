@@ -755,10 +755,15 @@ def get_data_tables(tables, args):
                 table_info = bqutil.get_bq_table_info(dataset, tablename, **optargs)
             except Exception as err:
                 if args.skip_missing and 'HttpError 404' in str(err):
-                    print "--> missing table [%s.%s] Skipping..." % (dataset, tablename)
-                    sys.stdout.flush()
-                    continue
-                raise
+                    table_info = None
+                else:
+                    raise
+            if args.skip_missing and table_info is None:
+                print "--> missing table [%s.%s] Skipping..." % (dataset, tablename)
+                sys.stdout.flush()
+                continue
+            if table_info is not None:
+                break
         schema = table_info['schema']['fields']
         print "Loading into BigQuery %s" % output_table
         sys.stdout.flush()
