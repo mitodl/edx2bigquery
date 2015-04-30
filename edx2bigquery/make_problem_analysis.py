@@ -742,7 +742,7 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
               "{course_id}" as course_id,
               user_id, username, ip, nshow_answer,
               percent_correct_attempts,frac_complete, certified, 
-              verified,
+              verified, countryLabel
               start_time, last_event,
               nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
             from
@@ -771,7 +771,7 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
                   from
                   (
                   select user_id, username, ip, nshow_answer, percent_correct_attempts,
-                    frac_complete, certified, verified, start_time, last_event,
+                    frac_complete, certified, verified, countryLabel, start_time, last_event,
                     nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
                   from
                     ( 
@@ -786,6 +786,7 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
                         frac_complete,
                         ac.certified as certified,
                         (case when pc.mode = "verified" then true else false end) as verified,
+                        countryLabel
                         start_time,
                         last_event,
                         nforum_posts,
