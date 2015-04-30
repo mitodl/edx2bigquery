@@ -853,7 +853,7 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
-                                newer_than=datetime.datetime(2015, 4, 17, 22, 00),
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
                                 depends_on=["%s.%s" % (dataset, sasbu),
                                         ],
                             )
