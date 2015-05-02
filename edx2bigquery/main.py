@@ -400,10 +400,17 @@ def ip_sybils(param, courses, args):
     import make_problem_analysis
     for course_id in get_course_ids(courses):
         try:
-            make_problem_analysis.compute_ip_pair_sybils(course_id, 
-                                            force_recompute=args.force_recompute,
-                                            use_dataset_latest=param.use_dataset_latest,
-            )
+            if not param.only_step or ("1" in (param.only_step or "").split(',')):
+                make_problem_analysis.compute_ip_pair_sybils(course_id, 
+                                                             force_recompute=args.force_recompute,
+                                                             use_dataset_latest=param.use_dataset_latest,
+                                                         )
+            if param.only_step and ("2" in (param.only_step or "").split(',')):
+                make_problem_analysis.compute_ip_pair_sybils2(course_id, 
+                                                              force_recompute=args.force_recompute,
+                                                              use_dataset_latest=param.use_dataset_latest,
+                                                              uname_ip_groups_table=param.table,
+                                                         )
         except Exception as err:
             print err
             traceback.print_exc()
@@ -1091,6 +1098,7 @@ check_for_duplicates        : check list of courses for duplicates
     param.limit_query_size = args.limit_query_size
     param.table_max_size_mb = args.table_max_size_mb
     param.only_step = args.only_step
+    param.table = args.table
 
     # default end date for person_course
     try:

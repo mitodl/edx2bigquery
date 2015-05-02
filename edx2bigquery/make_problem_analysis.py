@@ -863,3 +863,171 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
         nfound = len(bqdat['data'])
     print "--> Found %s records for %s, corresponding to %d master-harvester pairs" % (nfound, table, int(nfound/2))
     sys.stdout.flush()
+
+
+#-----------------------------------------------------------------------------
+
+def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None):
+    '''
+    The stats_ip_pair_sybils2 table finds all harvester-master GROUPS of users for 
+    which the pair have meaningful disparities
+    in performance, including:
+      - one earning a certificate and the other not
+      - one clicking "show answer" many times and the other not
+    Typically, the "master", which earns a certificate, has a high percentage
+    of correct attempts, while the "harvester" clicks on "show answer" many times,
+    and does not earn a certificate.
+
+    Multiple users can belong to the same group, and their IP addresses can be different.
+
+    This requires a table to be pre-computed, which gives the transitive closure over
+    all the (username, ip) pairs from the Sybil (1.0) tables.
+    '''
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    table = "stats_ip_pair_sybils2"
+
+    SQL = """# Northcutt SQL for finding sybils
+             ##################################
+             # Sybils Version 2.0
+             # Instead of same ip, considers users in same grp where
+             # where grp is determined by two iterations of the transitive closure 
+             # of the original sybils table (username, ip) pairs.
+             SELECT
+               user_id, username, ip, grp, nshow_answer,
+               percent_correct_attempts,frac_complete, certified, 
+               verified, countryLabel,
+               start_time, last_event,
+               nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
+             FROM
+             (  
+               SELECT
+                 *,
+                 sum(certified = true) over (partition by grp) as sum_cert_true,
+                 sum(certified = false) over (partition by grp) as sum_cert_false
+               from
+               (
+                 # If any user in an ip group was flagged remove_ip_group = true
+                 # then their entire ip group will be flagged non-zero
+                 select *,
+                   sum(remove_grp) over (partition by grp) as zero_only,
+                   #filter users with greater than 70% attempts correct or less 5 show answers
+                   certified = false and (percent_correct_attempts > 70 or nshow_answer <= 5 or frac_complete = 0) as remove
+                 from 
+                 ( 
+                   # Add column that we will later user to filter out valid users who earn a
+                   # certificate but click show_answer afterwards EVEN WHEN THEY GET IT RIGHT.
+                   # If a user in an ip group is certified and has max(show_answer) in ip group then
+                   # Remove this ip since user not cheater but checked show_answer a lot after getting it right
+                   # Also remove multiple users working independently behind a NAT box
+                   #Filter out harvesters with greater than 70% attempts correct or less 5 show answers
+                   select *,
+                   (nshow_answer = maxsa and certified=true) as remove_grp #max show answer must NOT be the master
+                   from
+                   (
+                     # Add column for max and min number of show answers for each ip group
+                     select *,
+                     max(nshow_answer) over (partition by grp) as maxsa,
+                     min(nshow_answer) over (partition by grp) as minsa,
+                     from
+                     (
+                     select user_id, username, ip, grp, nshow_answer, percent_correct_attempts,
+                       frac_complete, certified, verified, countryLabel, start_time, last_event,
+                       nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
+                     from
+                       ( 
+                         # Find all users with >1 accounts, same ip address, different certification status
+                         select
+                           #  pc.course_id as course_id,
+                           pc.user_id as user_id,
+                           username,
+                           ip, grp,
+                           nshow_answer,
+                           round(ac.percent_correct, 2) as percent_correct_attempts,
+                           frac_complete,
+                           ac.certified as certified,
+                           (case when pc.mode = "verified" then true else false end) as verified,
+                           countryLabel,
+                           start_time,
+                           last_event,
+                           nforum_posts,
+                           nprogcheck,
+                           nvideo,
+                           (sum_dt / 60 / 60/ 24) as time_active_in_days,
+                           grade,
+                           max(nshow_answer) over (partition by grp) as maxshow,
+                           min(nshow_answer) over (partition by grp) as minshow,
+                           sum(pc.certified = true) over (partition by grp) as sum_cert_true,
+                           sum(pc.certified = false) over (partition by grp) as sum_cert_false,
+                           count(grp) over (partition by grp) as ipcnt
+             
+                           #Adds a column with transitive closure group number for each user
+                           from
+                           (
+                             select user_id, username, ip, certified, grp, nshow_answer, mode,countryLabel,start_time,last_event,
+                             nforum_posts,nprogcheck,nvideo,sum_dt,grade
+                             FROM [{dataset}.person_course] a
+                             cross join [{uname_ip_groups_table}] b
+                             where #Just checks that username is in the list names
+                             right(b.names, length(a.username) + 1) = ','+a.username
+                             or left(b.names, length(a.username) + 1) = a.username+','
+                             or b.names contains ','+a.username+','
+                           )as pc
+                           JOIN [{dataset}.stats_attempts_correct] as ac
+                           on pc.user_id = ac.user_id
+                         )
+                       
+                     # Remove people who just created an account they never used (small nshow_answer) and then earned a 
+                     #  certificate validly with small nshow_answer
+                     # This also filters out people who only got a couple of answers with a second account.
+                     # We can't just say when min(nshow_answer) > threshold because master accounts wil have zero nshow_answer sometimes       
+
+                     where maxshow - minshow >=5
+
+                     # Since clicking show answer or guessing over and over cannot achieve certification, we should have
+                     # at least one (not certified) harvester, and at least one (certified) master who uses the answers.
+                     and sum_cert_true > 0
+                     and sum_cert_false > 0
+                     and ipcnt < 10 #Remove NAT or internet cafe ips
+             
+                     )
+                   )
+                 )
+               )
+               # Remove all ip groups with valid users who just clicked show_answer after getting it right.
+               # Also remove multiple users working independently behind a NAT box
+               where zero_only = 0
+               and remove = false
+             )
+             # Remove entire group if all the masters or all the harvesters were removed
+             WHERE sum_cert_true > 0
+             and sum_cert_false > 0
+             # Order by ip to group master and harvesters together. Order by certified so that we always have masters above harvester accounts.
+             order by grp asc, certified desc;
+          """.format(dataset=dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table)
+
+    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    sys.stdout.flush()
+
+    sasbu = "stats_attempts_correct"
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        has_attempts_correct = True
+    except Exception as err:
+        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        has_attempts_correct = False
+    if not has_attempts_correct:
+        print "---> No attempts_correct table; skipping %s" % table
+        return
+
+    bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                depends_on=["%s.%s" % (dataset, sasbu),
+                                        ],
+                            )
+    if not bqdat:
+        nfound = 0
+    else:
+        nfound = len(bqdat['data'])
+    print "--> Found %s records for %s" % (nfound, table)
+    sys.stdout.flush()
