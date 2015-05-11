@@ -53,7 +53,7 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
         #if cnt>2:
         #    break
 
-    org = course_id.split('/',1)[0]
+    org = course_id_set[0].split('/',1)[0]
 
     ofn = "person_course_%s_%s.csv" % (org, datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S'))
 
