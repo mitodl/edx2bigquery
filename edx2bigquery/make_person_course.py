@@ -930,7 +930,7 @@ class PersonCourse(object):
 
         try:
             tinfo = bqutil.get_bq_table_info('courses', 'global_modal_ip')            
-            has_global_modal_ip = (tinfo not None)
+            has_global_modal_ip = (tinfo is not None)
         except Exception as err:
             self.log("--> looking for courses.global_modal_ip, error=%s" % str(err))
             has_global_modal_ip = False
