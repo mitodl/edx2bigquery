@@ -966,7 +966,7 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
                            #Adds a column with transitive closure group number for each user
                            from
                            (
-                             select user_id, username, ip, certified, grp, nshow_answer, mode,countryLabel,start_time,last_event,
+                             select user_id, a.username, ip, certified, grp, nshow_answer, mode,countryLabel,start_time,last_event,
                              nforum_posts,nprogcheck,nvideo,sum_dt,grade
                              FROM [{dataset}.person_course] a
                              cross join [{uname_ip_groups_table}] b
