@@ -261,7 +261,7 @@ def analyze_course_single(param, course_id, optargs=None):
         sys.stdout.flush()
         raise
 
-def time_on_task(param, course_id, optargs=None, skip_totals=False):
+def time_on_task(param, course_id, optargs=None, skip_totals=False, just_do_totals=False):
     '''
     update time_task table based on tracking logs
 
@@ -282,7 +282,7 @@ def time_on_task(param, course_id, optargs=None, skip_totals=False):
                                                       use_dataset_latest=param.use_dataset_latest,
                                                       end_date=param.end_date,
                                                       start_date=param.start_date,
-                                                      just_do_totals=param.just_do_totals,
+                                                      just_do_totals=(param.just_do_totals or just_do_totals),
                                                       limit_query_size=param.limit_query_size,
                                                       table_max_size_mb=(param.table_max_size_mb or 800),
                                                       skip_totals=skip_totals,
@@ -580,6 +580,7 @@ def doall(param, course_id, args, stdout=None):
         problem_check(param, course_id, args)
         show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
+        time_on_task(param, course_id, args, just_do_totals=True)
         success = True
 
     except Exception as err:
