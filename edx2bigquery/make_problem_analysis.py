@@ -435,6 +435,7 @@ def make_chapter_grades_table(course_id, dataset, force_recompute):
 
     try:
         tinfo = bqutil.get_bq_table_info(dataset, 'course_axis')
+        assert tinfo is not None
     except Exception as err:
         print " --> Err: missing %s.%s?  Skipping creation of chapter_grades" % (dataset, "course_axis")
         sys.stdout.flush()
@@ -563,7 +564,7 @@ ORDER BY user_id
 
     try:
         tinfo = bqutil.get_bq_table_info(dataset, 'show_answer')
-        has_show_answer = True
+        has_show_answer = (tinfo is not None)
     except Exception as err:
         print "Error %s getting %s.%s" % (err, dataset, "show_answer")
         has_show_answer = False
@@ -698,7 +699,7 @@ FROM
     sasbu = "show_answer_stats_by_user"
     try:
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
-        has_show_answer = True
+        has_show_answer = (tinfo is not None)
     except Exception as err:
         print "Error %s getting %s.%s" % (err, dataset, sasbu)
         has_show_answer = False
@@ -844,7 +845,7 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
     sasbu = "stats_attempts_correct"
     try:
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
-        has_attempts_correct = True
+        has_attempts_correct = (tinfo is not None)
     except Exception as err:
         print "Error %s getting %s.%s" % (err, dataset, sasbu)
         has_attempts_correct = False
@@ -1013,7 +1014,7 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
     sasbu = "stats_attempts_correct"
     try:
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
-        has_attempts_correct = True
+        has_attempts_correct = (tinfo is not None)
     except Exception as err:
         print "Error %s getting %s.%s" % (err, dataset, sasbu)
         has_attempts_correct = False
