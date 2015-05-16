@@ -417,6 +417,20 @@ def ip_sybils(param, courses, args):
             sys.stdout.flush()
             raise
 
+def temporal_fingerprints(param, courses, args):
+    import make_problem_analysis
+    for course_id in get_course_ids(courses):
+        try:
+            make_problem_analysis.compute_temporal_fingerprints(course_id, 
+                                                                force_recompute=args.force_recompute,
+                                                                use_dataset_latest=param.use_dataset_latest,
+                                                            )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+            raise
+
 def show_answer_table(param, course_id, args=None):
     import make_problem_analysis
     try:
@@ -998,6 +1012,9 @@ ip_sybils <course_id> ...   : Create or update stats_ip_pair_sybils table, which
                               the IP address is the same, and the pair have meaningful disparities in perfomance.  Requires that 
                               attempts_correct be run first.
 
+temporal_fingerprints <cid>  : Create or update the problem_check_temporal_fingerprint, show_answer_temporal_fingerprint, and
+                              stats_temporal_fingerprint_correlations tables.  Part of problem analyses.  May be expensive.
+
 show_answer <course_id> ... : Create or update show_answer table, which has all the show_answer events from all the course's
                               tracking logs.
 
@@ -1365,6 +1382,11 @@ check_for_duplicates        : check list of courses for duplicates
         courses = get_course_ids(args)
         print "==> courses = ", courses
         run_parallel_or_serial(ip_sybils, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='temporal_fingerprints'):
+        courses = get_course_ids(args)
+        print "==> courses = ", courses
+        run_parallel_or_serial(temporal_fingerprints, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='time_task'):
         courses = get_course_ids(args)
