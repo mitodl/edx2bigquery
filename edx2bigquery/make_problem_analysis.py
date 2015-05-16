@@ -251,7 +251,7 @@ def attempts_correct(course_id, force_recompute=False, use_dataset_latest=False)
     the_sql = SQL.format(dataset=dataset, course_id=course_id)
     bqdat = bqutil.get_bq_table(dataset, tablename, the_sql,
                                 force_query=force_recompute, 
-                                newer_than=datetime.datetime(2015, 4, 14, 23, 00),
+                                newer_than=datetime.datetime(2015, 5, 14, 23, 00),
                                 depends_on=[ '%s.problem_analysis' % dataset ],
                                 )
     return bqdat
@@ -1273,8 +1273,11 @@ def compute_temporal_fingerprint_correlations(course_id, force_recompute=False, 
                                 newer_than=datetime.datetime(2015, 4, 29, 22, 00),
                                 depends_on=["%s.%s" % (dataset, sasbu),
                                         ],
-                                startIndex=-2,
                             )
 
-    print "--> Done with %s" % (table)
+    if not bqdat:
+        nfound = 0
+    else:
+        nfound = len(bqdat['data'])
+    print "--> Done with %s, %d entries found" % (table, nfound)
     sys.stdout.flush()
