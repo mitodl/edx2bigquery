@@ -130,6 +130,10 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
         if not line['module_type']=='problem':	# bug in edX platform?  too many entries are type=problem
             continue
         mid = line['module_id']
+
+        # May 2015: new location syntax for module_id's, e.g.:
+        # block-v1:HarvardX+BUS5.1x+3T2015+type@sequential+block@34c9c30a2bd3486f9e63e18552818286
+
         (org, num, category, url_name) = mid.rsplit('/',3)
         if not category=='problem':		# filter based on category info in module_id
             continue
