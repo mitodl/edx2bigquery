@@ -1022,7 +1022,339 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
         nfound = 0
     else:
         nfound = len(bqdat['data'])
-    print "--> Found %s records for %s" % (nfound, table)
+    print "--> [%s] Sybils 2.0 Found %s records for %s" % (course_id, nfound, table)
+    sys.stdout.flush()
+
+    compute_ip_pair_sybils2_features(course_id, force_recompute, use_dataset_latest)
+    
+#-----------------------------------------------------------------------------
+
+def compute_ip_pair_sybils2_features(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    The stats_ip_pair_sybils2_features table has all the info in stats_ip_pair_sybils2, but also
+    includes statistical features drawn from person_course and stats_attempts_correct
+    '''
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    table = "stats_ip_pair_sybils2_features"
+
+    SQL = """
+           SELECT 
+           "{course_id}" as course_id,
+           s.user_id as user_id,
+           s.username as username,
+           s.ip as ip,
+           s.grp as grp,
+           s.certified as certified,
+           pc.nshow_answer_unique_problems as nshow_answer_unique_problems,
+           percent_correct,
+           nproblems,
+           pc.frac_complete as frac_complete,
+           pc.verified as verified,
+           pc.countryLabel as countryLabel,
+           pc.start_time as start_time,
+           pc.last_event as last_event,
+           pc.nforum_posts as nforum_posts,
+           pc.nprogcheck as nprogcheck,
+           pc.nvideo as nvideo,
+           pc.time_active_in_days as time_active_in_days,
+           pc.grade as grade
+           FROM 
+           (
+             SELECT
+             pc.user_id as user_id,
+             percent_correct,
+             nshow_answer_unique_problems,
+             nproblems,
+             frac_complete,
+             pc.course_id as course_id,
+             (case when pc.mode = "verified" then true else false end) as verified,
+             countryLabel,
+             start_time,
+             last_event,
+             nforum_posts,
+             nprogcheck,
+             nvideo,
+             (sum_dt / 60 / 60/ 24) as time_active_in_days,
+             grade
+             FROM
+             [{dataset}.person_course] pc
+             JOIN [{dataset}.stats_attempts_correct] as ac
+             ON pc.user_id = ac.user_id
+           ) pc
+           JOIN [{dataset}.stats_ip_pair_sybils2] s
+           ON pc.user_id = s.user_id
+           order by grp asc, certified desc
+          """.format(dataset=dataset, course_id=course_id)
+
+    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    sys.stdout.flush()
+
+    sasbu = "stats_ip_pair_sybils2"
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        has_attempts_correct = (tinfo is not None)
+    except Exception as err:
+        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        has_attempts_correct = False
+    if not has_attempts_correct:
+        print "---> No %s table; skipping %s" % (sasbu, table)
+        return
+
+    bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                depends_on=["%s.%s" % (dataset, sasbu),
+                                        ],
+                            )
+    if not bqdat:
+        nfound = 0
+    else:
+        nfound = len(bqdat['data'])
+    print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
+    sys.stdout.flush()
+
+#-----------------------------------------------------------------------------
+
+def compute_temporal_fingerprints(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    This computes temporal fingerprints for problem_check and show_answer, and looks for correlations between them.
+
+    Each temporal fingerprint is a table which includes the event time for each (username, problem_index) pair,
+    where the problem index is the course_axis index for a specific CAPA problem in the courseware.
+    '''
+    compute_problem_check_temporal_fingerprint(course_id, force_recompute, use_dataset_latest)
+    compute_show_answer_temporal_fingerprint(course_id, force_recompute, use_dataset_latest)
+    compute_temporal_fingerprint_correlations(course_id, force_recompute, use_dataset_latest)
+
+
+def compute_problem_check_temporal_fingerprint(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    Compute problem_check_temporal_fingerprint
+    '''
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    table = "problem_check_temporal_fingerprint"
+
+    SQL = """
+            # construct problem check temporal fingerprint for each person
+            # each row contains the first problem_check timestamp for (person, indexed-item)
+            # average timestamp for indexed-item, and deviation
+            # of the person's timestamp from the average.
+            SELECT
+                username,
+                user_id, index, 
+                min_time as time_of_first_check,
+                max_time as time_of_last_check,
+                USEC_TO_TIMESTAMP(avg_first_check_time_usec) as avg_first_check_time,
+                (TIMESTAMP_TO_USEC(min_time) - avg_first_check_time_usec)/1.0e6/60/60 as delta_t_hours,
+            FROM
+            (
+                SELECT
+                    *,
+                    AVG(TIMESTAMP_TO_USEC(min_time)) OVER (PARTITION BY index) as avg_first_check_time_usec,
+                FROM
+                (
+                    SELECT
+                      PC.username as username, PC.user_id as user_id, SATF.index as index, min_time, max_time,
+                    FROM
+                    (
+                       SELECT 
+                         username,
+                         index,
+                         min_time,
+                         max_time
+                       FROM
+                       (
+                         SELECT min(time) as min_time, max(time) as max_time, username, module_id
+                         FROM [{dataset}.problem_check]
+                         GROUP BY username, module_id
+                       ) as SM
+                       JOIN
+                       (
+                          # get index and module_id from course_axis
+                          SELECT index,
+                              # CONCAT("i4x://", module_id) as module_id,
+                              module_id,
+                          FROM [{dataset}.course_axis] 
+                          WHERE category="problem"
+                       ) as CA
+                       ON CA.module_id = SM.module_id
+                       order by username, index
+                    ) as SATF
+                    JOIN EACH [{dataset}.person_course] as PC  # get certified from person_course
+                    on SATF.username = PC.username
+                    WHERE
+                      PC.certified
+                    order by user_id, index
+                )
+            )
+            order by user_id, index
+          """.format(dataset=dataset, course_id=course_id)
+
+    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    sys.stdout.flush()
+
+    sasbu = "problem_check"
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        has_attempts_correct = (tinfo is not None)
+    except Exception as err:
+        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        has_attempts_correct = False
+    if not has_attempts_correct:
+        print "---> No problem_check table; skipping %s" % table
+        return
+
+    try:
+        bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
+                                    newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                    depends_on=["%s.%s" % (dataset, sasbu),
+                                            ],
+                                    startIndex=-2,
+                                )
+    except Exception as err:
+        print "[compute_problem_check_temporal_fingerprint] oops, failed in running SQL=%s, err=%s" % (SQL, err)
+        raise
+
+    print "--> Done with %s" % (table)
+    sys.stdout.flush()
+
+
+def compute_show_answer_temporal_fingerprint(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    Compute show_answer_temporal_fingerprint
+    '''
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    table = "show_answer_temporal_fingerprint"
+
+    SQL = """
+            # construct show answer temporal fingerprint for each person
+            # each row contains activity timestamp for (person, indexed-item),
+            # and the certified flag.
+            SELECT
+              PC.username as username,
+              user_id, SATF.index as index, SATF.time as time,
+              certified,
+              # (case when certified then index end) as index_certified,
+            FROM
+            (
+               SELECT 
+                 username, index, FIRST(time) as time
+                 FROM [{dataset}.show_answer] a
+                 JOIN [{dataset}.course_axis] b
+                 ON a.course_id = b.course_id and a.module_id = b.module_id
+                 group by username, index
+            ) as SATF
+            JOIN EACH [{dataset}.person_course] as PC  # get user_id via username from person_course
+            on SATF.username = PC.username
+            WHERE
+              PC.nshow_answer > 10
+            order by user_id, index
+          """.format(dataset=dataset, course_id=course_id)
+
+    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    sys.stdout.flush()
+
+    sasbu = "show_answer"
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        has_attempts_correct = (tinfo is not None)
+    except Exception as err:
+        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        has_attempts_correct = False
+    if not has_attempts_correct:
+        print "---> No show_answer table; skipping %s" % table
+        return
+
+    bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                depends_on=["%s.%s" % (dataset, sasbu),
+                                        ],
+                                startIndex=-2,
+                            )
+
+    print "--> Done with %s" % (table)
+    sys.stdout.flush()
+
+def compute_temporal_fingerprint_correlations(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    Compute stats_temporal_fingerprint_correlations
+    '''
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    table = "stats_temporal_fingerprint_correlations"
+
+    SQL = """
+            # corrlate problem check temporal fingerprint with show answer temporal fingerprint
+            # this version uses the average time for each item (averaged over all certified problem
+            # check times) as a baseline, and subtracts that baseline time from each
+            # problem activity time and show answer time.  That removes the baseline
+            # linear correlation between times, due to the natural temporal progression of
+            # the course content as it is released sequentially.
+            #
+            # Note that a threshold (on n_show_answer_times) is used to discard cases when there are 
+            # two few points being correlated.
+            SELECT
+               "{course_id}" as course_id,
+                CAMEO_username,
+                harvester_username as shadow_username,
+                CAMEO_uid,
+                harvester_uid as shadow_uid,
+                pearson_corr as fpt_pearson_corr,
+                n_show_answer_times,
+                avg_dt_show_answer_to_problem_check_in_min,
+                percent_correct as CAMEO_percent_correct,
+                frac_complete as CAMEO_frac_complete,
+            FROM
+            (
+                SELECT 
+                    A.user_id as CAMEO_uid, 
+                    A.username as CAMEO_username,
+                    B.user_id as harvester_uid,
+                    B.username as harvester_username,
+                    # CORR(B.time, A.time) as pearson_corr,
+                    CORR(A.delta_t_hours, B.time - A.avg_first_check_time) as pearson_corr,
+                    count(B.time) as n_show_answer_times,
+                    count(A.time_of_first_check) as n_problem_activity_times,
+                    AVG(A.time_of_first_check - B.time) / 1.0e6/60 as avg_dt_show_answer_to_problem_check_in_min,
+                FROM [{dataset}.problem_check_temporal_fingerprint] as A
+                FULL OUTER JOIN EACH [{dataset}.show_answer_temporal_fingerprint] as B
+                ON A.index = B.index
+                WHERE
+                   not B.certified
+                   and not (A.user_id = B.user_id)
+                   and B.time < A.time_of_first_check     # only correlate when show_answer happens BEFORE problem submission
+                GROUP EACH BY CAMEO_uid, CAMEO_username, harvester_uid, harvester_username
+                HAVING n_show_answer_times > 20 and pearson_corr > 0.99    # TODO: make these adjust, e.g. use half number of problems
+                ORDER BY pearson_corr desc
+            ) as C
+            JOIN [{dataset}.stats_attempts_correct] as SAC
+            ON C.CAMEO_uid = SAC.user_id
+          """.format(dataset=dataset, course_id=course_id)
+
+    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    sys.stdout.flush()
+
+    sasbu = "stats_attempts_correct"
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        has_attempts_correct = (tinfo is not None)
+    except Exception as err:
+        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        has_attempts_correct = False
+    if not has_attempts_correct:
+        print "---> No %s table; skipping %s" % (sasbu, table)
+        return
+
+    bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                depends_on=["%s.%s" % (dataset, sasbu),
+                                        ],
+                            )
+
+    if not bqdat:
+        nfound = 0
+    else:
+        nfound = len(bqdat['data'])
+    print "--> Done with %s, %d entries found" % (table, nfound)
     sys.stdout.flush()
 
 #-----------------------------------------------------------------------------
