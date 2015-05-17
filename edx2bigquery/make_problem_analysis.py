@@ -218,28 +218,45 @@ def attempts_correct(course_id, force_recompute=False, use_dataset_latest=False)
     '''
     SQL = """# problem attempt correctness percentage, including whether user was certified
              SELECT *, 
-                 round(nitems / total_problems, 4) as frac_complete,
+               round(nproblems / total_problems, 4) as frac_complete,
              FROM
              (
                SELECT *,
-                 max(nitems) over () as total_problems,
+                 max(nproblems) over () as total_problems,
                FROM
                (
-                 SELECT
-                     "{course_id}" as course_id,
-                     PA.user_id as user_id,
-                     PC.certified as certified,
-                     PC.explored as explored,
-                     sum(case when PA.item.correct_bool then 1 else 0 end)
-                     / count(PA.item.correct_bool) * 100.0 as percent_correct,
-                     count(PA.item.correct_bool) as nitems,
+               SELECT
+                 "{course_id}" as course_id,
+                 PA.user_id as user_id,  
+                 PC.certified as certified,
+                 PC.explored as explored,
+                 sum(case when PA.item.correct_bool then 1 else 0 end)
+                 / count(PA.item.correct_bool) * 100.0 as percent_correct,
+                 count(PA.item.correct_bool) as nattempts,
+                 nshow_answer_unique_problems,
+                 count(DISTINCT problem_url_name) as nproblems
                  FROM [{dataset}.problem_analysis] as PA
-                 JOIN EACH [{dataset}.person_course] as PC
+                 JOIN EACH
+                 (
+                   SELECT user_id, certified, explored, viewed, nshow_answer_unique_problems
+                   FROM
+                   [{dataset}.person_course] a
+                   JOIN
+                   (
+                     SELECT username, count(*) AS nshow_answer_unique_problems
+                     FROM
+                     (
+                       SELECT username, module_id
+                       FROM [{dataset}.show_answer]
+                       GROUP BY username, module_id
+                     )
+                     GROUP BY username
+                   ) b
+                   ON a.username = b.username
+                 ) as PC
                  ON PA.user_id = PC.user_id
-                 # where PC.certified            # only certificate earners, for this query
                  where PC.viewed                 # only participants (viewers)
-                 group by user_id, certified, explored
-                 order by certified desc, explored desc, percent_correct desc
+                 group by user_id, certified, explored, nshow_answer_unique_problems
                )
              )
              order by certified desc, explored desc, percent_correct desc
