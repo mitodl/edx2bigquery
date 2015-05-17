@@ -762,11 +762,8 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
             # northcutt SQL for finding sybils
             SELECT
               "{course_id}" as course_id,
-              user_id, username, ip, nshow_answer,
-              percent_correct_attempts,frac_complete, certified, 
-              verified, countryLabel,
-              start_time, last_event,
-              nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
+              user_id, username, ip, nshow_answer as nshow_answer_unique_problems,
+              percent_correct_attempts,frac_complete, certified
             FROM
             (  
               SELECT
@@ -800,8 +797,7 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
                     from
                     (
                     select user_id, username, ip, nshow_answer, percent_correct_attempts,
-                      frac_complete, certified, verified, countryLabel, start_time, last_event,
-                      nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
+                      frac_complete, certified
                     from
                       ( 
                         # Find all users with >1 accounts, same ip address, different certification status
@@ -810,19 +806,10 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
                           pc.user_id as user_id,
                           username,
                           ip,
-                          nshow_answer,
+                          nshow_answer_unique_problems as nshow_answer,
                           round(ac.percent_correct, 2) as percent_correct_attempts,
                           frac_complete,
                           ac.certified as certified,
-                          (case when pc.mode = "verified" then true else false end) as verified,
-                          countryLabel,
-                          start_time,
-                          last_event,
-                          nforum_posts,
-                          nprogcheck,
-                          nvideo,
-                          (sum_dt / 60 / 60/ 24) as time_active_in_days,
-                          grade,
                           max(nshow_answer) over (partition by ip) as maxshow,
                           min(nshow_answer) over (partition by ip) as minshow,
                           sum(pc.certified = true) over (partition by ip) as sum_cert_true,
@@ -918,10 +905,7 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
              SELECT
                "{course_id}" as course_id,
                user_id, username, ip, grp, nshow_answer,
-               percent_correct_attempts,frac_complete, certified, 
-               verified, countryLabel,
-               start_time, last_event,
-               nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
+               percent_correct_attempts,frac_complete, certified
              FROM
              (  
                SELECT
@@ -955,8 +939,7 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
                      from
                      (
                      select user_id, username, ip, grp, nshow_answer, percent_correct_attempts,
-                       frac_complete, certified, verified, countryLabel, start_time, last_event,
-                       nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
+                       frac_complete, certified
                      from
                        ( 
                          # Find all users with >1 accounts, same ip address, different certification status
@@ -965,19 +948,10 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
                            pc.user_id as user_id,
                            username,
                            ip, grp,
-                           nshow_answer,
+                           nshow_answer_unique_problems as nshow_answer,
                            round(ac.percent_correct, 2) as percent_correct_attempts,
                            frac_complete,
                            ac.certified as certified,
-                           (case when pc.mode = "verified" then true else false end) as verified,
-                           countryLabel,
-                           start_time,
-                           last_event,
-                           nforum_posts,
-                           nprogcheck,
-                           nvideo,
-                           (sum_dt / 60 / 60/ 24) as time_active_in_days,
-                           grade,
                            max(nshow_answer) over (partition by grp) as maxshow,
                            min(nshow_answer) over (partition by grp) as minshow,
                            sum(pc.certified = true) over (partition by grp) as sum_cert_true,
@@ -987,17 +961,13 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
                            #Adds a column with transitive closure group number for each user
                            from
                            (
-                             select user_id, a.username, ip, certified, grp, nshow_answer, mode,countryLabel,start_time,last_event,
-                             nforum_posts,nprogcheck,nvideo,sum_dt,grade
+                             select user_id, a.username as username, a.ip as ip, certified, grp
                              FROM [{dataset}.person_course] a
-                             cross join [{uname_ip_groups_table}] b
-                             where #Just checks that username is in the list names
-                             right(b.names, length(a.username) + 1) = ','+a.username
-                             or left(b.names, length(a.username) + 1) = a.username+','
-                             or b.names contains ','+a.username+','
+                             JOIN [{uname_ip_groups_table}] b
+                             ON a.username = b.username AND a.ip = b.ip
                            )as pc
-                           JOIN [{dataset}.stats_attempts_correct] as ac
-                           on pc.user_id = ac.user_id
+                            JOIN [{dataset}.stats_attempts_correct] as ac
+                            on pc.user_id = ac.user_id
                          )
                        
                      # Remove people who just created an account they never used (small nshow_answer) and then earned a 
