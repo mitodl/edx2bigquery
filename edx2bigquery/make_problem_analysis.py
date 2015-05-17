@@ -904,7 +904,7 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
              # of the original sybils table (username, ip) pairs.
              SELECT
                "{course_id}" as course_id,
-               user_id, username, ip, grp, nshow_answer,
+               user_id, username, ip, grp, nshow_answer as nshow_answer_unique_problems,
                percent_correct_attempts,frac_complete, certified
              FROM
              (  
