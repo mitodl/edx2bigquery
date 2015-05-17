@@ -268,7 +268,7 @@ def attempts_correct(course_id, force_recompute=False, use_dataset_latest=False)
     the_sql = SQL.format(dataset=dataset, course_id=course_id)
     bqdat = bqutil.get_bq_table(dataset, tablename, the_sql,
                                 force_query=force_recompute, 
-                                newer_than=datetime.datetime(2015, 5, 14, 23, 00),
+                                newer_than=datetime.datetime(2015, 5, 17, 16, 00),
                                 depends_on=[ '%s.problem_analysis' % dataset ],
                                 )
     return bqdat
