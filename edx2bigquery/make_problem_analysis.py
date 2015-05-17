@@ -233,7 +233,7 @@ def attempts_correct(course_id, force_recompute=False, use_dataset_latest=False)
                  sum(case when PA.item.correct_bool then 1 else 0 end)
                  / count(PA.item.correct_bool) * 100.0 as percent_correct,
                  count(PA.item.correct_bool) as nattempts,
-                 nshow_answer_unique_problems,
+                 case when nshow_answer_unique_problems is null then 0 else nshow_answer_unique_problems end as nshow_answer_unique_problems,
                  count(DISTINCT problem_url_name) as nproblems
                  FROM [{dataset}.problem_analysis] as PA
                  JOIN EACH
@@ -241,9 +241,9 @@ def attempts_correct(course_id, force_recompute=False, use_dataset_latest=False)
                    SELECT user_id, certified, explored, viewed, nshow_answer_unique_problems
                    FROM
                    [{dataset}.person_course] a
-                   JOIN
+                   LEFT OUTER JOIN
                    (
-                     SELECT username, count(*) AS nshow_answer_unique_problems
+                     SELECT username, INTEGER(count(*)) AS nshow_answer_unique_problems
                      FROM
                      (
                        SELECT username, module_id
