@@ -1219,6 +1219,7 @@ def compute_temporal_fingerprint_correlations(course_id, force_recompute=False, 
             # Note that a threshold (on n_show_answer_times) is used to discard cases when there are 
             # two few points being correlated.
             SELECT
+               "{course_id}" as course_id,
                 CAMEO_username,
                 harvester_username as shadow_username,
                 CAMEO_uid,
