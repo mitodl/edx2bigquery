@@ -32,6 +32,7 @@ import pytz
 import gzip
 import bqutil
 import gsutil
+import unicodecsv as csv
 from path import path
 from gsutil import get_gs_file_list
 
@@ -90,12 +91,57 @@ def openfile(fn, mode='r'):
     return open(fn, mode)
 
 def tsv2csv(fn_in, fn_out):
-    import csv
     fp = openfile(fn_out, 'w')
     csvfp = csv.writer(fp)
     for line in openfile(fn_in):
         csvfp.writerow(line[:-1].split('\t'))
     fp.close()
+
+#-----------------------------------------------------------------------------
+
+def fix_opaque_keys(data, field):
+    '''
+    Convert opaque key field to traditional format.  For example:
+
+    block-v1:MITx+6.01x+4T2015+type@sequential+block@813ef6a87f744d70a188abf9acbd97de -> i4x://MITx/6.01x/sequential/813ef6a87f744d70a188abf9acbd97de
+    course-v1:MITx+6.01x+4T2015 -> MITx/6.01x/4T2015
+    '''
+    value = data[field]
+    newval = value
+    if value.startswith('block-v1:'):
+        nfields = value.split('block-v1:',1)[1].split('+')
+        newval = 'i4x://%s/%s/%s/%s' % (nfields[0], nfields[1], nfields[3].split('@',1)[1], nfields[4].split('@',1)[1])
+    elif value.startswith('course-v1'):
+        nfields = value.split('course-v1:',1)[1].split('+')
+        newval = '%s/%s/%s' % (nfields[0], nfields[1], nfields[2])
+    data[field] = newval
+
+def rephrase_studentmodule_opaque_keys(fn_sm):
+    '''
+    Generate rephrased studentmodule, with opaque key entries for module_id and course_id translated
+    into traditional format.
+    '''
+    fn_sm = path(fn_sm)
+    orig_sm_fn = '%s/studentmodule_orig.csv.gz' % (fn_sm.dirname())
+    cmd = 'cp %s %s' % (fn_sm, orig_sm_fn)
+    print "  Running %s" % cmd
+    sys.stdout.flush()
+    os.system(cmd)
+    ofp = gzip.GzipFile(fn_sm, 'w')
+    with gzip.GzipFile(orig_sm_fn) as smfp:
+        cdr = csv.DictReader(smfp)
+        first = True
+        for entry in cdr:
+            if first:
+                odw = csv.DictWriter(ofp, fieldnames=cdr.fieldnames)
+                odw.writeheader()
+                first = False
+            fix_opaque_keys(entry, 'module_id')
+            fix_opaque_keys(entry, 'course_id')
+            odw.writerow(entry)
+    ofp.close()
+    print "Rephrased %s -> %s to convert opaque keys syntax to standard module_id and course_id format" % (orig_sm_fn, fn_sm)
+    sys.stdout.flush()
 
 #-----------------------------------------------------------------------------
 
@@ -135,6 +181,14 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
                 print "--> Converting %s to %s" % (fn_sm, newfn)
                 tsv2csv(fn_sm, newfn)
                 fn_sm = newfn
+
+    # rephrase studentmodule if it's using opaque keys
+    fline = ''
+    with gzip.GzipFile(fn_sm) as smfp:
+        fline = smfp.readline()	# skip first line - it's a header
+        fline = smfp.readline()
+    if 'block-v1:' in fline:
+        rephrase_studentmodule_opaque_keys(fn_sm)
 
     def convert_sql(fnroot):
         if os.path.exists(fnroot + ".csv") or os.path.exists(fnroot + ".csv.gz"):
