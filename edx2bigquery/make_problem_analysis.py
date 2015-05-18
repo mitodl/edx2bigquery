@@ -1149,7 +1149,7 @@ def compute_ip_pair_sybils2_features(course_id, force_recompute=False, use_datas
 
     SQL = """
             SELECT 
-            course_id,
+            "{course_id}" as course_id,
             user_id,
             username,
             case when certified_account is null then username else certified_account end as certfied_cameo,
@@ -1174,7 +1174,7 @@ def compute_ip_pair_sybils2_features(course_id, force_recompute=False, use_datas
             FROM
             (
                SELECT 
-               "{course_id}" as course_id,
+               # "{course_id}" as course_id,
                s.user_id as user_id,
                s.username as username,
                s.ip as ip,
