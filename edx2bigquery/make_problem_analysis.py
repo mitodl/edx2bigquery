@@ -127,7 +127,7 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
     for line in csv.DictReader(smfp):
         nlines += 1
         uid = int(line['student_id'])
-        if not line['module_type']=='problem':	# bug in edX platform?  too many entries are type=problem
+        if not line['module_type']=='problem':  # bug in edX platform?  too many entries are type=problem
             continue
         mid = line['module_id']
 
@@ -135,7 +135,7 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
         # block-v1:HarvardX+BUS5.1x+3T2015+type@sequential+block@34c9c30a2bd3486f9e63e18552818286
 
         (org, num, category, url_name) = mid.rsplit('/',3)
-        if not category=='problem':		# filter based on category info in module_id
+        if not category=='problem':     # filter based on category info in module_id
             continue
         try:
             state = json.loads(line['state'].replace('\\\\','\\'))
@@ -147,7 +147,7 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
         if 'correct_map' not in state:
             continue
         
-        if not state['correct_map']:	# correct map = {} is not of interest
+        if not state['correct_map']:    # correct map = {} is not of interest
             continue
 
         answers = state['student_answers']
@@ -432,7 +432,7 @@ def make_chapter_grades_table(course_id, dataset, force_recompute):
                   CA.name as name,
                   CA.gformat as gformat,
                   CA.chapter_mid as chapter_mid,
-                  # CA.index as course_axis_index,	# this is the problem's index, not the chapter's!
+                  # CA.index as course_axis_index,  # this is the problem's index, not the chapter's!
                   CA.due as due_date,
                 FROM [{dataset}.problem_grades] as PG
                 JOIN (
@@ -1025,8 +1025,117 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
     print "--> [%s] Sybils 2.0 Found %s records for %s" % (course_id, nfound, table)
     sys.stdout.flush()
 
+    compute_sybils_show_ans_before(course_id, force_recompute, use_dataset_latest)
+
     compute_ip_pair_sybils2_features(course_id, force_recompute, use_dataset_latest)
     
+#-----------------------------------------------------------------------------
+
+def compute_sybils_show_ans_before(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    An ancillary table for sybils which computes the percent of shadow account show answers 
+    that occur before the corresponding certified CAMEO accounts correct answer submission.
+    This table also computes avg_max_dt_seconds which is the average time between the shadow's
+    show_answer and the certified accounts' correct answer.
+
+    This table chooses the FIRST show_answer and the LAST correct submission, to ensure any cheating
+    is caught, even if the user tried to figure it out without cheating first.
+    '''
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    table = "stats_sybils_show_ans_before"
+
+    SQL = """
+              SELECT 
+              "{course_id}" as course_id,
+              shadow,
+              certified_account,
+              sum(sa_before_pa) as show_ans_before,
+              count(*) as prob_in_common,
+              round(sum(sa_before_pa) / count(*), 4) * 100 as percent_show_ans_before,
+              round(avg(max_dt), 4) as avg_max_dt_seconds
+              FROM
+              (  
+                select sa.username as shadow,
+                pa.username as certified_account,
+                sa.time, pa.time,
+                sa.time < pa.time as sa_before_pa,
+                (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 else NULL end) as max_dt
+                FROM
+                (
+                  #Certified = false, show answer (first) account must be shadow
+                  SELECT grp, sa.username as username, index, time
+                  FROM
+                  (
+                    SELECT sa.username as username, index, sa.time as time
+                    FROM
+                    (
+                      SELECT 
+                      username, index, FIRST(time) as time
+                      FROM [{dataset}.show_answer] a
+                      JOIN [{dataset}.course_axis] b
+                      ON a.course_id = b.course_id and a.module_id = b.module_id
+                      group by username, index
+                    ) sa
+                    JOIN [{dataset}.person_course] pc
+                    ON sa.username = pc.username
+                    where certified = false
+                  )sa
+                  JOIN [{dataset}.stats_ip_pair_sybils2] s
+                  on sa.username = s.username
+                ) sa
+                JOIN
+                (
+                  #certified = true, problem activity (second) account must be surface
+                  SELECT grp, pa.username as username, index, time
+                  FROM
+                  (
+                    SELECT 
+                    username, index, LAST(time) as time
+                    FROM [{dataset}.problem_check] a
+                    JOIN [{dataset}.course_axis] b
+                    ON a.course_id = b.course_id and a.module_id = b.module_id
+                    where category = 'problem'
+                    and success = 'correct'
+                    group by username, index
+                ) pa
+                  JOIN [{dataset}.stats_ip_pair_sybils2] s
+                  on pa.username = s.username
+                  where certified = true
+                ) pa
+                on sa.grp = pa.grp and sa.index = pa.index
+                WHERE sa.username != pa.username
+              )
+              group by shadow, certified_account
+              order by avg_max_dt_seconds asc
+          """.format(dataset=dataset, course_id=course_id)
+
+    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    sys.stdout.flush()
+
+    sasbu = "stats_ip_pair_sybils2"
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        has_attempts_correct = (tinfo is not None)
+    except Exception as err:
+        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        has_attempts_correct = False
+    if not has_attempts_correct:
+        print "---> No %s table; skipping %s" % (sasbu, table)
+        return
+
+    bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                depends_on=["%s.%s" % (dataset, sasbu),
+                                        ],
+                            )
+    if not bqdat:
+        nfound = 0
+    else:
+        nfound = len(bqdat['data'])
+    print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
+    sys.stdout.flush()
+
 #-----------------------------------------------------------------------------
 
 def compute_ip_pair_sybils2_features(course_id, force_recompute=False, use_dataset_latest=False):
@@ -1039,52 +1148,80 @@ def compute_ip_pair_sybils2_features(course_id, force_recompute=False, use_datas
     table = "stats_ip_pair_sybils2_features"
 
     SQL = """
-           SELECT 
-           "{course_id}" as course_id,
-           s.user_id as user_id,
-           s.username as username,
-           s.ip as ip,
-           s.grp as grp,
-           s.certified as certified,
-           pc.nshow_answer_unique_problems as nshow_answer_unique_problems,
-           percent_correct,
-           nproblems,
-           pc.frac_complete as frac_complete,
-           pc.verified as verified,
-           pc.countryLabel as countryLabel,
-           pc.start_time as start_time,
-           pc.last_event as last_event,
-           pc.nforum_posts as nforum_posts,
-           pc.nprogcheck as nprogcheck,
-           pc.nvideo as nvideo,
-           pc.time_active_in_days as time_active_in_days,
-           pc.grade as grade
-           FROM 
-           (
-             SELECT
-             pc.user_id as user_id,
-             percent_correct,
-             nshow_answer_unique_problems,
-             nproblems,
-             frac_complete,
-             pc.course_id as course_id,
-             (case when pc.mode = "verified" then true else false end) as verified,
-             countryLabel,
-             start_time,
-             last_event,
-             nforum_posts,
-             nprogcheck,
-             nvideo,
-             (sum_dt / 60 / 60/ 24) as time_active_in_days,
-             grade
-             FROM
-             [{dataset}.person_course] pc
-             JOIN [{dataset}.stats_attempts_correct] as ac
-             ON pc.user_id = ac.user_id
-           ) pc
-           JOIN [{dataset}.stats_ip_pair_sybils2] s
-           ON pc.user_id = s.user_id
-           order by grp asc, certified desc
+            SELECT 
+            course_id,
+            user_id,
+            username,
+            case when certified_account is null then username else certified_account end as certfied_cameo,
+            ip,
+            grp,
+            certified,
+            nshow_answer_unique_problems,
+            percent_correct,
+            percent_show_ans_before,
+            avg_max_dt_seconds,
+            nproblems,
+            frac_complete,
+            verified,
+            countryLabel,
+            start_time,
+            last_event,
+            nforum_posts,
+            nprogcheck,
+            nvideo,
+            time_active_in_days,
+            grade
+            FROM
+            (
+               SELECT 
+               "{course_id}" as course_id,
+               s.user_id as user_id,
+               s.username as username,
+               s.ip as ip,
+               s.grp as grp,
+               s.certified as certified,
+               pc.nshow_answer_unique_problems as nshow_answer_unique_problems,
+               percent_correct,
+               nproblems,
+               pc.frac_complete as frac_complete,
+               pc.verified as verified,
+               pc.countryLabel as countryLabel,
+               pc.start_time as start_time,
+               pc.last_event as last_event,
+               pc.nforum_posts as nforum_posts,
+               pc.nprogcheck as nprogcheck,
+               pc.nvideo as nvideo,
+               pc.time_active_in_days as time_active_in_days,
+               pc.grade as grade
+               FROM 
+               (
+                 SELECT
+                 pc.user_id as user_id,
+                 percent_correct,
+                 nshow_answer_unique_problems,
+                 nproblems,
+                 frac_complete,
+                 pc.course_id as course_id,
+                 (case when pc.mode = "verified" then true else false end) as verified,
+                 countryLabel,
+                 start_time,
+                 last_event,
+                 nforum_posts,
+                 nprogcheck,
+                 nvideo,
+                 (sum_dt / 60 / 60/ 24) as time_active_in_days,
+                 grade
+                 FROM
+                 [{dataset}.person_course] pc
+                 JOIN [{dataset}.stats_attempts_correct] as ac
+                 ON pc.user_id = ac.user_id
+               ) pc
+               JOIN [{dataset}.stats_ip_pair_sybils2] s
+               ON pc.user_id = s.user_id
+               order by grp asc, certified desc
+            ) a
+            LEFT OUTER JOIN [{dataset}.stats_sybils_show_ans_before] b
+            ON a.username = b.shadow
           """.format(dataset=dataset, course_id=course_id)
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
