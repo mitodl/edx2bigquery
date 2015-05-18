@@ -1073,11 +1073,11 @@ def compute_sybils_show_ans_before(course_id, force_recompute=False, use_dataset
                       SELECT 
                       username, index, FIRST(time) as time
                       FROM [{dataset}.show_answer] a
-                      JOIN [{dataset}.course_axis] b
+                      JOIN EACH [{dataset}.course_axis] b
                       ON a.course_id = b.course_id and a.module_id = b.module_id
                       group by username, index
                     ) sa
-                    JOIN [{dataset}.person_course] pc
+                    JOIN EACH [{dataset}.person_course] pc
                     ON sa.username = pc.username
                     where certified = false
                   )sa
@@ -1148,29 +1148,29 @@ def compute_ip_pair_sybils2_features(course_id, force_recompute=False, use_datas
     table = "stats_ip_pair_sybils2_features"
 
     SQL = """
-            SELECT 
-            "{course_id}" as course_id,
-            user_id,
+            SELECT
+            "{course_id}" AS course_id,,
+            FIRST(user_id) AS user_id,
             username,
-            case when certified_account is null then username else certified_account end as certfied_cameo,
-            ip,
-            grp,
-            certified,
-            nshow_answer_unique_problems,
-            percent_correct,
-            percent_show_ans_before,
-            avg_max_dt_seconds,
-            nproblems,
-            frac_complete,
-            verified,
-            countryLabel,
-            start_time,
-            last_event,
-            nforum_posts,
-            nprogcheck,
-            nvideo,
-            time_active_in_days,
-            grade
+            FIRST(case when certified_account is null then username else certified_account end) as certfied_cameo,
+            FIRST(ip) AS ip,
+            FIRST(grp) AS grp,
+            FIRST(certified) AS certified,
+            FIRST(nshow_answer_unique_problems) AS nshow_answer_unique_problems,
+            FIRST(percent_correct) AS percent_correct,
+            FIRST(percent_show_ans_before) AS percent_show_ans_before,
+            FIRST(avg_max_dt_seconds) AS avg_max_dt_seconds,
+            FIRST(nproblems) AS nproblems,
+            FIRST(frac_complete) AS frac_complete,
+            FIRST(verified) AS verified,
+            FIRST(countryLabel) AS countryLabel,
+            FIRST(start_time) AS start_time,
+            FIRST(last_event) AS last_event,
+            FIRST(nforum_posts) AS nforum_posts,
+            FIRST(nprogcheck) AS nprogcheck,
+            FIRST(nvideo) AS nvideo,
+            FIRST(time_active_in_days) AS time_active_in_days,
+            FIRST(grade) AS grade
             FROM
             (
                SELECT 
@@ -1222,6 +1222,7 @@ def compute_ip_pair_sybils2_features(course_id, force_recompute=False, use_datas
             ) a
             LEFT OUTER JOIN [{dataset}.stats_sybils_show_ans_before] b
             ON a.username = b.shadow
+            group by username
           """.format(dataset=dataset, course_id=course_id)
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
