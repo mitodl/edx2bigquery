@@ -1249,7 +1249,7 @@ def compute_ip_pair_sybils3_features(course_id, force_recompute=False, use_datas
                s.grp as grp,
                s.certified as certified,
                pc.nshow_answer_unique_problems as nshow_answer_unique_problems,
-               percent_correct,
+               pc.percent_correct as percent_correct,
                nproblems,
                pc.frac_complete as frac_complete,
                pc.verified as verified,
