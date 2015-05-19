@@ -1044,7 +1044,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
                          (
                            select user_id, a.username as username, a.ip as ip, certified, grp
                            FROM [{dataset}.person_course] a
-                           JOIN [harvardx-data:course_report_latest.username_ip_tc_groups_person_course_mitx_harvardx] b
+                           JOIN [{uname_ip_groups_table}] b
                            ON a.ip = b.ip and a.username = b.username
                            group by user_id, username, ip, certified, grp
                          )as pc
