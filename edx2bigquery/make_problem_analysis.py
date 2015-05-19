@@ -762,8 +762,8 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
             # northcutt SQL for finding sybils
             SELECT
               "{course_id}" as course_id,
-              user_id, username, ip, nshow_answer as nshow_answer_unique_problems,
-              percent_correct_attempts,frac_complete, certified
+              user_id, username, ip, nshow_answer_unique_problems,
+              percent_correct, frac_complete, certified
             FROM
             (  
               SELECT
@@ -776,11 +776,11 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
                 # then their entire ip group will be flagged non-zero
                 select *,
                   #filter users with greater than 70% attempts correct or less 5 show answers
-                  certified = false and (percent_correct_attempts > 70 or nshow_answer <= 10 or frac_complete = 0) as remove
+                  certified = false and (percent_correct > 70 or nshow_answer_unique_problems <= 10 or frac_complete = 0) as remove
                 from 
                 ( 
                   (
-                  select user_id, username, ip, nshow_answer, percent_correct_attempts,
+                  select user_id, username, ip, nshow_answer_unique_problems, percent_correct,
                     frac_complete, certified
                   from
                     ( 
@@ -790,12 +790,10 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
                         pc.user_id as user_id,
                         username,
                         ip,
-                        nshow_answer_unique_problems as nshow_answer,
-                        round(ac.percent_correct, 2) as percent_correct_attempts,
+                        nshow_answer_unique_problems,
+                        round(ac.percent_correct, 2) as percent_correct,
                         frac_complete,
                         ac.certified as certified,
-                        max(nshow_answer) over (partition by ip) as maxshow,
-                        min(nshow_answer) over (partition by ip) as minshow,
                         sum(pc.certified = true) over (partition by ip) as sum_cert_true,
                         sum(pc.certified = false) over (partition by ip) as sum_cert_false,
                         count(ip) over (partition by ip) as ipcnt
@@ -880,8 +878,8 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
              # of the original sybils table (username, ip) pairs.
              SELECT
                "{course_id}" as course_id,
-               user_id, username, ip, grp, nshow_answer as nshow_answer_unique_problems,
-               percent_correct_attempts,frac_complete, certified
+               user_id, username, ip, grp, nshow_answer_unique_problems,
+               percent_correct, frac_complete, certified
              FROM
              (  
                SELECT
@@ -894,10 +892,10 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
                  # then their entire ip group will be flagged non-zero
                  select *,
                    #filter users with greater than 70% attempts correct or less 5 show answers
-                   certified = false and (percent_correct_attempts > 70 or nshow_answer <= 10 or frac_complete = 0) as remove
+                   certified = false and (percent_correct > 70 or nshow_answer_unique_problems <= 10 or frac_complete = 0) as remove
                  from 
                  (
-                   select user_id, username, ip, grp, nshow_answer, percent_correct_attempts,
+                   select user_id, username, ip, grp, nshow_answer_unique_problems, percent_correct,
                      frac_complete, certified
                    from
                      ( 
@@ -907,12 +905,10 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
                          pc.user_id as user_id,
                          username,
                          ip, grp,
-                         nshow_answer_unique_problems as nshow_answer,
-                         round(ac.percent_correct, 2) as percent_correct_attempts,
+                         nshow_answer_unique_problems,
+                         round(ac.percent_correct, 2) as percent_correct,
                          frac_complete,
                          ac.certified as certified,
-                         max(nshow_answer) over (partition by grp) as maxshow,
-                         min(nshow_answer) over (partition by grp) as minshow,
                          sum(pc.certified = true) over (partition by grp) as sum_cert_true,
                          sum(pc.certified = false) over (partition by grp) as sum_cert_false,
                          count(distinct username) over (partition by grp) as ipcnt
@@ -1002,8 +998,14 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
              # of all person_course (username, ip) pairs.
              SELECT
                "{course_id}" as course_id,
-               user_id, username, ip, grp, nshow_answer as nshow_answer_unique_problems,
-               percent_correct_attempts,frac_complete, certified
+               user_id,
+               username,
+               ip,
+               grp,
+               nshow_answer_unique_problems,
+               percent_correct,
+               frac_complete,
+               certified
              FROM
              (  
                SELECT
@@ -1016,10 +1018,10 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
                  # then their entire ip group will be flagged non-zero
                  select *,
                    #filter users with greater than 70% attempts correct or less 5 show answers
-                   certified = false and (percent_correct_attempts > 70 or nshow_answer <= 10 or frac_complete = 0) as remove
+                   certified = false and (percent_correct > 70 or nshow_answer_unique_problems <= 10 or frac_complete = 0) as remove
                  from 
                  (
-                   select user_id, username, ip, grp, nshow_answer, percent_correct_attempts,
+                   select user_id, username, ip, grp, nshow_answer_unique_problems, percent_correct,
                      frac_complete, certified
                    from
                      ( 
@@ -1029,12 +1031,10 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
                          pc.user_id as user_id,
                          username,
                          ip, grp,
-                         nshow_answer_unique_problems as nshow_answer,
-                         round(ac.percent_correct, 2) as percent_correct_attempts,
+                         nshow_answer_unique_problems,
+                         round(ac.percent_correct, 2) as percent_correct,
                          frac_complete,
                          ac.certified as certified,
-                         max(nshow_answer) over (partition by grp) as maxshow,
-                         min(nshow_answer) over (partition by grp) as minshow,
                          sum(pc.certified = true) over (partition by grp) as sum_cert_true,
                          sum(pc.certified = false) over (partition by grp) as sum_cert_false,
                          count(distinct username) over (partition by grp) as ipcnt
