@@ -176,17 +176,17 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
                 fn_sm = lfp / 'studentmodule.sql'
                 if not fn_sm.exists():
                     print "Error!  Missing studentmodule.[sql,csv][.gz]"
-        if fn_sm.exists():	# have .sql or .sql.gz version: convert to .csv
-            newfn = lfp / 'studentmodule.csv.gz'
-            print "--> Converting %s to %s" % (fn_sm, newfn)
-            tsv2csv(fn_sm, newfn)
-            fn_sm = newfn
+            if fn_sm.exists():	# have .sql or .sql.gz version: convert to .csv
+                newfn = lfp / 'studentmodule.csv.gz'
+                print "--> Converting %s to %s" % (fn_sm, newfn)
+                tsv2csv(fn_sm, newfn)
+                fn_sm = newfn
 
     # rephrase studentmodule if it's using opaque keys
     fline = ''
-    with gzip.GzipFile(fn_sm) as smfp:
-        fline = smfp.readline()	# skip first line - it's a header
-        fline = smfp.readline()
+    smfp = openfile(fn_sm)
+    fline = smfp.readline()	# skip first line - it's a header
+    fline = smfp.readline()
     if 'block-v1:' in fline:
         rephrase_studentmodule_opaque_keys(fn_sm)
 
