@@ -1172,6 +1172,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
                  # then their entire ip group will be flagged non-zero
                  select *,
                    #filter shadows with greater than 70% attempts correct or less 5 show answers
+                   #nshow_answer_unique_problems > half nshow answer 
                    certified = false and (percent_correct > 70 or nshow_answer_unique_problems <= 10 or frac_complete = 0) as remove1,
                    #Filter certified users with few show answer before or too high time between show answer and submission
                    certified = true and (percent_show_ans_before < 50 or median_max_dt_seconds > 1e5) as remove2
@@ -1277,7 +1278,7 @@ def compute_ip_pair_sybils3_features(course_id, force_recompute=False, use_datas
 
     SQL = """
           SELECT 
-          # "{course_id}" as course_id,
+          "{course_id}" as course_id,
           s.user_id as user_id,
           s.username as username,
           s.shadow as shadow,
