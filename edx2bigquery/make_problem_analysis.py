@@ -1005,20 +1005,22 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             (
               SELECT *,  
                   #Compute score = sum of z-scores - time z-score and find max score
-                  (percent_show_ans_before - avgpsa) / stdpsa + 
-                  0.5*(show_ans_before - avgpsa) / stdsa + 
-                  (norm_pearson_corr - avgcorr) / stdcorr - 
-                  2*(median_max_dt_seconds  - avgdt) / stddt as score,
+                  (case when (percent_show_ans_before - avgpsa) / stdpsa is null then 0 else (percent_show_ans_before - avgpsa) / stdpsa end) + 
+                  (case when 0.5*(show_ans_before - avgpsa) / stdsa is null then 0 else 0.5*(show_ans_before - avgpsa) / stdsa end) + 
+                  (case when (norm_pearson_corr - avgcorr) / stdcorr is null then 0 else (norm_pearson_corr - avgcorr) / stdcorr end) - 
+                  2*(median_max_dt_seconds  - (case when avgdt_med is null then avgdt_avg else avgdt_med end)) / (case when stddt_med is null then stddt_avg else stddt_med end) as score,
                   max(score) over (partition by cameo_candidate) as best_score
               FROM
               (
                 SELECT *, 
                   #std and mean to compute z-scores to allow summing on same scale
-                  stddev(median_max_dt_seconds ) over (partition by cameo_candidate) AS stddt,
+                  stddev(avg_max_dt_seconds) over (partition by cameo_candidate) AS stddt_avg,
+                  stddev(median_max_dt_seconds) over (partition by cameo_candidate) AS stddt_med,
                   stddev(norm_pearson_corr) over (partition by cameo_candidate) AS stdcorr,
                   stddev(percent_show_ans_before) over (partition by cameo_candidate) AS stdpsa,
                   stddev(show_ans_before) over (partition by cameo_candidate) AS stdsa,
-                  avg(median_max_dt_seconds ) over (partition by cameo_candidate) AS avgdt,
+                  avg(median_max_dt_seconds) over (partition by cameo_candidate) AS avgdt_med,
+                  avg(avg_max_dt_seconds) over (partition by cameo_candidate) AS avgdt_avg,
                   avg(norm_pearson_corr) over (partition by cameo_candidate) AS avgcorr,
                   avg(percent_show_ans_before) over (partition by cameo_candidate) AS avgpsa,
                   avg(show_ans_before) over (partition by cameo_candidate) AS avgsa
@@ -1048,20 +1050,26 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                     FROM
                     (
                       #Certified = false for shadow candidate
-                      SELECT sa.username as username, index, sa.time as time
+                      SELECT sa.username as username, index, sa.time as time  
                       FROM
                       (
-                        SELECT 
-                        username, index, MIN(time) as time, count(*) over (partition by a.module_id) as nprobs
-                        FROM [{dataset}.show_answer] a
-                        JOIN [{dataset}.course_axis] b
-                        ON a.course_id = b.course_id and a.module_id = b.module_id
-                        group each by username, index, a.module_id
+                          SELECT 
+                          username, index, MIN(time) as time, 
+                          count(distinct index) over (partition by username) as nshow_ans_distinct
+                          FROM [{dataset}.show_answer] a
+                          JOIN [{dataset}.course_axis] b
+                          ON a.course_id = b.course_id and a.module_id = b.module_id
+                          group each by username, index
                       ) sa
                       JOIN EACH [{dataset}.person_course] pc
                       ON sa.username = pc.username
                       where certified = false
-                      and nshow_answer > nprobs / 2 #Shadow must click answer on half the problems
+                      and nshow_ans_distinct >  #Shadow must click answer on 20% of problems
+                      (
+                        SELECT  
+                        count(distinct module_id) / 5
+                        FROM [{dataset}.show_answer]
+                      )
                     )sa
                     JOIN EACH
                     (
@@ -1093,7 +1101,6 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             )
             #Only select the cameo shadow candidate pair with the best score
             where score = best_score
-            and best_score is not null
             order by avg_max_dt_seconds asc;
           """.format(dataset=dataset, course_id=course_id)
 
@@ -1172,10 +1179,10 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
                  # then their entire ip group will be flagged non-zero
                  select *,
                    #filter shadows with greater than 70% attempts correct or less 5 show answers
-                   #nshow_answer_unique_problems > half nshow answer 
                    certified = false and (percent_correct > 70 or nshow_answer_unique_problems <= 10 or frac_complete = 0) as remove1,
                    #Filter certified users with few show answer before or too high time between show answer and submission
-                   certified = true and (percent_show_ans_before < 50 or median_max_dt_seconds > 1e5) as remove2
+                   (case when (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) is null then false
+                   else (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) end) as remove2
                  from 
                  (
                    select 
