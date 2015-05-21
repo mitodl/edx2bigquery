@@ -1346,7 +1346,7 @@ def compute_ip_pair_sybils3_features(course_id, force_recompute=False, use_datas
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
-                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                newer_than=datetime.datetime(2015, 5, 21, 03, 10),
                                 depends_on=["%s.%s" % (dataset, sasbu),
                                         ],
                             )
