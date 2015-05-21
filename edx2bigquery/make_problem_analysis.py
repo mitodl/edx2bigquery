@@ -1052,16 +1052,16 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                       FROM
                       (
                         SELECT 
-                        username, index, MIN(time) as time
+                        username, index, MIN(time) as time, count(*) over (partition by a.module_id) as nprobs
                         FROM [{dataset}.show_answer] a
                         JOIN [{dataset}.course_axis] b
                         ON a.course_id = b.course_id and a.module_id = b.module_id
-                        group by username, index
+                        group each by username, index, a.module_id
                       ) sa
                       JOIN EACH [{dataset}.person_course] pc
                       ON sa.username = pc.username
                       where certified = false
-                      and nshow_answer > 10
+                      and nshow_answer > nprobs / 2 #Shadow must click answer on half the problems
                     )sa
                     JOIN EACH
                     (
@@ -1077,7 +1077,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                         ON a.course_id = b.course_id and a.module_id = b.module_id
                         where category = 'problem'
                         and success = 'correct'
-                        group by username, index
+                        group each by username, index
                       ) pa
                       JOIN EACH [{dataset}.person_course] pc
                       on pa.username = pc.username
@@ -1409,6 +1409,7 @@ def compute_problem_check_temporal_fingerprint(course_id, force_recompute=False,
                        (
                          SELECT min(time) as min_time, max(time) as max_time, username, module_id
                          FROM [{dataset}.problem_check]
+                         where success = 'correct'
                          GROUP BY username, module_id
                        ) as SM
                        JOIN
@@ -1481,7 +1482,7 @@ def compute_show_answer_temporal_fingerprint(course_id, force_recompute=False, u
             FROM
             (
                SELECT 
-                 username, index, FIRST(time) as time
+                 username, index, MIN(time) as time
                  FROM [{dataset}.show_answer] a
                  JOIN [{dataset}.course_axis] b
                  ON a.course_id = b.course_id and a.module_id = b.module_id
