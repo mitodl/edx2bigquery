@@ -1052,7 +1052,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                       FROM
                       (
                         SELECT 
-                        username, index, FIRST(time) as time
+                        username, index, MIN(time) as time
                         FROM [{dataset}.show_answer] a
                         JOIN [{dataset}.course_axis] b
                         ON a.course_id = b.course_id and a.module_id = b.module_id
