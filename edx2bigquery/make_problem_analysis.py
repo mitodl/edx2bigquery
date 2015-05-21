@@ -1064,10 +1064,10 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                       JOIN EACH [{dataset}.person_course] pc
                       ON sa.username = pc.username
                       where certified = false
-                      and nshow_ans_distinct >  #Shadow must click answer on 20% of problems
+                      and nshow_ans_distinct >  #Shadow must click answer on 40% of problems
                       (
                         SELECT  
-                        count(distinct module_id) / 5
+                        count(distinct module_id) * 2 / 5
                         FROM [{dataset}.show_answer]
                       )
                     )sa
