@@ -1042,7 +1042,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                     pa.username as cameo_candidate,
                     sa.time, pa.time,
                     sa.time < pa.time as sa_before_pa,
-                    (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 else null end) as max_dt,
+                    (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 else end) as max_dt,
                     #Calculate median - includes null values - so if you start with many nulls
                     #the median will be a lot farther left (smaller) than it should be.
                     percentile_cont(.5) OVER (PARTITION BY shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_max_dt_seconds,
@@ -1133,7 +1133,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
 
 #-----------------------------------------------------------------------------
 
-def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None):
+def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None, update_sybils3_features=False):
     
     compute_show_ans_before(course_id, force_recompute, use_dataset_latest)
 
@@ -1179,10 +1179,10 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
                  # then their entire ip group will be flagged non-zero
                  select *,
                    #filter shadows with greater than 70% attempts correct or less 5 show answers
-                   certified = false and (percent_correct > 70 or nshow_answer_unique_problems <= 10 or frac_complete = 0) as remove1,
+#REMOVED FILTER!!  certified = false and (percent_correct > 70) as remove1,
                    #Filter certified users with few show answer before or too high time between show answer and submission
-                   (case when (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) is null then false
-                   else (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) end) as remove2
+#REMOVED FILTER!!  (case when (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) is null then false
+#REMOVED FILTER!!  else (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) end) as remove2
                  from 
                  (
                    select 
@@ -1231,8 +1231,8 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
                    and ipcnt < 8 #Remove NAT or internet cafe ips                                                     
                  )
                )
-               where remove1 = false
-               and remove2 = false
+#REMOVED FILTER!!  where remove1 = false
+#REMOVED FILTER!!  and remove2 = false
              )
              # Remove entire group if all the masters or all the harvesters were removed
              WHERE sum_cert_true > 0
@@ -1267,8 +1267,8 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
     print "--> [%s] Sybils 3.0 Found %s records for %s" % (course_id, nfound, table)
     sys.stdout.flush()
     
-
-    compute_ip_pair_sybils3_features(course_id, force_recompute, use_dataset_latest) 
+    if update_sybils3_features:
+        compute_ip_pair_sybils3_features(course_id, force_recompute, use_dataset_latest) 
     
 
 
