@@ -970,25 +970,23 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
 
 #-----------------------------------------------------------------------------
 
-def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=False):
+def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dataset_latest=False):
     '''
     Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
     cameo candidate - certified | shadow candidate - uncertified
     ONLY SELECTS the cameo candidate which is MOST SIMILAR (SCORE) to the shadow candidate
     Only selects pairs with at least 10 show ans before
-
     An ancillary table for sybils which computes the percent of candidate shadow show answers 
     that occur before the corresponding candidate cameo accounts correct answer submission.
     This table also computes median_max_dt_seconds which is the median time between the shadow's
     show_answer and the certified accounts' correct answer. This table also computes the normalized
     pearson correlation.
-
     This table chooses the FIRST show_answer and the LAST correct submission, to ensure any cheating
     is caught, even if the user tried to figure it out without cheating first.
     '''
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
-    table = "stats_show_ans_before"
+    table = "stats_show_ans_before_high_score"
 
     SQL = """
             #Northcutt Code - Show Answer Before, Pearson Correlations, Median Average Times, Optimal Scoring
@@ -1133,6 +1131,464 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
 
 #-----------------------------------------------------------------------------
 
+def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
+    cameo candidate - certified | shadow candidate - uncertified
+
+    An ancillary table for sybils which computes the percent of candidate shadow show answers 
+    that occur before the corresponding candidate cameo accounts correct answer submission.
+    
+    This table also computes median_max_dt_seconds which is the median time between the shadow's
+    show_answer and the certified accounts' correct answer. This table also computes the normalized
+    pearson correlation.
+
+    This table chooses the FIRST show_answer and the LAST correct submission, to ensure any cheating
+    is caught, even if the user tried to figure it out without cheating first.
+    '''
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    table = "stats_show_ans_before"
+
+    SQL1 = """
+            #Northcutt Code - Show Answer Before, Pearson Correlations, Median Average Times, Optimal Scoring
+            ###########################################################################
+            #Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
+            #cameo candidate - certified | shadow candidate - uncertified
+            #Only selects pairs with at least 10 show ans before
+              SELECT
+              "{course_id}" as course_id,
+              cameo_candidate,
+              shadow_candidate,
+              round(median_max_dt_seconds, 3) as median_max_dt_seconds,
+              round(sum(sa_before_pa) / count(*), 4)*100 as percent_show_ans_before,
+              sum(sa_before_pa) as show_ans_before,
+              count(*) as prob_in_common,
+              round(avg(max_dt), 3) as avg_max_dt_seconds,
+              round(corr(sa.time - min_first_check_time, pa.time - min_first_check_time), 8) as norm_pearson_corr,
+              round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr
+              FROM
+              ( 
+                select sa.username as shadow_candidate,
+                pa.username as cameo_candidate,
+                sa.time, pa.time,
+                sa.time < pa.time as sa_before_pa,
+                (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
+                #Calculate median - includes null values - so if you start with many nulls
+                #the median will be a lot farther left (smaller) than it should be.
+                percentile_cont(.5) OVER (PARTITION BY shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_max_dt_seconds,
+                USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time
+                FROM
+                (
+                  #Certified = false for shadow candidate
+                  SELECT sa.username as username, module_id, sa.time as time  
+                  FROM
+                  (
+                      SELECT 
+                      username, module_id, MIN(time) as time, 
+                      count(distinct module_id) over (partition by username) as nshow_ans_distinct
+                      FROM [{dataset}.show_answer] 
+                      group each by username, module_id
+                  ) sa
+                  JOIN EACH [{dataset}.person_course] pc
+                  ON sa.username = pc.username
+                  where certified = false
+                  and nshow_ans_distinct >  #Shadow must click answer on 2% of problems
+                  (
+                    SELECT  
+                    count(distinct module_id) / 50
+                    FROM [{dataset}.show_answer]
+                  )
+                  and nshow_ans_distinct <=  #Compute first half
+                  (
+                    SELECT  
+                    count(distinct module_id) * 1 / 20
+                    FROM [{dataset}.show_answer]
+                  )
+                )sa
+                JOIN EACH
+                (
+                  #certified = true for cameo candidate
+                  SELECT pa.username as username, module_id, time,
+                  MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time
+                  FROM
+                  (
+                    SELECT 
+                    username, module_id, MAX(time) as time, MIN(time) as first_check
+                    FROM [{dataset}.problem_check]
+                    where success = 'correct'
+                    group each by username, module_id
+                  ) pa
+                  JOIN EACH [{dataset}.person_course] pc
+                  on pa.username = pc.username
+                  where certified = true
+                ) pa
+                on sa.module_id = pa.module_id
+                WHERE sa.username != pa.username
+              )
+              group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds
+              #having show_ans_before > 10
+          """.format(dataset=dataset, course_id = course_id)
+    
+    SQL2 = """
+            #Northcutt Code - Show Answer Before, Pearson Correlations, Median Average Times, Optimal Scoring
+            ###########################################################################
+            #Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
+            #cameo candidate - certified | shadow candidate - uncertified
+            #Only selects pairs with at least 10 show ans before
+              SELECT
+              "{course_id}" as course_id,
+              cameo_candidate,
+              shadow_candidate,
+              round(median_max_dt_seconds, 3) as median_max_dt_seconds,
+              round(sum(sa_before_pa) / count(*), 4)*100 as percent_show_ans_before,
+              sum(sa_before_pa) as show_ans_before,
+              count(*) as prob_in_common,
+              round(avg(max_dt), 3) as avg_max_dt_seconds,
+              round(corr(sa.time - min_first_check_time, pa.time - min_first_check_time), 8) as norm_pearson_corr,
+              round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr
+              FROM
+              ( 
+                select sa.username as shadow_candidate,
+                pa.username as cameo_candidate,
+                sa.time, pa.time,
+                sa.time < pa.time as sa_before_pa,
+                (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
+                #Calculate median - includes null values - so if you start with many nulls
+                #the median will be a lot farther left (smaller) than it should be.
+                percentile_cont(.5) OVER (PARTITION BY shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_max_dt_seconds,
+                USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time
+                FROM
+                (
+                  #Certified = false for shadow candidate
+                  SELECT sa.username as username, module_id, sa.time as time  
+                  FROM
+                  (
+                      SELECT 
+                      username, module_id, MIN(time) as time, 
+                      count(distinct module_id) over (partition by username) as nshow_ans_distinct
+                      FROM [{dataset}.show_answer] 
+                      group each by username, module_id
+                  ) sa
+                  JOIN EACH [{dataset}.person_course] pc
+                  ON sa.username = pc.username
+                  where certified = false
+                  and nshow_ans_distinct >  #Shadow must click answer on 2% of problems
+                  (
+                    SELECT  
+                    count(distinct module_id) / 20
+                    FROM [{dataset}.show_answer]
+                  )
+                  and nshow_ans_distinct <=  #Compute first half
+                  (
+                    SELECT  
+                    count(distinct module_id) / 10
+                    FROM [{dataset}.show_answer]
+                  )
+                )sa
+                JOIN EACH
+                (
+                  #certified = true for cameo candidate
+                  SELECT pa.username as username, module_id, time,
+                  MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time
+                  FROM
+                  (
+                    SELECT 
+                    username, module_id, MAX(time) as time, MIN(time) as first_check
+                    FROM [{dataset}.problem_check]
+                    where success = 'correct'
+                    group each by username, module_id
+                  ) pa
+                  JOIN EACH [{dataset}.person_course] pc
+                  on pa.username = pc.username
+                  where certified = true
+                ) pa
+                on sa.module_id = pa.module_id
+                WHERE sa.username != pa.username
+              )
+              group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds
+              #having show_ans_before > 10
+          """.format(dataset=dataset, course_id = course_id)
+    
+    SQL3 = """
+            #Northcutt Code - Show Answer Before, Pearson Correlations, Median Average Times, Optimal Scoring
+            ###########################################################################
+            #Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
+            #cameo candidate - certified | shadow candidate - uncertified
+            #Only selects pairs with at least 10 show ans before
+              SELECT
+              "{course_id}" as course_id,
+              cameo_candidate,
+              shadow_candidate,
+              round(median_max_dt_seconds, 3) as median_max_dt_seconds,
+              round(sum(sa_before_pa) / count(*), 4)*100 as percent_show_ans_before,
+              sum(sa_before_pa) as show_ans_before,
+              count(*) as prob_in_common,
+              round(avg(max_dt), 3) as avg_max_dt_seconds,
+              round(corr(sa.time - min_first_check_time, pa.time - min_first_check_time), 8) as norm_pearson_corr,
+              round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr
+              FROM
+              ( 
+                select sa.username as shadow_candidate,
+                pa.username as cameo_candidate,
+                sa.time, pa.time,
+                sa.time < pa.time as sa_before_pa,
+                (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
+                #Calculate median - includes null values - so if you start with many nulls
+                #the median will be a lot farther left (smaller) than it should be.
+                percentile_cont(.5) OVER (PARTITION BY shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_max_dt_seconds,
+                USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time
+                FROM
+                (
+                  #Certified = false for shadow candidate
+                  SELECT sa.username as username, module_id, sa.time as time  
+                  FROM
+                  (
+                      SELECT 
+                      username, module_id, MIN(time) as time, 
+                      count(distinct module_id) over (partition by username) as nshow_ans_distinct
+                      FROM [{dataset}.show_answer] 
+                      group each by username, module_id
+                  ) sa
+                  JOIN EACH [{dataset}.person_course] pc
+                  ON sa.username = pc.username
+                  where certified = false
+                  and nshow_ans_distinct >  #Shadow must click answer on 2% of problems
+                  (
+                    SELECT  
+                    count(distinct module_id) / 10
+                    FROM [{dataset}.show_answer]
+                  )
+                  and nshow_ans_distinct <=  #Compute first half
+                  (
+                    SELECT  
+                    count(distinct module_id) / 5
+                    FROM [{dataset}.show_answer]
+                  )
+                )sa
+                JOIN EACH
+                (
+                  #certified = true for cameo candidate
+                  SELECT pa.username as username, module_id, time,
+                  MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time
+                  FROM
+                  (
+                    SELECT 
+                    username, module_id, MAX(time) as time, MIN(time) as first_check
+                    FROM [{dataset}.problem_check]
+                    where success = 'correct'
+                    group each by username, module_id
+                  ) pa
+                  JOIN EACH [{dataset}.person_course] pc
+                  on pa.username = pc.username
+                  where certified = true
+                ) pa
+                on sa.module_id = pa.module_id
+                WHERE sa.username != pa.username
+              )
+              group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds
+              #having show_ans_before > 10
+          """.format(dataset=dataset, course_id = course_id)
+    
+    SQL4 = """
+            #Northcutt Code - Show Answer Before, Pearson Correlations, Median Average Times, Optimal Scoring
+            ###########################################################################
+            #Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
+            #cameo candidate - certified | shadow candidate - uncertified
+            #Only selects pairs with at least 10 show ans before
+              SELECT
+              "{course_id}" as course_id,
+              cameo_candidate,
+              shadow_candidate,
+              round(median_max_dt_seconds, 3) as median_max_dt_seconds,
+              round(sum(sa_before_pa) / count(*), 4)*100 as percent_show_ans_before,
+              sum(sa_before_pa) as show_ans_before,
+              count(*) as prob_in_common,
+              round(avg(max_dt), 3) as avg_max_dt_seconds,
+              round(corr(sa.time - min_first_check_time, pa.time - min_first_check_time), 8) as norm_pearson_corr,
+              round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr
+              FROM
+              ( 
+                select sa.username as shadow_candidate,
+                pa.username as cameo_candidate,
+                sa.time, pa.time,
+                sa.time < pa.time as sa_before_pa,
+                (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
+                #Calculate median - includes null values - so if you start with many nulls
+                #the median will be a lot farther left (smaller) than it should be.
+                percentile_cont(.5) OVER (PARTITION BY shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_max_dt_seconds,
+                USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time
+                FROM
+                (
+                  #Certified = false for shadow candidate
+                  SELECT sa.username as username, module_id, sa.time as time  
+                  FROM
+                  (
+                      SELECT 
+                      username, module_id, MIN(time) as time, 
+                      count(distinct module_id) over (partition by username) as nshow_ans_distinct
+                      FROM [{dataset}.show_answer] 
+                      group each by username, module_id
+                  ) sa
+                  JOIN EACH [{dataset}.person_course] pc
+                  ON sa.username = pc.username
+                  where certified = false
+                  and nshow_ans_distinct >  #Shadow must click answer on 2% of problems
+                  (
+                    SELECT  
+                    count(distinct module_id) / 5
+                    FROM [{dataset}.show_answer]
+                  )
+                  and nshow_ans_distinct <=  #Compute first half
+                  (
+                    SELECT  
+                    count(distinct module_id) / 3
+                    FROM [{dataset}.show_answer]
+                  )
+                )sa
+                JOIN EACH
+                (
+                  #certified = true for cameo candidate
+                  SELECT pa.username as username, module_id, time,
+                  MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time
+                  FROM
+                  (
+                    SELECT 
+                    username, module_id, MAX(time) as time, MIN(time) as first_check
+                    FROM [{dataset}.problem_check]
+                    where success = 'correct'
+                    group each by username, module_id
+                  ) pa
+                  JOIN EACH [{dataset}.person_course] pc
+                  on pa.username = pc.username
+                  where certified = true
+                ) pa
+                on sa.module_id = pa.module_id
+                WHERE sa.username != pa.username
+              )
+              group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds
+              #having show_ans_before > 10
+          """.format(dataset=dataset, course_id = course_id)
+    
+    SQL5 = """
+            #Northcutt Code - Show Answer Before, Pearson Correlations, Median Average Times, Optimal Scoring
+            ###########################################################################
+            #Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
+            #cameo candidate - certified | shadow candidate - uncertified
+            #Only selects pairs with at least 10 show ans before
+              SELECT
+              "{course_id}" as course_id,
+              cameo_candidate,
+              shadow_candidate,
+              round(median_max_dt_seconds, 3) as median_max_dt_seconds,
+              round(sum(sa_before_pa) / count(*), 4)*100 as percent_show_ans_before,
+              sum(sa_before_pa) as show_ans_before,
+              count(*) as prob_in_common,
+              round(avg(max_dt), 3) as avg_max_dt_seconds,
+              round(corr(sa.time - min_first_check_time, pa.time - min_first_check_time), 8) as norm_pearson_corr,
+              round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr
+              FROM
+              ( 
+                select sa.username as shadow_candidate,
+                pa.username as cameo_candidate,
+                sa.time, pa.time,
+                sa.time < pa.time as sa_before_pa,
+                (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
+                #Calculate median - includes null values - so if you start with many nulls
+                #the median will be a lot farther left (smaller) than it should be.
+                percentile_cont(.5) OVER (PARTITION BY shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_max_dt_seconds,
+                USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time
+                FROM
+                (
+                  #Certified = false for shadow candidate
+                  SELECT sa.username as username, module_id, sa.time as time  
+                  FROM
+                  (
+                      SELECT 
+                      username, module_id, MIN(time) as time, 
+                      count(distinct module_id) over (partition by username) as nshow_ans_distinct
+                      FROM [{dataset}.show_answer] 
+                      group each by username, module_id
+                  ) sa
+                  JOIN EACH [{dataset}.person_course] pc
+                  ON sa.username = pc.username
+                  where certified = false
+                  and nshow_ans_distinct > #Compute second half
+                  (
+                    SELECT  
+                    count(distinct module_id) / 3
+                    FROM [{dataset}.show_answer]
+                  )
+                )sa
+                JOIN EACH
+                (
+                  #certified = true for cameo candidate
+                  SELECT pa.username as username, module_id, time,
+                  MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time
+                  FROM
+                  (
+                    SELECT 
+                    username, module_id, MAX(time) as time, MIN(time) as first_check
+                    FROM [{dataset}.problem_check]
+                    where success = 'correct'
+                    group each by username, module_id
+                  ) pa
+                  JOIN EACH [{dataset}.person_course] pc
+                  on pa.username = pc.username
+                  where certified = true
+                ) pa
+                on sa.module_id = pa.module_id
+                WHERE sa.username != pa.username
+              )
+              group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds
+              #having show_ans_before > 10
+          """.format(dataset=dataset, course_id = course_id)
+
+
+    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    sys.stdout.flush()
+
+    sasbu = "show_answer"
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        has_attempts_correct = (tinfo is not None)
+    except Exception as err:
+        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        has_attempts_correct = False
+    if not has_attempts_correct:
+        print "---> No %s table; skipping %s" % (sasbu, table)
+        return
+
+    bqutil.get_bq_table(dataset, table, SQL1, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                depends_on=["%s.%s" % (dataset, sasbu), ], overwrite=True)
+
+    bqutil.get_bq_table(dataset, table, SQL2, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                depends_on=["%s.%s" % (dataset, sasbu), ], overwrite='append')
+
+    bqutil.get_bq_table(dataset, table, SQL3, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                depends_on=["%s.%s" % (dataset, sasbu), ], overwrite='append')
+
+    bqutil.get_bq_table(dataset, table, SQL4, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                depends_on=["%s.%s" % (dataset, sasbu), ], overwrite='append')
+
+    bqdat = bqutil.get_bq_table(dataset, table, SQL5, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                depends_on=["%s.%s" % (dataset, sasbu), ], overwrite='append')
+        
+    if not bqdat:
+        nfound = 0
+    else:
+        nfound = len(bqdat['data'])
+    print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
+    sys.stdout.flush()
+
+
+#-----------------------------------------------------------------------------
+
 def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None):
     
     compute_show_ans_before(course_id, force_recompute, use_dataset_latest)
@@ -1144,6 +1600,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
     in performance, including:
       - one earning a certificate and the other not
       - one clicking "show answer" many times and the other not
+
     Typically, the "master", which earns a certificate, has a high percentage
     of correct attempts, while the "harvester" clicks on "show answer" many times,
     and does not earn a certificate.
@@ -1158,87 +1615,89 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
     table = "stats_ip_pair_sybils3"
 
     SQL = """# Northcutt SQL for finding sybils
-             ##################################
-             # Sybils Version 3.0
-             # Instead of same ip, considers users in same grp where
-             # where grp is determined by the full transitive closure 
-             # of all person_course (username, ip) pairs.
+            ##################################
+            # Sybils Version 3.0
+            # Instead of same ip, considers users in same grp where
+            # where grp is determined by the full transitive closure 
+            # of all person_course (username, ip) pairs.
+            SELECT
+             "{course_id}" as course_id, username,
+             user_id, shadow, ip, grp, certified, percent_show_ans_before, median_max_dt_seconds, 
+             norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, avg_max_dt_seconds
+            FROM
+            (  
              SELECT
-               "{course_id}" as course_id,
-               user_id, username, shadow, ip, grp, certified, percent_show_ans_before, median_max_dt_seconds, 
-               norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, avg_max_dt_seconds
-             FROM
-             (  
-               SELECT
-                 *,
-                 sum(certified = true) over (partition by grp) as sum_cert_true,
-                 sum(certified = false) over (partition by grp) as sum_cert_false
-               from
+               *,
+               sum(certified = true) over (partition by grp) as sum_cert_true,
+               sum(certified = false) over (partition by grp) as sum_cert_false
+             from
+             (
+               # If any user in an ip group was flagged remove_ip_group = true
+               # then their entire ip group will be flagged non-zero
+               select *,
+                 #filter shadows with greater than 70% attempts correct or less 5 show answers
+                 certified = false and (percent_correct > 70) as remove1,
+                 #Filter certified users with few show answer before or too high time between show answer and submission
+                 (case when (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) is null then false
+                 else (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) end) as remove2
+               from 
                (
-                 # If any user in an ip group was flagged remove_ip_group = true
-                 # then their entire ip group will be flagged non-zero
-                 select *,
-                   #filter shadows with greater than 70% attempts correct or less 5 show answers
-                   certified = false and (percent_correct > 70 or nshow_answer_unique_problems <= 10 or frac_complete = 0) as remove1,
-                   #Filter certified users with few show answer before or too high time between show answer and submission
-                   (case when (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) is null then false
-                   else (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) end) as remove2
-                 from 
-                 (
-                   select 
-                     user_id, username, shadow, ip, grp, percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds,
-                     norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified
-                   from
-                     ( 
-                       # Find all users with >1 accounts, same ip address, different certification status
-                       select
-                         #  pc.course_id as course_id,
-                         pc.user_id as user_id,
-                         username, shadow, ip, grp,
-                         percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
-                         nshow_answer_unique_problems,
-                         round(ac.percent_correct, 2) as percent_correct,
-                         frac_complete,
-                         ac.certified as certified,
-                         sum(pc.certified = true) over (partition by grp) as sum_cert_true,
-                         sum(pc.certified = false) over (partition by grp) as sum_cert_false,
-                         count(distinct username) over (partition by grp) as ipcnt
-           
-                         #Adds a column with transitive closure group number for each user
-                         from
-                         (
-                           SELECT
-                           user_id, username, shadow_candidate as shadow, ip, certified, grp, 
-                           percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr
-                           FROM
-                           (
-                             select user_id, a.username as username, a.ip as ip, certified, grp
-                             FROM [{dataset}.person_course] a
-                             JOIN EACH [{uname_ip_groups_table}] b
-                             ON a.ip = b.ip
-                             group by user_id, username, ip, certified, grp
-                           )as pc
-                           OUTER LEFT JOIN [{dataset}.stats_show_ans_before] as sa
-                           ON sa.cameo_candidate = pc.username
-                         )as pc
-                          JOIN EACH [{dataset}.stats_attempts_correct] as ac
-                          on pc.user_id = ac.user_id
-                       )
-                   # Since clicking show answer or guessing over and over cannot achieve certification, we should have
-                   # at least one (not certified) harvester, and at least one (certified) master who uses the answers.
-                   where sum_cert_true > 0
-                   and sum_cert_false > 0
-                   and ipcnt < 8 #Remove NAT or internet cafe ips                                                     
-                 )
+                 select 
+                   user_id, username, shadow, ip, grp, percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds,
+                   norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified
+                 from
+                   ( 
+                     # Find all users with >1 accounts, same ip address, different certification status
+                     select
+                       #  pc.course_id as course_id,
+                       pc.user_id as user_id,
+                       username, shadow, ip, grp,
+                       percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                       nshow_answer_unique_problems,
+                       round(ac.percent_correct, 2) as percent_correct,
+                       frac_complete,
+                       ac.certified as certified,
+                       sum(pc.certified = true) over (partition by grp) as sum_cert_true,
+                       sum(pc.certified = false) over (partition by grp) as sum_cert_false,
+                       count(distinct username) over (partition by grp) as ipcnt
+
+                       #Adds a column with transitive closure group number for each user
+                       from
+                       (
+                          SELECT
+                          user_id, username, shadow_candidate as shadow, ip, certified, grp, 
+                          percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr
+                          FROM
+                          (
+                           select user_id, a.username, a.ip as ip, certified, grp, GROUP_CONCAT(a.username) over (partition by grp) as grp_usernames
+                           FROM [{dataset}.person_course] a
+                           JOIN EACH [{uname_ip_groups_table}] b
+                           ON a.ip = b.ip and a.username = b.username
+                           group by user_id, a.username, ip, certified, grp
+                          )as pc
+                          OUTER LEFT JOIN EACH [{dataset}.stats_show_ans_before] as sa
+                          ON pc.username = sa.cameo_candidate #join on cameo candidate
+                          where (','+grp_usernames+',' contains ','+sa.shadow_candidate+',') #Only keep rows where cameo's shadow is in pc
+                          or certified = false #include possible shadows
+                       )as pc
+                        JOIN EACH [{dataset}.stats_attempts_correct] as ac
+                        on pc.user_id = ac.user_id
+                     )
+                 # Since clicking show answer or guessing over and over cannot achieve certification, we should have
+                 # at least one (not certified) harvester, and at least one (certified) master who uses the answers.
+                 where sum_cert_true > 0
+                 and sum_cert_false > 0
+                 and ipcnt < 10 #Remove NAT or internet cafe ips                                                     
                )
-               where remove1 = false
-               and remove2 = false
              )
-             # Remove entire group if all the masters or all the harvesters were removed
-             WHERE sum_cert_true > 0
-             and sum_cert_false > 0
-             # Order by ip to group master and harvesters together. Order by certified so that we always have masters above harvester accounts.
-             order by grp asc, certified desc
+             where remove1 = false
+             and remove2 = false
+            )
+            # Remove entire group if all the masters or all the harvesters were removed
+            WHERE sum_cert_true > 0
+            and sum_cert_false > 0
+            # Order by ip to group master and harvesters together. Order by certified so that we always have masters above harvester accounts.
+            order by grp asc, certified desc
           """.format(dataset=dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table)
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
@@ -1364,6 +1823,109 @@ def compute_ip_pair_sybils3_features(course_id, force_recompute=False, use_datas
     print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
     sys.stdout.flush()
 
+#-----------------------------------------------------------------------------
+
+def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None):
+    
+    #compute_show_ans_before(course_id, force_recompute, use_dataset_latest)
+
+    '''
+    Sybils3 uses the transitive closure of person course UNFILTERED
+    The stats_ip_pair_sybils3 table finds all harvester-master GROUPS of users for 
+    which the pair have meaningful disparities
+    in performance, including:
+      - one earning a certificate and the other not
+      - one clicking "show answer" many times and the other not
+    Typically, the "master", which earns a certificate, has a high percentage
+    of correct attempts, while the "harvester" clicks on "show answer" many times,
+    and does not earn a certificate.
+    Multiple users can belong to the same group, and their IP addresses can be different.
+    This requires a table to be pre-computed, which gives the transitive closure over
+    all the (username, ip) pairs from both HarvardX and MITx person_course
+    '''
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    table = "stats_ip_pair_sybils3_unfiltered"
+
+    SQL = """# Northcutt SQL for finding sybils UNFILTERED
+            ##################################
+            # Sybils Version 3.0
+            # Instead of same ip, considers users in same grp where
+            # where grp is determined by the full transitive closure 
+            # of all person_course (username, ip) pairs.
+             SELECT
+             "{course_id}" as course_id, username, grp, certified, percent_show_ans_before, median_max_dt_seconds, 
+             norm_pearson_corr, nshow_answer_unique_problems
+             FROM
+               ( 
+                 # Find all users with >1 accounts, same ip address, different certification status
+                 select
+                   #  pc.course_id as course_id,
+                   pc.user_id as user_id,
+                   username, shadow, ip, grp,
+                   percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                   nshow_answer_unique_problems,
+                   round(ac.percent_correct, 2) as percent_correct,
+                   frac_complete,
+                   ac.certified as certified,
+                   sum(pc.certified = true) over (partition by grp) as sum_cert_true,
+                   sum(pc.certified = false) over (partition by grp) as sum_cert_false,
+                   count(distinct username) over (partition by grp) as ipcnt
+
+                   #Adds a column with transitive closure group number for each user
+                   from
+                   (
+                      SELECT
+                      user_id, username, shadow_candidate as shadow, ip, certified, grp, 
+                      percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr
+                      FROM
+                      (
+                       select user_id, a.username, a.ip as ip, certified, grp, GROUP_CONCAT(a.username) over (partition by grp) as grp_usernames
+                       FROM [{dataset}.person_course] a
+                       JOIN EACH [{uname_ip_groups_table}] b
+                       ON a.ip = b.ip and a.username = b.username
+                       group by user_id, a.username, ip, certified, grp
+                      )as pc
+                      OUTER LEFT JOIN EACH [{dataset}.stats_show_ans_before] as sa
+                      ON pc.username = sa.cameo_candidate #join on cameo candidate
+                      where (','+grp_usernames+',' contains ','+sa.shadow_candidate+',') #Only keep rows where cameo's shadow is in pc
+                      or certified = false #include possible shadows
+                   )as pc
+                    JOIN EACH [{dataset}.stats_attempts_correct] as ac
+                    on pc.user_id = ac.user_id
+                 )
+                 # Since clicking show answer or guessing over and over cannot achieve certification, we should have
+                 # at least one (not certified) harvester, and at least one (certified) master who uses the answers.
+                 where sum_cert_true > 0
+                 and sum_cert_false > 0
+          """.format(dataset=dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table)
+
+    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    sys.stdout.flush()
+
+    sasbu = "stats_show_ans_before"
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        has_attempts_correct = (tinfo is not None)
+    except Exception as err:
+        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        has_attempts_correct = False
+    if not has_attempts_correct:
+        print "---> No attempts_correct table; skipping %s" % table
+        return
+
+    bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
+                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                depends_on=["%s.%s" % (dataset, sasbu),
+                                        ],
+                            )
+    if not bqdat:
+        nfound = 0
+    else:
+        nfound = len(bqdat['data'])
+    print "--> [%s] Sybils 3.0 Found %s records for %s" % (course_id, nfound, table)
+    sys.stdout.flush()
+    
 #-----------------------------------------------------------------------------
 
 def compute_temporal_fingerprints(course_id, force_recompute=False, use_dataset_latest=False):
