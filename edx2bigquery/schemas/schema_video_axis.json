@@ -28,7 +28,7 @@
         {
             "type": "STRING", 
             "name": "video_id",
-            "description": "Video ID, with periods removed and replaced with _"
+            "description": "Raw Video ID, with full path removed"
         },
         {
             "type": "STRING", 
