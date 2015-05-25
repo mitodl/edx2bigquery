@@ -1621,7 +1621,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
     '''
 
     compute_show_ans_before(course_id, force_recompute, use_dataset_latest) 
-    compute_show_ans_before_high_score(course_id, force_recompute, use_dataset_latest)
+    # compute_show_ans_before_high_score(course_id, force_recompute, use_dataset_latest)
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = "stats_ip_pair_sybils3"
@@ -1727,7 +1727,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
-                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                newer_than=datetime.datetime(2015, 5, 24, 22, 00),
                                 depends_on=["%s.%s" % (dataset, sasbu),
                                         ],
                             )
