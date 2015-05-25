@@ -435,6 +435,11 @@ def ip_sybils(param, courses, args):
                                                               use_dataset_latest=param.use_dataset_latest,
                                                               uname_ip_groups_table=param.table,
                                                          )
+            if param.only_step and ("4" in (param.only_step or "").split(',')):
+                make_problem_analysis.compute_show_ans_before_high_score(course_id, 
+                                                                         force_recompute=args.force_recompute,
+                                                                         use_dataset_latest=param.use_dataset_latest,
+                                                                     )
         except Exception as err:
             print err
             traceback.print_exc()
