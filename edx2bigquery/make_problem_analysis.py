@@ -1559,25 +1559,36 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
         print "---> No %s table; skipping %s" % (sasbu, table)
         return
 
-    bqutil.get_bq_table(dataset, table, SQL1, force_query=force_recompute,
-                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
-                                depends_on=["%s.%s" % (dataset, sasbu), ], overwrite=True)
+    try:
+        table_date = bqutil.get_bq_table_last_modified_datetime(dataset, table)
+    except Exception as err:
+        if 'Not Found' in str(err):
+            table_date = None
+        else:
+            raise
+    if not table_date:
+        force_recompute = True
 
-    bqutil.get_bq_table(dataset, table, SQL2, force_query=force_recompute,
-                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
-                                depends_on=["%s.%s" % (dataset, sasbu), ], overwrite='append')
+    depends_on=["%s.%s" % (dataset, sasbu), ]
+    if table_date:
+            # get the latest mod time of tables in depends_on:
+            modtimes = [ bqutil.get_bq_table_last_modified_datetime(*(x.split('.',1))) for x in depends_on]
+            latest = max([x for x in modtimes if x is not None])
+        
+            if not latest:
+                raise Exception("[make_problem_analysis] Cannot get last mod time for %s (got %s), needed by %s.%s" % (depends_on, modtimes, dataset, table))
 
-    bqutil.get_bq_table(dataset, table, SQL3, force_query=force_recompute,
-                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
-                                depends_on=["%s.%s" % (dataset, sasbu), ], overwrite='append')
+            if table_date < latest:
+                force_recompute = True
 
-    bqutil.get_bq_table(dataset, table, SQL4, force_query=force_recompute,
-                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
-                                depends_on=["%s.%s" % (dataset, sasbu), ], overwrite='append')
+    if force_recompute:
+        bqutil.create_bq_table(dataset, table, SQL1, overwrite=True)
+        bqutil.create_bq_table(dataset, table, SQL2, overwrite='append')
+        bqutil.create_bq_table(dataset, table, SQL3, overwrite='append')
+        bqutil.create_bq_table(dataset, table, SQL4, overwrite='append')
+        bqutil.create_bq_table(dataset, table, SQL5, overwrite='append')
 
-    bqdat = bqutil.get_bq_table(dataset, table, SQL5, force_query=force_recompute,
-                                newer_than=datetime.datetime(2015, 4, 29, 22, 00),
-                                depends_on=["%s.%s" % (dataset, sasbu), ], overwrite='append')
+    bqdat = bqutil.get_bq_table(dataset, table)
         
     if not bqdat:
         nfound = 0
@@ -1609,9 +1620,8 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
     all the (username, ip) pairs from both HarvardX and MITx person_course
     '''
 
-    # compute_show_ans_before(course_id, force_recompute, use_dataset_latest)  # no longer do this?
+    compute_show_ans_before(course_id, force_recompute, use_dataset_latest) 
     compute_show_ans_before_high_score(course_id, force_recompute, use_dataset_latest)
-
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = "stats_ip_pair_sybils3"
