@@ -380,7 +380,25 @@ def analyze_problems(param, courses, args, do_show_answer=True, do_problem_analy
             traceback.print_exc()
             sys.stdout.flush()
             raise
-    
+
+
+def analyze_videos(param, courses, args):
+    import make_video_analysis
+    for course_id in get_course_ids(courses):
+        try:
+            make_video_analysis.analyze_videos(course_id,
+                                               api_key=getattr(edx2bigquery_config, "API_KEY", None),
+                                               basedir=param.the_basedir, 
+                                               datedir=param.the_datedir,
+                                               force_recompute=args.force_recompute,
+                                               use_dataset_latest=param.use_dataset_latest,
+                                               )
+
+        except (AssertionError, Exception) as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+            raise
 
 def attempts_correct(param, courses, args):
     import make_problem_analysis
@@ -1400,6 +1418,10 @@ check_for_duplicates        : check list of courses for duplicates
 
     elif (args.command=='analyze_ora'):
         analyze_ora(param, args, args)
+
+    elif (args.command=='analyze_videos'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(analyze_videos, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='problem_check'):
         problem_check(param, args, args)

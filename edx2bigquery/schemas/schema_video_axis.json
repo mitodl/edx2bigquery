@@ -1,0 +1,49 @@
+{
+    "video_axis": [
+        {
+            "type": "INTEGER", 
+            "name": "index_chapter",
+            "description": "Chapter Index"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "index_video",
+            "description": "Video Index"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "category",
+            "description": "Course Axis Category"
+        },
+        {
+            "type": "STRING", 
+            "name": "course_id",
+            "description": "course ID in the standard format as org/number/semester"
+        },
+        {
+            "type": "STRING", 
+            "name": "name",
+            "description": "Video Name"
+        },
+        {
+            "type": "STRING", 
+            "name": "video_id",
+            "description": "Video ID, with periods removed and replaced with _"
+        },
+        {
+            "type": "STRING", 
+            "name": "youtube_id",
+            "description": "Youtube ID"
+        },
+        {
+            "type": "STRING", 
+            "name": "chapter_name",
+            "description": "Chapter Name"
+        },
+        {
+            "type": "INTEGER", 
+            "name": "video_length",
+            "description": "Video Length in seconds"
+        }
+    ] 
+}
