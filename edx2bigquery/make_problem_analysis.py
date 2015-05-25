@@ -1591,8 +1591,6 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
 
 def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None):
     
-    compute_show_ans_before(course_id, force_recompute, use_dataset_latest)
-
     '''
     Sybils3 uses the transitive closure of person course
     The stats_ip_pair_sybils3 table finds all harvester-master GROUPS of users for 
@@ -1610,6 +1608,10 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
     This requires a table to be pre-computed, which gives the transitive closure over
     all the (username, ip) pairs from both HarvardX and MITx person_course
     '''
+
+    # compute_show_ans_before(course_id, force_recompute, use_dataset_latest)  # no longer do this?
+    compute_show_ans_before_high_score(course_id, force_recompute, use_dataset_latest)
+
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = "stats_ip_pair_sybils3"
