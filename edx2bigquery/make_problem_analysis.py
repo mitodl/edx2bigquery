@@ -981,8 +981,8 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
     This table also computes median_max_dt_seconds which is the median time between the shadow's
     show_answer and the certified accounts' correct answer. This table also computes the normalized
     pearson correlation.
-    This table chooses the FIRST show_answer and the LAST correct submission, to ensure any cheating
-    is caught, even if the user tried to figure it out without cheating first.
+    This table chooses the FIRST show_answer and the LAST correct submission, to ensure catching
+    cases, even if the user tried to figure it out without gaming first.
     '''
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
@@ -1143,8 +1143,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     show_answer and the certified accounts' correct answer. This table also computes the normalized
     pearson correlation.
 
-    This table chooses the FIRST show_answer and the LAST correct submission, to ensure any cheating
-    is caught, even if the user tried to figure it out without cheating first.
+    This table chooses the FIRST show_answer and the LAST correct submission, to ensure catching
+    cases, even if the user tried to figure it out without gaming first.
     '''
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
