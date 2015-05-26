@@ -1804,7 +1804,8 @@ def compute_cameo_demographics(course_id, force_recompute=False, use_dataset_lat
            
                    FROM 
                        [{dataset}.person_course] PC
-                   LEFT JOIN [{dataset}.stats_ip_pair_sybils3] SY
+                   LEFT JOIN
+                       (   SELECT username from [{dataset}.stats_ip_pair_sybils3] group by username ) SY
                    on  # SY.course_id = PC.course_id AND
                        SY.username = PC.username
                    WHERE PC.viewed
