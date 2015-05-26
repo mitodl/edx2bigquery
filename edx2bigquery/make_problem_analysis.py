@@ -14,6 +14,7 @@ import os, sys
 import csv
 import re
 import json
+import time
 import gsutil
 import bqutil
 import datetime
@@ -1131,7 +1132,7 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
 
 #-----------------------------------------------------------------------------
 
-def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=False):
+def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=False, force_num_partitions=None):
     '''
     Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
     cameo candidate - certified | shadow candidate - uncertified
@@ -1187,10 +1188,16 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     #-------------------- partition by username hash
     
     num_persons = bqutil.get_bq_table_size_rows(dataset, 'person_course')
-    if num_persons > 10000:
-        num_partitions = int(num_persons / 5000)
+    if force_num_partitions:
+        num_partitions = force_num_partitions
+        print " --> Force the number of partitions to be %d" % force_num_partitions
     else:
-        num_partitions = 2
+        if num_persons > 60000:
+            num_partitions = int(num_persons / 3000)	# because the number of certificate earners is also likely higher
+        elif num_persons > 10000:
+            num_partitions = int(num_persons / 5000)
+        else:
+            num_partitions = 2
     print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
 
     def make_username_partition(nparts, pnum):
@@ -1324,9 +1331,23 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             print "--> Running SQL for partition %d of %d" % (i, num_partitions)
             sys.stdout.flush()
             if i == 0:
-                bqutil.create_bq_table(dataset, table, sql[i], overwrite=True)
+                try:
+                    bqutil.create_bq_table(dataset, table, sql[i], overwrite=True)
+                except Exception as err:
+                    if (not force_num_partitions) and 'Response too large' in str(err):
+                        print err
+                        print "==> SQL query failed!  Trying again, with 50% more many partitions"
+                        return compute_show_ans_before(course_id, force_recompute=force_recompute, 
+                                                       use_dataset_latest=use_dataset_latest, 
+                                                       force_num_partitions=int(num_partitions*1.5))
+                    else:
+                        raise
             else:
                 bqutil.create_bq_table(dataset, table, sql[i], overwrite='append')
+        if num_partitions > 5:
+            print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
+            sys.stdout.flush()
+            time.sleep(60)
 
     nfound = bqutil.get_bq_table_size_rows(dataset, table)
     print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
