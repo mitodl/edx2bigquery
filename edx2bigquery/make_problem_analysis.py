@@ -1187,9 +1187,11 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     #-------------------- partition by username hash
     
     num_persons = bqutil.get_bq_table_size_rows(dataset, 'person_course')
-    if num_persons > 30000:
+    if num_persons > 10000:
         num_partitions = int(num_persons / 5000)
-        print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
+    else:
+        num_partitions = 2
+    print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
 
     def make_username_partition(nparts, pnum):
         psql = """\n    ABS(HASH(pc.username)) %% %d = %d\n""" % (nparts, pnum)
@@ -1319,6 +1321,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
 
     if force_recompute:
         for i in range(num_partitions): 
+            print "--> Running SQL for partition %d of %d" % (i, num_partitions)
+            sys.stdout.flush()
             if i == 0:
                 bqutil.create_bq_table(dataset, table, sql[i], overwrite=True)
             else:
