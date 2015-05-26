@@ -440,6 +440,12 @@ def ip_sybils(param, courses, args):
                                                                          force_recompute=args.force_recompute,
                                                                          use_dataset_latest=param.use_dataset_latest,
                                                                      )
+            if param.only_step and ("5" in (param.only_step or "").split(',')):
+                make_problem_analysis.compute_ip_pair_sybils3_unfiltered(course_id, 
+                                                                         force_recompute=args.force_recompute,
+                                                                         use_dataset_latest=param.use_dataset_latest,
+                                                                         uname_ip_groups_table=param.table,
+                                                                     )
         except Exception as err:
             print err
             traceback.print_exc()
