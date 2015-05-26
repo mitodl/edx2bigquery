@@ -1081,7 +1081,7 @@ class PersonCourse(object):
 
         try:
             private_geoip_tinfo = bqutil.get_bq_table_info('geocode', 'GeoIPCityCountry')
-            assert private_geoip_info is not None
+            assert private_geoip_tinfo is not None
         except Exception as err:
             private_geoip_tinfo = None
 
