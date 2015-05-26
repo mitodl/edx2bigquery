@@ -1685,7 +1685,7 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
         print "Error %s getting %s.%s" % (err, dataset, sasbu)
         has_attempts_correct = False
     if not has_attempts_correct:
-        print "---> No attempts_correct table; skipping %s" % table
+        print "---> No %s table; skipping %s" % (sasbu, table)
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
@@ -1698,6 +1698,148 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
     else:
         nfound = len(bqdat['data'])
     print "--> [%s] Sybils 3.0 Found %s records for %s" % (course_id, nfound, table)
+    sys.stdout.flush()
+    
+#-----------------------------------------------------------------------------
+
+def compute_cameo_demographics(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    Compute count, gender, bachplus, in_US, median age, for a four-way dichotemy of participants,
+    with respect to CAMEOs:
+
+        certified_cameo, 
+        certified_non_cameo, 
+        non_certified_cameo_harvester, 
+        non_certified_participant_non_harvester
+    '''
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    table = "stats_cameo_demographics"
+    
+    SQL = """# Compute CAMEO demographics, based on 4-way dichotemy of participants wrt CAMEOs
+           SELECT 
+              "{course_id}" as course_id,
+               sum(case when certified_cameo then 1 end) as n_certified_cameo,
+               sum(case when certified_cameo and gender='m' then 1 end) as n_male_certified_cameo,
+               sum(case when certified_cameo and gender='f' then 1 end) as n_female_certified_cameo,
+               sum(case when certified_cameo and bachplus=1 then 1 end) as n_bachplus_certified_cameo,
+               sum(case when certified_cameo and sub_bach=1 then 1 end) as n_sub_bachplus_certified_cameo,
+               sum(case when certified_cameo and in_US then 1 end) as n_in_US_certified_cameo,
+               sum(case when certified_cameo and not_in_US then 1 end) as n_not_in_US_certified_cameo,
+               sum(case when certified_cameo and verified then 1 end) as n_id_verified_certified_cameo,
+               max(case when certified_cameo then median_age_in_2015_certified_cameo end) as median_age_in_2015_certified_cameo,
+           
+               sum(case when certified_non_cameo then 1 end) as n_certified_non_cameo,
+               sum(case when certified_non_cameo and gender='m' then 1 end) as n_male_certified_non_cameo,
+               sum(case when certified_non_cameo and gender='f' then 1 end) as n_female_certified_non_cameo,
+               sum(case when certified_non_cameo and bachplus=1 then 1 end) as n_bachplus_certified_non_cameo,
+               sum(case when certified_non_cameo and sub_bach=1 then 1 end) as n_sub_bachplus_certified_non_cameo,
+               sum(case when certified_non_cameo and in_US then 1 end) as n_in_US_certified_non_cameo,
+               sum(case when certified_non_cameo and not_in_US then 1 end) as n_not_in_US_certified_non_cameo,
+               sum(case when certified_non_cameo and verified then 1 end) as n_id_verified_certified_non_cameo,
+               max(case when certified_non_cameo then median_age_in_2015_certified_non_cameo end) as median_age_in_2015_certified_non_cameo,
+           
+               sum(case when certified then 1 end) as n_certified,
+           
+               sum(case when non_certified_cameo_harvester then 1 end) as n_non_certified_cameo_harvester,
+               sum(case when non_certified_cameo_harvester and gender='m' then 1 end) as n_male_non_certified_cameo_harvester,
+               sum(case when non_certified_cameo_harvester and gender='f' then 1 end) as n_female_non_certified_cameo_harvester,
+               sum(case when non_certified_cameo_harvester and bachplus=1 then 1 end) as n_bachplus_non_certified_cameo_harvester,
+               sum(case when non_certified_cameo_harvester and sub_bach=1 then 1 end) as n_sub_bachplus_non_certified_cameo_harvester,
+               sum(case when non_certified_cameo_harvester and in_US then 1 end) as n_in_US_certified_non_certified_cameo_harvester,
+               sum(case when non_certified_cameo_harvester and not_in_US then 1 end) as n_not_in_US_certified_non_certified_cameo_harvester,
+               max(case when non_certified_cameo_harvester then median_age_in_2015_non_certified_cameo_harvester end) as median_age_in_2015_non_certified_cameo_harvester,
+           
+               sum(case when non_certified_participant_non_harvester then 1 end) as n_non_certified_participant_non_harvester,
+               sum(case when non_certified_participant_non_harvester and gender='m' then 1 end) as n_male_non_certified_participant_non_harvester,
+               sum(case when non_certified_participant_non_harvester and gender='f' then 1 end) as n_female_non_certified_participant_non_harvester,
+               sum(case when non_certified_participant_non_harvester and bachplus=1 then 1 end) as n_bachplus_non_certified_participant_non_harvester,
+               sum(case when non_certified_participant_non_harvester and sub_bach=1 then 1 end) as n_sub_bachplus_non_certified_participant_non_harvester,
+               sum(case when non_certified_participant_non_harvester and in_US then 1 end) as n_in_US_certified_non_certified_participant_non_harvester,
+               sum(case when non_certified_participant_non_harvester and not_in_US then 1 end) as n_not_in_US_certified_non_certified_participant_non_harvester,
+               max(case when non_certified_participant_non_harvester then median_age_in_2015_non_certified_participant_non_harvester end) as median_age_in_2015_non_certified_participant_non_harvester,
+           
+               sum(case when viewed then 1 end) as n_participants,
+               sum(case when (viewed and not certified) then 1 end) as n_non_certified_participants,
+           FROM
+           (
+               SELECT *,
+                   # age variables, dichotemized by cameos, for the median calculation
+                   (case when certified_cameo then course_id end) cid_certified_cameo,
+                   (case when certified_non_cameo then course_id end) cid_certified_non_cameo,
+                   (case when non_certified_cameo_harvester then course_id end) cid_non_certified_cameo_harvester,
+                   (case when non_certified_participant_non_harvester then course_id end) cid_non_certified_participant_non_harvester,
+                   
+                   PERCENTILE_DISC(0.5) over (partition by cid_certified_cameo order by age_in_2015) as median_age_in_2015_certified_cameo,
+                   PERCENTILE_DISC(0.5) over (partition by cid_certified_non_cameo order by age_in_2015) as median_age_in_2015_certified_non_cameo,
+                   PERCENTILE_DISC(0.5) over (partition by cid_non_certified_cameo_harvester order by age_in_2015) as median_age_in_2015_non_certified_cameo_harvester,
+                   PERCENTILE_DISC(0.5) over (partition by cid_non_certified_participant_non_harvester order by age_in_2015) as median_age_in_2015_non_certified_participant_non_harvester,
+               FROM
+               (
+                   SELECT PC.course_id as course_id,
+                       PC.username as username,
+                       SY.username as cameo_username,
+                       PC.certified as certified,
+                       PC.viewed as viewed,
+                       PC.gender as gender,
+                       PC.LoE as LoE,
+                       (2015 - PC.YoB) as age_in_2015,
+                       PC.YoB as YoB,
+                       PC.cc_by_ip as cc_by_ip,
+                       (PC.mode="verified") as verified,
+                       PC.sum_dt / 60 / 60 / 24 as time_active_in_days,
+                       PC.email_domain as email_domain,
+                       (cc_by_ip = "US") as in_US,
+                       (cc_by_ip is not null and not (cc_by_ip = "US")) as not_in_US,
+           
+                       # bachelor's degree or higher, versus sub-bachelor's degree
+                       (case when ((LoE="b") or (LoE="m") or (LoE="p") or (LoE="p_oth") or (LoE="p_se")) then 1 else 0 end) as bachplus,
+                       (case when ((LoE="a") or (LoE="el") or (LoE="hs") or (LoE="jhs") or (LoE="none")) then 1 else 0 end) as sub_bach,
+           
+                       # four variables which dichotemize cameos (certified or not, harvester or not)
+                       (case when (SY.username = PC.username) and PC.certified then true else false end) as certified_cameo,
+                       (case when ((SY.username is null) or (SY.username != PC.username)) and PC.certified then true else false end) as certified_non_cameo,
+                       (case when (SY.username = PC.username) and not PC.certified and PC.viewed then true else false end) as non_certified_cameo_harvester,
+                       (case when ((SY.username is null) or (SY.username != PC.username)) and not PC.certified and PC.viewed then true else false end) as non_certified_participant_non_harvester,
+           
+                   FROM 
+                       [{dataset}.person_course] PC
+                   LEFT JOIN [{dataset}.stats_ip_pair_sybils3] SY
+                   on  # SY.course_id = PC.course_id AND
+                       SY.username = PC.username
+                   WHERE PC.viewed
+               )
+           ) 
+           GROUP BY course_id
+           ORDER BY course_id
+          """.format(dataset=dataset, course_id=course_id)
+
+    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    sys.stdout.flush()
+
+    sasbu = "stats_ip_pair_sybils3"
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        has_attempts_correct = (tinfo is not None)
+    except Exception as err:
+        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        has_attempts_correct = False
+    if not has_attempts_correct:
+        print "---> No %s table; skipping %s" % (sasbu, table)
+        return
+
+    try:
+        bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
+                                    newer_than=datetime.datetime(2015, 4, 29, 22, 00),
+                                    depends_on=["%s.%s" % (dataset, sasbu),
+                                            ],
+                                    startIndex=-2,
+                                )
+    except Exception as err:
+        print "[compute_cameo_demographics] oops, failed in running SQL=%s, err=%s" % (SQL, err)
+        raise
+
+    print "--> Done with %s, results=%s" % (table, json.dumps(bqdat['data'][0], indent=4))
     sys.stdout.flush()
     
 #-----------------------------------------------------------------------------
