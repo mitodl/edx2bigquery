@@ -1150,68 +1150,57 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = "stats_show_ans_before"
 
+    #-------------------- partition by nshow_ans_distinct
+
+    def make_sad_partition(pmin, pmax):
+
+        partition = '''nshow_ans_distinct >  # Shadow must click answer on between {pmin} and {pmax} of problems
+                      (
+                        SELECT  
+                        count(distinct module_id) * {pmin}
+                        FROM [{dataset}.show_answer]
+                      )
+        '''.format(dataset=dataset, pmin=pmin, pmax=pmax)
+        
+        if pmax:
+            partition += '''
+                      and nshow_ans_distinct <=  
+                      (
+                        SELECT  
+                        count(distinct module_id) * {pmax}
+                        FROM [{dataset}.show_answer]
+                      )
+            '''.format(dataset=dataset, pmin=pmin, pmax=pmax)
+        return partition
+
     num_partitions = 5
     
-    partition1 = '''nshow_ans_distinct >  #Shadow must click answer on 2% of problems
-                  (
-                    SELECT  
-                    count(distinct module_id) / 50
-                    FROM [{dataset}.show_answer]
-                  )
-                  and nshow_ans_distinct <=  
-                  (
-                    SELECT  
-                    count(distinct module_id) * 1 / 20
-                    FROM [{dataset}.show_answer]
-                  )
-    '''.format(dataset=dataset)
-    partition2 = '''nshow_ans_distinct >  
-                  (
-                    SELECT  
-                    count(distinct module_id) / 20
-                    FROM [{dataset}.show_answer]
-                  )
-                  and nshow_ans_distinct <=  
-                  (
-                    SELECT  
-                    count(distinct module_id) / 10
-                    FROM [{dataset}.show_answer]
-                  )
-    '''.format(dataset=dataset)
-    partition3 = '''nshow_ans_distinct >  
-                  (
-                    SELECT  
-                    count(distinct module_id) / 10
-                    FROM [{dataset}.show_answer]
-                  )
-                  and nshow_ans_distinct <=  
-                  (
-                    SELECT  
-                    count(distinct module_id) / 5
-                    FROM [{dataset}.show_answer]
-                  )
-    '''.format(dataset=dataset)
-    partition4 = '''nshow_ans_distinct >  
-                  (
-                    SELECT  
-                    count(distinct module_id) / 5
-                    FROM [{dataset}.show_answer]
-                  )
-                  and nshow_ans_distinct <= 
-                  (
-                    SELECT  
-                    count(distinct module_id) / 3
-                    FROM [{dataset}.show_answer]
-                  )
-    '''.format(dataset=dataset)
-    partition5 = '''nshow_ans_distinct > 
-                  (
-                    SELECT  
-                    count(distinct module_id) / 3
-                    FROM [{dataset}.show_answer]
-                  )
-    '''.format(dataset=dataset)
+    if 0:
+        partition1 = make_sad_partition('1.0/50', '1.0/20')
+        partition2 = make_sad_partition('1.0/20', '1.0/10')
+        partition3 = make_sad_partition('1.0/10', '1.0/5')
+        partition4 = make_sad_partition('1.0/5', '1.0/3')
+        partition5 = make_sad_partition('1.0/3', None)
                
+        the_partition = [partition1, partition2, partition3, partition4, partition5]
+
+    #-------------------- partition by username hash
+    
+    num_persons = bqutil.get_bq_table_size_rows(dataset, 'person_course')
+    if num_persons > 30000:
+        num_partitions = int(num_persons / 5000)
+        print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
+
+    def make_username_partition(nparts, pnum):
+        psql = """\n    ABS(HASH(pc.username)) %% %d = %d\n""" % (nparts, pnum)
+        return psql
+
+    the_partition = []
+    for k in range(num_partitions):
+        the_partition.append(make_username_partition(num_partitions, k))
+
+    #-------------------- build sql, one for each partition
+
     sql = []
     for i in range(num_partitions):
         item = """
@@ -1281,7 +1270,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               )
               group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds
               #having show_ans_before > 10
-          """.format(dataset=dataset, course_id = course_id, partition=eval('partition'+str(i+1)))
+          """.format(dataset=dataset, course_id = course_id, partition=the_partition[i])
         sql.append(item)
 
 
