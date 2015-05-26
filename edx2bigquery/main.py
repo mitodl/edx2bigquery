@@ -1356,7 +1356,7 @@ check_for_duplicates        : check list of courses for duplicates
 
     elif (args.command=='get_table_info'):
         import bqutil
-        print json.dumps(bqutil.get_bq_table_info(args.courses[0], args.courses[1]), indent=4)
+        print bqutil.get_bq_table_info(args.courses[0], args.courses[1])
 
     elif (args.command=='delete_empty_tables'):
         import bqutil

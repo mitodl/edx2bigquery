@@ -1299,6 +1299,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
         print "---> No %s table; skipping %s" % (sasbu, table)
         return
 
+    newer_than = datetime.datetime(2015, 5, 25, 20, 0)
+
     try:
         table_date = bqutil.get_bq_table_last_modified_datetime(dataset, table)
     except Exception as err:
@@ -1309,8 +1311,13 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     if not table_date:
         force_recompute = True
 
+    if table_date and (table_date < newer_than):
+        print("--> Forcing query recomputation of %s.%s, table_date=%s, newer_than=%s" % (dataset, table,
+                                                                                          table_date, newer_than))
+        force_recompute = True
+
     depends_on=["%s.%s" % (dataset, sasbu), ]
-    if table_date:
+    if table_date and not force_recompute:
             # get the latest mod time of tables in depends_on:
             modtimes = [ bqutil.get_bq_table_last_modified_datetime(*(x.split('.',1))) for x in depends_on]
             latest = max([x for x in modtimes if x is not None])
@@ -1328,12 +1335,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             else:
                 bqutil.create_bq_table(dataset, table, sql[i], overwrite='append')
 
-    bqdat = bqutil.get_bq_table(dataset, table)
-        
-    if not bqdat:
-        nfound = 0
-    else:
-        nfound = len(bqdat['data'])
+    nfound = bqutil.get_bq_table_size_rows(dataset, table)
     print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
     sys.stdout.flush()
 
@@ -1474,7 +1476,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
-                                newer_than=datetime.datetime(2015, 5, 24, 22, 00),
+                                newer_than=datetime.datetime(2015, 5, 25, 20, 0),
                                 depends_on=["%s.%s" % (dataset, sasbu),
                                         ],
                             )
