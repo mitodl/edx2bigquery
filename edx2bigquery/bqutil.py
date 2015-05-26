@@ -340,6 +340,8 @@ def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, forc
             force_query = True
             logger("[get_bq_table] Forcing query recomputation of %s.%s, table_date=%s, newer_than=%s" % (dataset, tablename,
                                                                                                           table_date, newer_than))
+        #else:
+        #    logger("[get_bq_table] table %s.%s date %s, newer than %s" % (dataset, tablename, table_date, newer_than))
 
     if force_query:
         create_bq_table(dataset, tablename, sql, logger=logger, overwrite=True, allowLargeResults=allowLargeResults)
@@ -349,10 +351,15 @@ def get_bq_table(dataset, tablename, sql=None, key=None, allow_create=True, forc
         ret = get_table_data(dataset, tablename, key=key, logger=logger,
                              startIndex=startIndex, maxResults=maxResults)
         if ret is None:
-            raise Exception("Table %s.%s empty or Not Found" % (dataset, tablename))
+            try:
+                tsize = get_bq_table_size_rows(dataset, tablename)
+            except:
+                tsize = None
+            if tsize is None:
+                raise Exception("Table %s.%s empty or Not Found" % (dataset, tablename))	# recompute, but not if table just has zero rows
     except Exception as err:
         if 'Not Found' in str(err) and allow_create and (sql is not None) and sql:
-            create_bq_table(dataset, tablename, sql, logger=logger, allowLargeResults=allowLargeResults)
+            create_bq_table(dataset, tablename, sql, logger=logger, overwrite=True, allowLargeResults=allowLargeResults)
             return get_table_data(dataset, tablename, key=key, logger=logger,
                                   startIndex=startIndex, maxResults=maxResults)
         else:
