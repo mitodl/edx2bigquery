@@ -630,6 +630,8 @@ def doall(param, course_id, args, stdout=None):
         show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, just_do_totals=True)
+        analyze_videos(param, course_id, args)
+        
         success = True
 
     except Exception as err:
@@ -659,6 +661,8 @@ def run_nightly_single(param, course_id, args=None):
         show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, skip_totals=True)
+        analyze_videos(param, course_id, args)
+
     except Exception as err:
         print "="*100
         print "ERROR: %s" % str(err)
@@ -943,6 +947,9 @@ analyze_problems <c_id> ... : Analyze capa problem data in studentmodule table, 
                               Uploads the result to google cloud storage and to BigQuery.
                               This table is necessary for the analytics dashboard.
                               Accepts --only-step=grades | show_answer | analysis
+
+analyze_videos <course_id>  : Analyze videos viewed and videos watched, generating tables video_axis (based on course axis),
+                              and video_stats_day and video_stats, based on daily tracking logs, for specified course.
 
 analyze_ora <course_id> ... : Analyze openassessment response problem data in tracking logs, generating the ora_events table as a result.  
                               Uploads the result to google cloud storage and to BigQuery.

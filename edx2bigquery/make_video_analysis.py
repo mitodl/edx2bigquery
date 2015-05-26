@@ -196,7 +196,7 @@ def createVideoStats_day( course_id, force_recompute=False, use_dataset_latest=F
                        WHERE (event_type = "play_video" or event_type = "pause_video" or event_type = "stop_video") and
                               event is not null
                        group by username, video_id, date
-                       order by username, video_id
+                       order by date
               """
     try:
         tinfo = bqutil.get_bq_table_info(dataset, TABLE_VIDEO_STATS_PER_DAY )
