@@ -109,6 +109,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
         data['event_struct'] = event
     elif type(event)==dict:	# default to always including GET and POST when available
         data['event_struct'] = {'GET': json.dumps(event.get('GET')), 'POST': json.dumps(event.get('POST'))}
+        data['event_strut']['query'] = event.get('query')
     else:
         if 'event_struct' in data:
             data.pop('event_struct')
