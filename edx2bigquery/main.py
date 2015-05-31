@@ -400,6 +400,23 @@ def analyze_videos(param, courses, args):
             sys.stdout.flush()
             raise
 
+def analyze_forum(param, courses, args):
+    import make_forum_analysis
+    for course_id in get_course_ids(courses):
+        try:
+            make_forum_analysis.AnalyzeForums(course_id,
+                                              force_recompute=args.force_recompute,
+                                              use_dataset_latest=param.use_dataset_latest,
+                                              skip_last_day=args.skip_last_day,
+                                              end_date=args.end_date,
+                                          )
+
+        except (AssertionError, Exception) as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+            raise
+
 def attempts_correct(param, courses, args):
     import make_problem_analysis
     for course_id in get_course_ids(courses):
@@ -956,6 +973,8 @@ analyze_problems <c_id> ... : Analyze capa problem data in studentmodule table, 
 analyze_videos <course_id>  : Analyze videos viewed and videos watched, generating tables video_axis (based on course axis),
                               and video_stats_day and video_stats, based on daily tracking logs, for specified course.
 
+analyze_forum <course_id>   : Analyze forum events, generating the forum_events table from the daily tracking logs, for specified course.
+
 analyze_ora <course_id> ... : Analyze openassessment response problem data in tracking logs, generating the ora_events table as a result.  
                               Uploads the result to google cloud storage and to BigQuery.
 
@@ -1445,6 +1464,10 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='analyze_videos'):
         courses = get_course_ids(args)
         run_parallel_or_serial(analyze_videos, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='analyze_forum'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(analyze_forum, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='problem_check'):
         problem_check(param, args, args)
