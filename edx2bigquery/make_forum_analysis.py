@@ -56,8 +56,9 @@ def CreateForumEvents( course_id, force_recompute=False, use_dataset_latest=Fals
     # event_type for forums may be like:
     #  /courses/UnivX/123.4x/2T2015/discussion/forum/The_Subject/threads/5460c918a2a525003a0007fa
     #  /courses/UnivX/123.4x/2T2015/discussion/forum/The_Subject/inline
-    #  /courses/UnivX/123.4x/2T2015/discussion/threads/545e4f5da2a5251aac000672/reply
     #  /courses/UnivX/123.4x/2T2015/discussion/forum/users/4051854/followed
+    #  /courses/UnivX/123.4x/2T2015/discussion/comments/54593f21a2a525003a000351/reply
+    #  /courses/UnivX/123.4x/2T2015/discussion/threads/545e4f5da2a5251aac000672/reply
     #  /courses/UnivX/123.4x/2T2015/discussion/threads/545770e9dad66c17cd0001d5/upvote
     #  /courses/UnivX/123.4x/2T2015/discussion/threads/545770e9dad66c17cd0001d5/unvote
     #  /courses/UnivX/123.4x/2T2015/discussion/threads/5447c22e892b213c7b0001f3/update
@@ -86,6 +87,11 @@ def CreateForumEvents( course_id, force_recompute=False, use_dataset_latest=Fals
                            when REGEXP_MATCH(event_type, r'/courses/(.*)/discussion/threads/[^/]+/pin') then "pin"
                            when REGEXP_MATCH(event_type, r'/courses/(.*)/discussion/threads/[^/]+/unpin') then "unpin"
                            when REGEXP_MATCH(event_type, r'/courses/(.*)/discussion/threads/[^/]+/downvote') then "downvote"  # does this happen?
+                           when REGEXP_MATCH(event_type, r'/courses/(.*)/discussion/comments/[^/]+/reply') then "comment_reply"
+                           when REGEXP_MATCH(event_type, r'/courses/(.*)/discussion/comments/[^/]+/upvote') then "comment_upvote"
+                           when REGEXP_MATCH(event_type, r'/courses/(.*)/discussion/comments/[^/]+/update') then "comment_update"
+                           when REGEXP_MATCH(event_type, r'/courses/(.*)/discussion/comments/[^/]+/unvote') then "comment_unvote"
+                           when REGEXP_MATCH(event_type, r'/courses/(.*)/discussion/comments/[^/]+/delete') then "comment_delete"
                            when REGEXP_MATCH(event_type, r'/courses/(.*)/discussion/forum/users/[^/]+/followed') then "follow_user"
                            when REGEXP_MATCH(event_type, r'/courses/(.*)/discussion/forum/users/[^/]+$') then "target_user"
                            when REGEXP_MATCH(event_type, r'/courses/(.*)/discussion/forum/[^/]+/threads/[^/]+') then "read"
@@ -99,7 +105,8 @@ def CreateForumEvents( course_id, force_recompute=False, use_dataset_latest=Fals
                            when event_type = "edx.forum.comment.created" then "created_comment"
                            when event_type = "edx.forum.searched" then "searched"
                            else event_type end) as forum_action,
-                     REGEXP_EXTRACT(module_id, r'[^/]+/[^/]+/forum/([^/]+)') as thread_id,
+                     (case when module_id is not null then REGEXP_EXTRACT(module_id, r'[^/]+/[^/]+/forum/([^/]+)') 
+                           else REGEXP_EXTRACT(event_type, r'/courses/.*/discussion/comments/([^/]+)/') end) as thread_id,
                      REGEXP_EXTRACT(event_type, r'/courses/.*/forum/([^/]+)/') as subject,
                      REGEXP_EXTRACT(event_type, r'/courses/.*/forum/users/([^/]+)') as target_user_id,
                      event_struct.query as search_query,   # unavailable before June 1, 2015
@@ -108,6 +115,7 @@ def CreateForumEvents( course_id, force_recompute=False, use_dataset_latest=Fals
               WHERE  (REGEXP_MATCH(event_type ,r'^edx\.forum\..*')
                       or event_type contains "/discussion/forum"
                       or event_type contains "/discussion/threads"
+                      or event_type contains "/discussion/comments"
                       or event_type contains "list-forum-"
                       or event_type contains "list_forum_"
                       or event_type contains "add-forum-"
