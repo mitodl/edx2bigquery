@@ -154,6 +154,7 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
                       case when (REGEXP_MATCH(event_type ,r'^edx\.forum\..*')
                                or event_type contains "/discussion/forum"
                                or event_type contains "/discussion/threads"
+                               or event_type contains "/discussion/comments"
                               ) then True else False end as is_forum,
                       case when (REGEXP_MATCH(event_type ,r'^textbook\..*')
                                or event_type contains "/wiki/"
