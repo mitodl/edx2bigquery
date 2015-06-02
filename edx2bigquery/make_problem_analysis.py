@@ -1230,55 +1230,59 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               round(corr(sa.time - min_first_check_time, pa.time - min_first_check_time), 8) as norm_pearson_corr,
               round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr
               FROM
-              ( 
+              (
                 SELECT *,
-                (CASE WHEN max_dt IS NOT NULL THEN true END) AS has_max_dt,
-                PERCENTILE_CONT(.5) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_with_null_rows,
-                MAX(median_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS median_max_dt_seconds 
+                  MAX(median_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS median_max_dt_seconds 
                 FROM
-                ( 
-                  select sa.username as shadow_candidate,
-                  pa.username as cameo_candidate,
-                  sa.time, pa.time,
-                  sa.time < pa.time as sa_before_pa,
-                  (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
-                  USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time
+                (
+                  SELECT *,
+                  (CASE WHEN max_dt IS NOT NULL THEN true END) AS has_max_dt,
+                  PERCENTILE_CONT(.5) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_with_null_rows
                   FROM
-                  (
-                    #Certified = false for shadow candidate
-                    SELECT sa.username as username, module_id, sa.time as time  
+                  ( 
+                    select sa.username as shadow_candidate,
+                    pa.username as cameo_candidate,
+                    sa.time, pa.time,
+                    sa.time < pa.time as sa_before_pa,
+                    (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
+                    USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time
                     FROM
                     (
+                      #Certified = false for shadow candidate
+                      SELECT sa.username as username, module_id, sa.time as time  
+                      FROM
+                      (
+                          SELECT 
+                          username, module_id, MIN(time) as time, 
+                          count(distinct module_id) over (partition by username) as nshow_ans_distinct
+                          FROM [{dataset}.show_answer] 
+                          group each by username, module_id
+                      ) sa
+                      JOIN EACH [{dataset}.person_course] pc
+                      ON sa.username = pc.username
+                      where certified = false
+                      and {partition}
+                    )sa
+                    JOIN EACH
+                    (
+                      #certified = true for cameo candidate
+                      SELECT pa.username as username, module_id, time,
+                      MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time
+                      FROM
+                      (
                         SELECT 
-                        username, module_id, MIN(time) as time, 
-                        count(distinct module_id) over (partition by username) as nshow_ans_distinct
-                        FROM [{dataset}.show_answer] 
+                        username, module_id, MAX(time) as time, MIN(time) as first_check
+                        FROM [{dataset}.problem_check]
+                        where success = 'correct'
                         group each by username, module_id
-                    ) sa
-                    JOIN EACH [{dataset}.person_course] pc
-                    ON sa.username = pc.username
-                    where certified = false
-                    and {partition}
-                  )sa
-                  JOIN EACH
-                  (
-                    #certified = true for cameo candidate
-                    SELECT pa.username as username, module_id, time,
-                    MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time
-                    FROM
-                    (
-                      SELECT 
-                      username, module_id, MAX(time) as time, MIN(time) as first_check
-                      FROM [{dataset}.problem_check]
-                      where success = 'correct'
-                      group each by username, module_id
+                      ) pa
+                      JOIN EACH [{dataset}.person_course] pc
+                      on pa.username = pc.username
+                      where certified = true
                     ) pa
-                    JOIN EACH [{dataset}.person_course] pc
-                    on pa.username = pc.username
-                    where certified = true
-                  ) pa
-                  on sa.module_id = pa.module_id
-                  WHERE sa.username != pa.username
+                    on sa.module_id = pa.module_id
+                    WHERE sa.username != pa.username
+                  )
                 )
               )
               group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds
