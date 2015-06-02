@@ -1639,51 +1639,88 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
             # Instead of same ip, considers users in same grp where
             # where grp is determined by the full transitive closure 
             # of all person_course (username, ip) pairs.
-             SELECT
-             "{course_id}" as course_id, username, grp, certified, percent_show_ans_before, median_max_dt_seconds, 
-             norm_pearson_corr, nshow_answer_unique_problems
-             FROM
-               ( 
-                 # Find all users with >1 accounts, same ip address, different certification status
-                 select
-                   #  pc.course_id as course_id,
-                   pc.user_id as user_id,
-                   username, shadow, ip, grp,
-                   percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
-                   nshow_answer_unique_problems,
-                   round(ac.percent_correct, 2) as percent_correct,
-                   frac_complete,
-                   ac.certified as certified,
-                   sum(pc.certified = true) over (partition by grp) as sum_cert_true,
-                   sum(pc.certified = false) over (partition by grp) as sum_cert_false,
-                   count(distinct username) over (partition by grp) as ipcnt
-
-                   #Adds a column with transitive closure group number for each user
-                   from
-                   (
+            SELECT
+             "{course_id}" as course_id, username, ip, grp, certified, show_ans_before, percent_show_ans_before, median_max_dt_seconds, 
+             norm_pearson_corr, nshow_answer_unique_problems, ipcnt 
+            FROM
+            (  
+              SELECT 
+               user_id, username, shadow, ip, grp, percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds,
+               norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified,
+               show_ans_before, unnormalized_pearson_corr, ipcnt,
+               SUM(certified = true) OVER (PARTITION BY grp) AS sum_cert_true,
+               SUM(certified = false) OVER (PARTITION BY grp) AS sum_cert_false
+              FROM
+              ( 
+                # Find all users with >1 accounts, same ip address, different certification status
+                SELECT
+                 pc.user_id as user_id,
+                 username, shadow, ip, grp,
+                 percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                 nshow_answer_unique_problems, show_ans_before, unnormalized_pearson_corr,
+                 ROUND(ac.percent_correct, 2) AS percent_correct,
+                 frac_complete,
+                 ac.certified AS certified,                       
+                 COUNT(DISTINCT username) OVER (PARTITION BY grp) AS ipcnt
+                #Adds a column with transitive closure group number for each user
+                FROM
+                (
+                  SELECT 
+                   user_id, username, shadow, ip, certified, grp, 
+                   pc.show_ans_before AS show_ans_before, pc.unnormalized_pearson_corr AS unnormalized_pearson_corr,
+                   pc.percent_show_ans_before AS percent_show_ans_before, pc.avg_max_dt_seconds AS avg_max_dt_seconds, 
+                   pc.median_max_dt_seconds AS median_max_dt_seconds, pc.norm_pearson_corr AS norm_pearson_corr
+                  FROM
+                  (
+                    SELECT
+                     user_id, username, shadow_candidate AS shadow, ip, certified, grp, show_ans_before, unnormalized_pearson_corr,
+                     percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                     GROUP_CONCAT(username) OVER (PARTITION BY grp) AS grp_usernames
+                    FROM
+                    (
                       SELECT
-                      user_id, username, shadow_candidate as shadow, ip, certified, grp, 
-                      percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr
-                      FROM
-                      (
-                       select user_id, a.username, a.ip as ip, certified, grp, GROUP_CONCAT(a.username) over (partition by grp) as grp_usernames
-                       FROM [{dataset}.person_course] a
-                       JOIN EACH [{uname_ip_groups_table}] b
-                       ON a.ip = b.ip and a.username = b.username
-                       group by user_id, a.username, ip, certified, grp
-                      )as pc
-                      OUTER LEFT JOIN EACH [{dataset}.stats_show_ans_before] as sa
-                      ON pc.username = sa.cameo_candidate #join on cameo candidate
-                      where (','+grp_usernames+',' contains ','+sa.shadow_candidate+',') #Only keep rows where cameo's shadow is in pc
-                      or certified = false #include possible shadows
-                   )as pc
-                    JOIN EACH [{dataset}.stats_attempts_correct] as ac
-                    on pc.user_id = ac.user_id
-                 )
-                 # Since clicking show answer or guessing over and over cannot achieve certification, we should have
-                 # at least one (not certified) harvester, and at least one (certified) master who uses the answers.
-                 where sum_cert_true > 0
-                 and sum_cert_false > 0
+                       user_id, a.username, a.ip AS ip, certified, grp,
+                       GROUP_CONCAT(a.username) OVER (partition by grp) AS grp_usernames
+                      FROM [{dataset}.person_course] AS a
+                      JOIN EACH [{uname_ip_groups_table}] AS b
+                      ON a.ip = b.ip and a.username = b.username
+                      GROUP BY user_id, a.username, ip, certified, grp
+                    ) AS pc
+                    OUTER LEFT JOIN EACH [{dataset}.stats_show_ans_before] AS sa
+                    ON pc.username = sa.cameo_candidate #join on cameo candidate
+                    #Remove if few show answer before or too high time between show answer and submission
+                    #WHERE (sa.percent_show_ans_before >= 20
+                    #AND sa.median_max_dt_seconds < 5e4
+                    #AND sa.norm_pearson_corr > 0
+                    WHERE (','+grp_usernames+',' CONTAINS ','+sa.shadow_candidate+',')#Only keep rows where cameo's shadow is in pc
+                    OR certified = false #Keep all shadows for now
+                  ) AS pc
+                  OUTER LEFT JOIN EACH [{dataset}.stats_show_ans_before] AS sa
+                  ON pc.username = sa.shadow_candidate #join on shadow candidate
+                  #Remove if few show answer before or too high time between show answer and submission
+                  #WHERE (sa.percent_show_ans_before >= 20
+                  #AND sa.median_max_dt_seconds < 5e4
+                  #AND sa.norm_pearson_corr > 0
+                  WHERE (','+grp_usernames+',' CONTAINS ','+sa.cameo_candidate+',')#Only keep shadows if cameo in pc
+                  OR certified = true #Keep previously found cameos
+                  GROUP BY user_id, username, shadow, ip, certified, grp, show_ans_before, unnormalized_pearson_corr,
+                    percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr
+                ) AS pc
+                JOIN EACH [{dataset}.stats_attempts_correct] AS ac
+                ON pc.user_id = ac.user_id
+                #remove shadows with greater than 70% attempts correct
+                #WHERE pc.certified = true
+                #OR percent_correct < 70
+              )
+              WHERE ipcnt < 10 #Remove NAT or internet cafe ips                                                     
+            )
+            # Since clicking show answer or guessing over and over cannot achieve certification, we should have
+            # at least one (not certified) harvester, and at least one (certified) master who uses the answers.
+            # Remove entire group if all the masters or all the harvesters were removed
+            WHERE sum_cert_true > 0
+            AND sum_cert_false > 0
+            # Order by ip to group master and harvesters together. Order by certified so that we always have masters above harvester accounts.
+            ORDER BY grp ASC, certified DESC
           """.format(dataset=dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table)
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
