@@ -1193,7 +1193,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
         print " --> Force the number of partitions to be %d" % force_num_partitions
     else:
         if num_persons > 60000:
-            num_partitions = int(num_persons / 3000)	# because the number of certificate earners is also likely higher
+            num_partitions = int(num_persons / 3000)  # because the number of certificate earners is also likely higher
         elif num_persons > 10000:
             num_partitions = int(num_persons / 5000)
         else:
@@ -1231,54 +1231,60 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr
               FROM
               ( 
-                select sa.username as shadow_candidate,
-                pa.username as cameo_candidate,
-                sa.time, pa.time,
-                sa.time < pa.time as sa_before_pa,
-                (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
-                #Calculate median - includes null values - so if you start with many nulls
-                #the median will be a lot farther left (smaller) than it should be.
-                percentile_cont(.5) OVER (PARTITION BY shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_max_dt_seconds,
-                USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time
+                SELECT *,
+                (CASE WHEN max_dt IS NOT NULL THEN true END) AS has_max_dt,
+                PERCENTILE_CONT(.5) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_with_null_rows,
+                MAX(median_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS median_max_dt_seconds 
                 FROM
-                (
-                  #Certified = false for shadow candidate
-                  SELECT sa.username as username, module_id, sa.time as time  
+                ( 
+                  select sa.username as shadow_candidate,
+                  pa.username as cameo_candidate,
+                  sa.time, pa.time,
+                  sa.time < pa.time as sa_before_pa,
+                  (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
+                  USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time
                   FROM
                   (
+                    #Certified = false for shadow candidate
+                    SELECT sa.username as username, module_id, sa.time as time  
+                    FROM
+                    (
+                        SELECT 
+                        username, module_id, MIN(time) as time, 
+                        count(distinct module_id) over (partition by username) as nshow_ans_distinct
+                        FROM [{dataset}.show_answer] 
+                        group each by username, module_id
+                    ) sa
+                    JOIN EACH [{dataset}.person_course] pc
+                    ON sa.username = pc.username
+                    where certified = false
+                    and {partition}
+                  )sa
+                  JOIN EACH
+                  (
+                    #certified = true for cameo candidate
+                    SELECT pa.username as username, module_id, time,
+                    MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time
+                    FROM
+                    (
                       SELECT 
-                      username, module_id, MIN(time) as time, 
-                      count(distinct module_id) over (partition by username) as nshow_ans_distinct
-                      FROM [{dataset}.show_answer] 
+                      username, module_id, MAX(time) as time, MIN(time) as first_check
+                      FROM [{dataset}.problem_check]
+                      where success = 'correct'
                       group each by username, module_id
-                  ) sa
-                  JOIN EACH [{dataset}.person_course] pc
-                  ON sa.username = pc.username
-                  where certified = false
-                  and {partition}
-                )sa
-                JOIN EACH
-                (
-                  #certified = true for cameo candidate
-                  SELECT pa.username as username, module_id, time,
-                  MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time
-                  FROM
-                  (
-                    SELECT 
-                    username, module_id, MAX(time) as time, MIN(time) as first_check
-                    FROM [{dataset}.problem_check]
-                    where success = 'correct'
-                    group each by username, module_id
+                    ) pa
+                    JOIN EACH [{dataset}.person_course] pc
+                    on pa.username = pc.username
+                    where certified = true
                   ) pa
-                  JOIN EACH [{dataset}.person_course] pc
-                  on pa.username = pc.username
-                  where certified = true
-                ) pa
-                on sa.module_id = pa.module_id
-                WHERE sa.username != pa.username
+                  on sa.module_id = pa.module_id
+                  WHERE sa.username != pa.username
+                )
               )
               group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds
               #having show_ans_before > 10
+              having norm_pearson_corr > -1
+              and avg_max_dt_seconds is not null
           """.format(dataset=dataset, course_id = course_id, partition=the_partition[i])
         sql.append(item)
 
@@ -1381,98 +1387,104 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = "stats_ip_pair_sybils3"
 
-    SQL = """# Northcutt SQL for finding sybils
-            ##################################
+    SQL = """##################################
             # Sybils Version 3.0
             # Instead of same ip, considers users in same grp where
             # where grp is determined by the full transitive closure 
             # of all person_course (username, ip) pairs.
             SELECT
              "{course_id}" as course_id, username,
-             user_id, shadow, ip, grp, certified, percent_show_ans_before, median_max_dt_seconds, 
-             norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, avg_max_dt_seconds,
+             user_id, shadow, ip, grp, certified, percent_show_ans_before, show_ans_before, median_max_dt_seconds, 
+             norm_pearson_corr, unnormalized_pearson_corr,nshow_answer_unique_problems, percent_correct, frac_complete, avg_max_dt_seconds,
              verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
             FROM
             (  
-             SELECT
-               *,
-               sum(certified = true) over (partition by grp) as sum_cert_true,
-               sum(certified = false) over (partition by grp) as sum_cert_false
-             from
-             (
-               # If any user in an ip group was flagged remove_ip_group = true
-               # then their entire ip group will be flagged non-zero
-               select *,
-                 #filter shadows with greater than 70% attempts correct or less 5 show answers
-                 certified = false and (percent_correct > 70) as remove1,
-                 #Filter certified users with few show answer before or too high time between show answer and submission
-                 (case when (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) is null then false
-                 else (certified = true and (percent_show_ans_before < 20 or median_max_dt_seconds > 5e4)) end) as remove2
-               from 
-               (
-                 select 
-                   user_id, username, shadow, ip, grp, percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds,
-                   norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified,
+              SELECT 
+               user_id, username, shadow, ip, grp, percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds,
+               norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified,
+               verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade,
+               show_ans_before, unnormalized_pearson_corr,
+               SUM(certified = true) OVER (PARTITION BY grp) AS sum_cert_true,
+               SUM(certified = false) OVER (PARTITION BY grp) AS sum_cert_false
+              FROM
+              ( 
+                # Find all users with >1 accounts, same ip address, different certification status
+                SELECT
+                 pc.user_id as user_id,
+                 username, shadow, ip, grp,
+                 percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                 nshow_answer_unique_problems, show_ans_before, unnormalized_pearson_corr,
+                 ROUND(ac.percent_correct, 2) AS percent_correct,
+                 frac_complete,
+                 ac.certified AS certified,
+                 verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade,                       
+                 COUNT(DISTINCT username) OVER (PARTITION BY grp) AS ipcnt
+                #Adds a column with transitive closure group number for each user
+                FROM
+                (
+                  SELECT 
+                   user_id, username, shadow, ip, certified, grp, 
+                   pc.show_ans_before AS show_ans_before, pc.unnormalized_pearson_corr AS unnormalized_pearson_corr,
+                   pc.percent_show_ans_before AS percent_show_ans_before, pc.avg_max_dt_seconds AS avg_max_dt_seconds, 
+                   pc.median_max_dt_seconds AS median_max_dt_seconds, pc.norm_pearson_corr AS norm_pearson_corr,
                    verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
-                 from
-                   ( 
-                     # Find all users with >1 accounts, same ip address, different certification status
-                     select
-                       #  pc.course_id as course_id,
-                       pc.user_id as user_id,
-                       username, shadow, ip, grp,
-                       percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
-                       nshow_answer_unique_problems,
-                       round(ac.percent_correct, 2) as percent_correct,
-                       frac_complete,
-                       ac.certified as certified,
-                       verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade,
-                       sum(pc.certified = true) over (partition by grp) as sum_cert_true,
-                       sum(pc.certified = false) over (partition by grp) as sum_cert_false,
-                       count(distinct username) over (partition by grp) as ipcnt
-
-                       #Adds a column with transitive closure group number for each user
-                       from
-                       (
-                          SELECT
-                          user_id, username, shadow_candidate as shadow, ip, certified, grp, 
-                          percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
-                          verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
-                          FROM
-                          (
-                            select user_id, a.username, a.ip as ip, certified, grp, GROUP_CONCAT(a.username) over (partition by grp) as grp_usernames,
-                            (case when a.mode = "verified" then true else false end) as verified,
-                            countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, 
-                            (sum_dt / 60 / 60/ 24) as time_active_in_days, grade
-                           FROM [{dataset}.person_course] a
-                           JOIN EACH [{uname_ip_groups_table}] b
-                           ON a.ip = b.ip and a.username = b.username
-                           group by user_id, a.username, ip, certified, grp, verified, countryLabel, start_time, last_event,
-                                    nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
-                          )as pc
-                          OUTER LEFT JOIN EACH [{dataset}.stats_show_ans_before] as sa
-                          ON pc.username = sa.cameo_candidate #join on cameo candidate
-                          where (','+grp_usernames+',' contains ','+sa.shadow_candidate+',') #Only keep rows where cameo's shadow is in pc
-                          or certified = false #include possible shadows
-                       )as pc
-                        JOIN EACH [{dataset}.stats_attempts_correct] as ac
-                        on pc.user_id = ac.user_id
-                     )
-                 # Since clicking show answer or guessing over and over cannot achieve certification, we should have
-                 # at least one (not certified) harvester, and at least one (certified) master who uses the answers.
-                 where sum_cert_true > 0
-                 and sum_cert_false > 0
-                 and ipcnt < 10 #Remove NAT or internet cafe ips                                                     
-               )
-             )
-             where remove1 = false
-             and remove2 = false
+                  FROM
+                  (
+                    SELECT
+                     user_id, username, shadow_candidate AS shadow, ip, certified, grp, show_ans_before, unnormalized_pearson_corr,
+                     percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                     verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade,
+                     GROUP_CONCAT(username) OVER (PARTITION BY grp) AS grp_usernames
+                    FROM
+                    (
+                      SELECT
+                       user_id, a.username, a.ip AS ip, certified, grp,
+                       GROUP_CONCAT(a.username) OVER (partition by grp) AS grp_usernames,
+                       (CASE WHEN a.mode = "verified" THEN true ELSE false END) AS verified,
+                       countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, 
+                       (sum_dt / 60 / 60/ 24) as time_active_in_days, grade
+                      FROM [{dataset}.person_course] AS a
+                      JOIN EACH [{uname_ip_groups_table}] AS b
+                      ON a.ip = b.ip and a.username = b.username
+                      GROUP BY user_id, a.username, ip, certified, grp, verified, countryLabel, start_time, last_event,
+                              nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
+                    ) AS pc
+                    OUTER LEFT JOIN EACH [{dataset}.stats_show_ans_before] AS sa
+                    ON pc.username = sa.cameo_candidate #join on cameo candidate
+                    #Remove if few show answer before or too high time between show answer and submission
+                    WHERE (sa.percent_show_ans_before >= 20
+                    AND sa.median_max_dt_seconds < 5e4
+                    AND sa.norm_pearson_corr > 0
+                    AND (','+grp_usernames+',' CONTAINS ','+sa.shadow_candidate+','))#Only keep rows where cameo's shadow is in pc
+                    OR certified = false #Keep all shadows for now
+                  ) AS pc
+                  OUTER LEFT JOIN EACH [{dataset}.stats_show_ans_before] AS sa
+                  ON pc.username = sa.shadow_candidate #join on shadow candidate
+                  #Remove if few show answer before or too high time between show answer and submission
+                  WHERE (sa.percent_show_ans_before >= 20
+                  AND sa.median_max_dt_seconds < 5e4
+                  AND sa.norm_pearson_corr > 0
+                  AND (','+grp_usernames+',' CONTAINS ','+sa.cameo_candidate+','))#Only keep shadows if cameo in pc
+                  OR certified = true #Keep previously found cameos
+                  GROUP BY user_id, username, shadow, ip, certified, grp, show_ans_before, unnormalized_pearson_corr,
+                    percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                    verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
+                ) AS pc
+                JOIN EACH [{dataset}.stats_attempts_correct] AS ac
+                ON pc.user_id = ac.user_id
+                #remove shadows with greater than 70% attempts correct
+                WHERE pc.certified = true
+                OR percent_correct < 70
+              )
+              WHERE ipcnt < 10 #Remove NAT or internet cafe ips                                                     
             )
+            # Since clicking show answer or guessing over and over cannot achieve certification, we should have
+            # at least one (not certified) harvester, and at least one (certified) master who uses the answers.
             # Remove entire group if all the masters or all the harvesters were removed
             WHERE sum_cert_true > 0
-            and sum_cert_false > 0
+            AND sum_cert_false > 0
             # Order by ip to group master and harvesters together. Order by certified so that we always have masters above harvester accounts.
-            order by grp asc, certified desc
+            ORDER BY grp ASC, certified DESC
           """.format(dataset=dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table)
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
