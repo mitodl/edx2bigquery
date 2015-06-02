@@ -1303,7 +1303,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
         print "---> No %s table; skipping %s" % (sasbu, table)
         return
 
-    newer_than = datetime.datetime(2015, 5, 25, 20, 0)
+    newer_than = datetime.datetime(2015, 6, 2, 19, 0)
 
     try:
         table_date = bqutil.get_bq_table_last_modified_datetime(dataset, table)
@@ -1502,7 +1502,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
-                                newer_than=datetime.datetime(2015, 5, 25, 20, 0),
+                                newer_than=datetime.datetime(2015, 6, 2, 19, 0),
                                 depends_on=["%s.%s" % (dataset, sasbu),
                                         ],
                             )
