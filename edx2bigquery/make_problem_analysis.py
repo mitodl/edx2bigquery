@@ -1644,8 +1644,9 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
             # where grp is determined by the full transitive closure 
             # of all person_course (username, ip) pairs.
             SELECT
-             "{course_id}" as course_id, username, ip, grp, certified, show_ans_before, percent_show_ans_before, median_max_dt_seconds, 
-             norm_pearson_corr, nshow_answer_unique_problems, ipcnt 
+             "{course_id}" as course_id, user_id, username, shadow as harvester, ip, grp, percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds,
+               norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified,
+               show_ans_before, unnormalized_pearson_corr, ipcnt
             FROM
             (  
               SELECT 
