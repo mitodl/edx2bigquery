@@ -1,0 +1,560 @@
+[
+    {
+        "type": "STRING", 
+        "name": "course_id"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_Institution",
+	"description": "From course listings file"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_Semester"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_New_or_Rerun"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_Course_Number"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_Short_Title"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_Andrew_s_Short_Titles"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_Title"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_Instructors"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_4_way_Category_by_name"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_Registration_Open"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_Course_Launch"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_Course_Wrap"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_course_id"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_Empirical_Course_Wrap"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "listings_Andrew_s_Order"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "listings_certifies"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "listings_MinPassGrade"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "course_length_days",
+	"description": "from course_metainfo tables"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "nquant_per_week"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "total_assessments_per_week"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "nqual_per_week"
+    }, 
+    {
+        "type": "FLOAT", 
+        "name": "nweeks"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "nexcluded_sub_20_chapter"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "nexcluded_sub_20_video"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "nexcluded_sub_20_problem"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "nexcluded_sub_20_sequential"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_capa_problems"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_random_script"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_showanswer_closed"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_showanswer_never"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_showanswer_attempted"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_showanswer_always"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_showanswer_answered"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_showanswer_finished"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_showanswer_past_due"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "count_chapter"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_sequential"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_section"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_vertical"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_problem"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_openended"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_conditional"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_randomize"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_lti"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_solution"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_discussion"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_initial_display"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_responseparam"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_formularesponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_answer"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_selfassessment"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_multiplechoiceresponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_customtag"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_task"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_radiogroup"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_peergrading"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_optionresponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_optioninput"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_textbox"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_choiceresponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_header"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_rubric"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_drag_and_drop_input"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_img"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_formulaequationinput"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_stringresponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_openendedparam"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_combinedopenended"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_video"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_description"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_coderesponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_textline"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_checkboxgroup"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_customresponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_grader_payload"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_numericalresponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_draggable"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_answer_display"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_prompt"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_category"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_codeparam"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_target"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_code"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_option"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_crowdsource_hinter"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_matlabinput"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_symbolicresponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_videosequence"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_problemset"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_textbook"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_imageresponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_imageinput"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_include"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_chemicalequationinput"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_image"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_jsinput"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_word_cloud"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_link"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_editageneinput"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_input"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_schematic"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_hintgroup"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_schematicresponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_transcript"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_openendedresponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_openendedinput"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_crystallography"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_openendedrubric"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_hintpart"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_embed"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_formulahint"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_customhint"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_solved"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_foldit"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_timelimit"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_discuss"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_edxxml"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_assessments"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_name"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_openassessment"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_feedbackprompt"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_assessment"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_explanation"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_criterion"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_split_test"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_annotationresponse"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_annotatable"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_tag_prompt"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_comment"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_annotationinput"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_options"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_comment_prompt"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_poll_question"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_thead"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_mentoring"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_textannotation"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_imageannotation"
+    }, 
+    {
+        "type": "INTEGER", 
+        "name": "count_fieldset"
+    }
+]

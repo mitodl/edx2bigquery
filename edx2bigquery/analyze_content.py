@@ -18,6 +18,14 @@ CCDATA = "course_content.csv"
 CMINFO = "course_metainfo.csv"
 CMINFO_OVERRIDES = "course_metainfo_overrides.csv"
 
+def make_key(key):
+    '''
+    turn a string into a valid column name / key for BQ
+    '''
+    key = key.strip()
+    key = key.replace(' ', '_').replace("'", "_").replace('/', '_').replace('(','').replace(')','').replace('-', '_').replace(',', '')
+    return key
+
 def get_stats_module_usage(course_id,
                            basedir="X-Year-2-data-sql", 
                            datedir="2013-09-21", 
@@ -401,11 +409,6 @@ def analyze_course_content(course_id,
         sys.stdout.flush()
         bqdat = bqutil.get_table_data(dataset, table)
 
-        def make_key(key):
-            key = key.strip()
-            key = key.replace(' ', '_').replace("'", "_").replace('/', '_').replace('(','').replace(')','').replace('-', '_').replace(',', '')
-            return key
-
         listings_keys = map(make_key, ["Institution", "Semester", "New or Rerun", "Andrew Recodes New/Rerun", 
                                        "Course Number", "Short Title", "Andrew's Short Titles", "Title", 
                                        "Instructors", "Registration Open", "Course Launch", "Course Wrap", "course_id",
@@ -524,7 +527,14 @@ def analyze_course_content(course_id,
         return
 
     data = None
-    for k in csv.DictReader(open(lfn)):
+    if listings_file.endswith('.json'):
+        data_feed = map(json.loads, open(lfn))
+    else:
+        data_feed = csv.DictReader(open(lfn))
+    for k in data_feed:
+        if not 'course_id' in k:
+            print "Strange course listings row, no course_id in %s" % k
+            raise Exception("Missing course_id")
         if k['course_id']==course_id:
             data = k
             break
@@ -568,9 +578,40 @@ def analyze_course_content(course_id,
               'grading_policy', 'br', 'center',  'wiki', 'course', 'font', 'tt', 'it', 'dl', 'startouttext', 'endouttext', 'h4', 
               'head', 'source', 'dt', 'hr', 'u', 'style', 'dd', 'script', 'th', 'p', 'P', 'TABLE', 'TD', 'small', 'text', 'title']
 
-    def walk_tree(elem):
+    problem_stats = defaultdict(int)
+
+    def does_problem_have_random_script(problem):
+        '''
+        return 1 if problem has a script with "random." in it
+        else return 0
+        '''
+        for elem in problem.findall('.//script'):
+            if elem.text and ('random.' in elem.text):
+                return 1
+        return 0
+
+    # walk through xbundle 
+    def walk_tree(elem, policy=None):
+        '''
+        Walk XML tree recursively.
+        elem = current element
+        policy = dict of attributes for children to inherit, with fields like due, graded, showanswer
+        '''
+        policy = policy or {}
         if  type(elem.tag)==str and (elem.tag.lower() not in IGNORE):
             counts[elem.tag.lower()] += 1
+        if elem.tag in ["sequential", "problem"]:
+            keys = ["due", "graded", "format", "showanswer"]
+            for k in keys:		# copy inheritable attributes, if they are specified
+                val = elem.get(k)
+                if val:
+                    policy[k] = val
+        if elem.tag=="problem":	# accumulate statistics about problems: how many have show_answer = [past_due, closed] ?  have random. in script?
+            problem_stats['n_capa_problems'] += 1
+            if policy.get('showanswer'):
+                problem_stats["n_showanswer_%s" % policy.get('showanswer')] += 1
+            problem_stats['n_random_script'] += does_problem_have_random_script(elem)
+            
         for k in elem:
             midfrag = (k.tag, k.get('url_name_orig', None))
             if (midfrag in mudata) and int(mudata[midfrag]['ncount']) < 20:
@@ -580,10 +621,12 @@ def analyze_course_content(course_id,
                                                                    midfrag, 
                                                                    mudata.get(midfrag, {}).get('ncount'))
                 continue
-            walk_tree(k)
+            walk_tree(k, policy)
 
     walk_tree(xml)
-    print counts
+    print "--> Count of individual element tags throughout XML: ", counts
+    
+    print "--> problem_stats:", json.dumps(problem_stats, indent=4)
 
     # combine some into "qual_axis" and others into "quant_axis"
     qual_axis = ['openassessment', 'optionresponse', 'multiplechoiceresponse', 
@@ -640,7 +683,7 @@ def analyze_course_content(course_id,
     cmfields = OrderedDict()
     cmfields['course_id'] = course_id
     cmfields['course_length_days'] = str(ndays)
-    cmfields.update({ ('listings_%s' % key) : value for key, value in data.items() })	# from course listings
+    cmfields.update({ make_key('listings_%s' % key) : value for key, value in data.items() })	# from course listings
     cmfields.update(ccd[course_id].copy())
 
     # cmfields.update({ ('count_%s' % key) : str(value) for key, value in counts.items() })	# from content counts
@@ -648,6 +691,10 @@ def analyze_course_content(course_id,
     for key in sorted(counts):	# store counts in sorted order, so that the later generated CSV file can have a predictable structure
         value = counts[key]
         cmfields['count_%s' % key] =  str(value) 	# from content counts
+
+    for key in sorted(problem_stats):	# store problem stats
+        value = problem_stats[key]
+        cmfields['problem_stat_%s' % key] =  str(value)
 
     cmfields.update({ ('nexcluded_sub_20_%s' % key) : str(value) for key, value in nexcluded.items() })	# from content counts
 
@@ -673,17 +720,43 @@ def analyze_course_content(course_id,
 
     cdw = csv.DictWriter(fp, fieldnames=['course_id', 'key', 'value'])
     cdw.writeheader()
-    
+
     for k, v in cmfields.items():
         cdw.writerow({'course_id': course_id, 'key': k, 'value': v})
         
     fp.close()
+
+    # build and output course_listings_and_metainfo 
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+
+    mypath = os.path.dirname(os.path.realpath(__file__))
+    clm_table = "course_listing_and_metainfo"
+    clm_schema_file = '%s/schemas/schema_%s.json' % (mypath, clm_table)
+    clm_schema = json.loads(open(clm_schema_file).read())
+
+    clm = {}
+    for finfo in clm_schema:
+        field = finfo['name']
+        clm[field] = cmfields.get(field)
+    clm_fnb = clm_table + ".json"
+    clm_fn = course_dir / clm_fnb
+    open(clm_fn, 'w').write(json.dumps(clm))
+
+    gsfnp = gsutil.gs_path_from_course_id(course_id, use_dataset_latest=use_dataset_latest) / clm_fnb
+    print "--> Course listing + metainfo uploading to %s then to %s.%s" % (gsfnp, dataset, clm_table)
+    sys.stdout.flush()
+    gsutil.upload_file_to_gs(clm_fn, gsfnp)
+    bqutil.load_data_to_table(dataset, clm_table, gsfnp, clm_schema, wait=True, verbose=False)
+
+    # output course_metainfo
 
     table = 'course_metainfo'
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
 
     gsfnp = gsutil.gs_path_from_course_id(course_id, use_dataset_latest=use_dataset_latest) / CMINFO
     print "--> Course metainfo uploading to %s then to %s.%s" % (gsfnp, dataset, table)
+    sys.stdout.flush()
 
     gsutil.upload_file_to_gs(csvfn, gsfnp)
 
