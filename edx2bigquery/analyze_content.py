@@ -86,6 +86,7 @@ def analyze_course_content(course_id,
                            do_upload=False,
                            courses=None,
                            verbose=True,
+                           pin_date=None,
                            ):
     '''
     Compute course_content table, which quantifies:
@@ -554,7 +555,9 @@ def analyze_course_content(course_id,
 
     print "Course length = %6.2f weeks (%d days)" % (nweeks, ndays)
 
-    course_dir = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest)
+    if pin_date:
+        datedir = pin_date
+    course_dir = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest and not pin_date)
     cfn = gsutil.path_from_course_id(course_id)
 
     xbfn = course_dir / ("xbundle_%s.xml" % cfn)

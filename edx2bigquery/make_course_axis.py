@@ -6,11 +6,13 @@ import edx2course_axis
 import load_course_sql
 import axis2bigquery
 
-def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=False):
+def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=False, pin_date=None):
+    if pin_date:
+        datedir = pin_date
     sdir = load_course_sql.find_course_sql_dir(course_id, 
                                                basedir=basedir,
                                                datedir=datedir,
-                                               use_dataset_latest=use_dataset_latest,
+                                               use_dataset_latest=(use_dataset_latest and not pin_date),
                                                )
     edx2course_axis.DATADIR = sdir
     edx2course_axis.VERBOSE_WARNINGS = verbose

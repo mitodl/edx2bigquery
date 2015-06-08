@@ -248,12 +248,22 @@ def analyze_course_single(param, course_id, optargs=None):
     import analyze_content
 
     try:
+        course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", None)
+    except:
+        course_axis_pin_dates = {}
+
+    pin_date = course_axis_pin_dates.get(course_id)
+    if pin_date:
+        print "--> [analyze_course] course_axis for %s being pinned to data from dump date %s" % (course_id, pin_date)
+
+    try:
         analyze_content.analyze_course_content(course_id, 
                                                listings_file=param.listings,
                                                basedir=param.the_basedir, 
                                                datedir=param.the_datedir,
                                                use_dataset_latest=param.use_dataset_latest,
                                                do_upload=False,
+                                               pin_date=pin_date,
                                                )
     except Exception as err:
         print "===> Error completing analyze_course_content on %s, err=%s" % (course_id, str(err))
@@ -545,12 +555,20 @@ def problem_check(param, courses, args):
 def axis2bq(param, courses, args):
     import make_course_axis
 
+    try:
+        course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", None)
+    except:
+        course_axis_pin_dates = {}
+
     for course_id in get_course_ids(courses):
         if args.skip_if_exists and axis2bigquery.already_exists(course_id, use_dataset_latest=param.use_dataset_latest):
             print "--> course_axis for %s already exists, skipping" % course_id
             sys.stdout.flush()
             continue
-        make_course_axis.process_course(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose)
+        pin_date = course_axis_pin_dates.get(course_id)
+        if pin_date:
+            print "--> course_axis for %s being pinned to data from dump date %s" % (course_id, pin_date)
+        make_course_axis.process_course(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose, pin_date)
         
 
 def person_day(param, courses, args, check_dates=True):
