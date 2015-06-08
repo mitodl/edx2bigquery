@@ -561,7 +561,20 @@ def analyze_course_content(course_id,
     
     if not xbfn.exists():
         print "[analyze_content] cannot find xbundle file %s for %s!" % (xbfn, course_id)
-        return
+
+        if use_dataset_latest:
+            # try looking in earlier directories for xbundle file
+            import glob
+            spath = course_dir / ("../*/xbundle_%s.xml" % cfn)
+            files = list(glob.glob(spath))
+            if files:
+                xbfn = path(files[-1])
+            if not xbfn.exists():
+                print "   --> also cannot find any %s ; aborting!" % spath
+            else:
+                print "   --> Found and using instead: %s " % xbfn
+        if not xbfn.exists():
+            return
 
     print "[analyze_content] For %s using %s" % (course_id, xbfn)
     
@@ -687,6 +700,9 @@ def analyze_course_content(course_id,
     cmfields.update(ccd[course_id].copy())
 
     # cmfields.update({ ('count_%s' % key) : str(value) for key, value in counts.items() })	# from content counts
+
+    cmfields['filename_xbundle'] = xbfn
+    cmfields['filename_listings'] = lfn
 
     for key in sorted(counts):	# store counts in sorted order, so that the later generated CSV file can have a predictable structure
         value = counts[key]

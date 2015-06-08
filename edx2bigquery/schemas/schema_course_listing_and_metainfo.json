@@ -73,6 +73,16 @@
         "name": "listings_MinPassGrade"
     }, 
     {
+        "type": "STRING", 
+        "name": "filename_xbundle",
+	"description": "Full name of file used for course source XML (in xbundle format)"
+    }, 
+    {
+        "type": "STRING", 
+        "name": "filename_listings",
+	"description": "Full name of file used for course listings"
+    }, 
+    {
         "type": "INTEGER", 
         "name": "course_length_days",
 	"description": "from course_metainfo tables"
