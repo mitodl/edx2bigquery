@@ -634,9 +634,12 @@ def analyze_course_content(course_id,
             if (midfrag in mudata) and int(mudata[midfrag]['ncount']) < 20:
                 nexcluded[k.tag] += 1
                 if verbose:
-                    print "    -> excluding %s (%s), ncount=%s" % (k.get('display_name', '<no_display_name>').encode('utf8'), 
-                                                                   midfrag, 
-                                                                   mudata.get(midfrag, {}).get('ncount'))
+                    try:
+                        print "    -> excluding %s (%s), ncount=%s" % (k.get('display_name', '<no_display_name>').encode('utf8'), 
+                                                                       midfrag, 
+                                                                       mudata.get(midfrag, {}).get('ncount'))
+                    except Exception as err:
+                        print "    -> excluding ", k
                 continue
             walk_tree(k, policy)
 
