@@ -574,7 +574,7 @@ def analyze_course_content(course_id,
             else:
                 print "   --> Found and using instead: %s " % xbfn
         if not xbfn.exists():
-            return
+            raise Exception("[analyze_content] missing xbundle file %s" % xbfn)
 
     print "[analyze_content] For %s using %s" % (course_id, xbfn)
     
