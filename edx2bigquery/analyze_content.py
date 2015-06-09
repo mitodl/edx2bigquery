@@ -620,7 +620,7 @@ def analyze_course_content(course_id,
         policy = policy or {}
         if  type(elem.tag)==str and (elem.tag.lower() not in IGNORE):
             counts[elem.tag.lower()] += 1
-        if elem.tag in ["sequential", "problem", "problemset"]:
+        if elem.tag in ["sequential", "problem", "problemset", "course", "chapter"]:	# very old courses may use inheritance from course & chapter
             keys = ["due", "graded", "format", "showanswer", "start"]
             for k in keys:		# copy inheritable attributes, if they are specified
                 val = elem.get(k)
@@ -656,7 +656,7 @@ def analyze_course_content(course_id,
                     except Exception as err:
                         print "    -> excluding ", k
                 continue
-            walk_tree(k, policy)
+            walk_tree(k, policy.copy())
 
     walk_tree(xml)
     print "--> Count of individual element tags throughout XML: ", counts
