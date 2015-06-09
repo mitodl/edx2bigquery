@@ -617,7 +617,7 @@ def analyze_course_content(course_id,
         if  type(elem.tag)==str and (elem.tag.lower() not in IGNORE):
             counts[elem.tag.lower()] += 1
         if elem.tag in ["sequential", "problem"]:
-            keys = ["due", "graded", "format", "showanswer"]
+            keys = ["due", "graded", "format", "showanswer", "start"]
             for k in keys:		# copy inheritable attributes, if they are specified
                 val = elem.get(k)
                 if val:
@@ -631,6 +631,8 @@ def analyze_course_content(course_id,
                 # see https://github.com/edx/edx-platform/blob/master/common/lib/xmodule/xmodule/capa_base.py#L118
                 # finished = Show the answer after the student has answered the problem correctly, the student has no attempts left, or the problem due date has passed.
             problem_stats['n_random_script'] += does_problem_have_random_script(elem)
+            if policy.get('graded')=='true':
+                problem_stats['n_capa_problems_graded'] += 1
             
         for k in elem:
             midfrag = (k.tag, k.get('url_name_orig', None))

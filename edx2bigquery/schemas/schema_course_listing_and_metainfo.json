@@ -125,6 +125,10 @@
     },
     {
         "type": "INTEGER", 
+        "name": "problem_stat_n_capa_problems_graded"
+    },
+    {
+        "type": "INTEGER", 
         "name": "problem_stat_n_random_script"
     },
     {

@@ -503,14 +503,16 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
 
         # write out xbundle to xml file
         bfn = '%s/xbundle_%s.xml' % (DATADIR, cid.replace('/','__'))
-        codecs.open(bfn,'w',encoding='utf8').write(ret[default_cid]['bundle'])
+        bundle_out = ret[default_cid]['bundle']
+        codecs.open(bfn,'w',encoding='utf8').write(bundle_out)
 
-        print "Writing out xbundle to %s" % bfn
+        print "Writing out xbundle to %s (len=%s)" % (bfn, len(bundle_out))
         
         # clean up xml file with xmllint if available
-        if os.system('which xmllint')==0:
-            os.system('xmllint --format %s > %s.new' % (bfn, bfn))
-            os.system('mv %s.new %s' % (bfn, bfn))
+        if 1:
+            if os.system('which xmllint')==0:
+                os.system('xmllint --format %s > %s.new' % (bfn, bfn))
+                os.system('mv %s.new %s' % (bfn, bfn))
 
         print "saving data for %s" % cid
 
