@@ -28,9 +28,9 @@ def process_courses(clist, basedir, listings):
     
         sql_dir = course_dir.dirname()
     
-        dirs_available = list(glob.glob( sql_dir / '20*' / "course-p*.tar.gz" ))
+        dirs_available = list(glob.glob( sql_dir / '20*' / "course*.tar.gz" ))
         dirs_available.sort()
-        # print "course %s, wrap %s, dirs_available=%s" % (course_id, wrap_dn, dirs_available)
+        # print "course %s, wrap %s, sql_dir=%s, dirs_available=%s" % (course_id, wrap_dn, sql_dir, dirs_available)
     
         chosen_dir = None
         just_chose = False
@@ -48,6 +48,9 @@ def process_courses(clist, basedir, listings):
     
         # print "course %s, wrap %s, suggestd pin dir=%s" % (course_id, wrap_dn, chosen_dir)
         
-        print "    '%s': '%s'" % (course_id, chosen_dir.rsplit('/',2)[1])
+        if chosen_dir:
+            print "    '%s': '%s'," % (course_id, chosen_dir.rsplit('/',2)[1])
+        else:
+            print "--> course %s, wrap %s, suggestd pin dir NOT FOUND" % (course_id, wrap_dn)
     
         

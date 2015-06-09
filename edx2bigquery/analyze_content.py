@@ -636,7 +636,7 @@ def analyze_course_content(course_id,
                 # finished = Show the answer after the student has answered the problem correctly, the student has no attempts left, or the problem due date has passed.
             problem_stats['n_random_script'] += does_problem_have_random_script(elem)
 
-            if policy.get('graded')=='true':
+            if policy.get('graded')=='true' or policy.get('graded')=='True':
                 problem_stats['n_capa_problems_graded'] += 1
                 problem_stats['n_graded_random_script'] += does_problem_have_random_script(elem)
                 if policy.get('showanswer'):
