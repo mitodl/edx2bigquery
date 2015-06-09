@@ -633,6 +633,10 @@ def analyze_course_content(course_id,
             problem_stats['n_random_script'] += does_problem_have_random_script(elem)
             if policy.get('graded')=='true':
                 problem_stats['n_capa_problems_graded'] += 1
+                if policy.get('showanswer'):
+                    problem_stats["n_graded_showanswer_%s" % policy.get('showanswer')] += 1
+                else:
+                    problem_stats['n_graded_shownanswer_finished'] += 1	# DEFAULT showanswer = finished  (make sure this remains true)
             
         for k in elem:
             midfrag = (k.tag, k.get('url_name_orig', None))

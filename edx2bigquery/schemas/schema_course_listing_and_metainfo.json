@@ -161,6 +161,34 @@
     },
     {
         "type": "INTEGER", 
+        "name": "problem_stat_n_graded_showanswer_closed"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_graded_showanswer_never"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_graded_showanswer_attempted"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_graded_showanswer_always"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_graded_showanswer_answered"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_graded_showanswer_finished"
+    },
+    {
+        "type": "INTEGER", 
+        "name": "problem_stat_n_graded_showanswer_past_due"
+    },
+    {
+        "type": "INTEGER", 
         "name": "count_chapter"
     }, 
     {
