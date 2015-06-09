@@ -579,6 +579,10 @@ def analyze_course_content(course_id,
         if not xbfn.exists():
             raise Exception("[analyze_content] missing xbundle file %s" % xbfn)
 
+    # if there is an xbundle*.fixed file, use that instead of the normal one
+    if os.path.exists(str(xbfn) + ".fixed"):
+        xbfn = path(str(xbfn) + ".fixed")
+
     print "[analyze_content] For %s using %s" % (course_id, xbfn)
     
     # get module usage data

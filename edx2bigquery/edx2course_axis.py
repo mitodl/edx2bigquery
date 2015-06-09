@@ -504,6 +504,7 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
         # write out xbundle to xml file
         bfn = '%s/xbundle_%s.xml' % (DATADIR, cid.replace('/','__'))
         bundle_out = ret[default_cid]['bundle']
+        bundle_out = bundle_out.replace('<!------>', '')	# workaround improper XML
         codecs.open(bfn,'w',encoding='utf8').write(bundle_out)
 
         print "Writing out xbundle to %s (len=%s)" % (bfn, len(bundle_out))

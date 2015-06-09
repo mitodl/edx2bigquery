@@ -1037,6 +1037,13 @@ axis2bq <course_id> ...     : construct "course_axis" table, upload to gs, and g
                               specified course_id's.  
                               Accepts the "--clist" flag, to process specified list of courses in the config file's "courses" dict.
 
+recommend_pin_dates         : produce a list of recommended "pin dates" for the course axis, based on the specified --listings.  Example:
+                              -->  edx2bigquery --clist=all --listings="course_listings.json" --course-base-dir=DATA-SQL recommend_pin_dates
+                              These "pin dates" can be defined in edx2bigquery_config in the course_axis_pin_dates dict, to
+                              specify the specific SQL dump dates to be used for course axis processing (by axis2bq) and for course
+                              content analysis (analyze_course).  This is often needed when course authors change content after
+                              a course ends, e.g. to remove or hide exams, and to change grading and due dates.
+
 make_cinfo listings.csv     : make the courses.listings table, which contains a listing of all the courses with metadata.
                               The listings.csv file should contain the columns Institution, Semester, New or Rerun, Course Number,
                               Short Title, Title, Instructors, Registration Open, Course Launch, Course Wrap, course_id
@@ -1499,7 +1506,14 @@ check_for_duplicates        : check list of courses for duplicates
         run_parallel_or_serial(enrollment_events_table, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='axis2bq'):
-        axis2bq(param, args, args)
+        courses = get_course_ids(args)
+        run_parallel_or_serial(axis2bq, param, courses, args, parallel=args.parallel)
+        # axis2bq(param, args, args)
+
+    elif (args.command=='recommend_pin_dates'):
+        import make_axis_pin_dates_from_listings
+        courses = get_course_ids(args)
+        make_axis_pin_dates_from_listings.process_courses(courses, param.the_basedir, param.listings)
 
     elif (args.command=='staff2bq'):
         import load_staff

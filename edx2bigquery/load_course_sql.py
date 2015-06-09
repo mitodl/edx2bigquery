@@ -38,7 +38,7 @@ from gsutil import get_gs_file_list
 
 #-----------------------------------------------------------------------------
 
-def find_course_sql_dir(course_id, basedir, datedir=None, use_dataset_latest=False):
+def find_course_sql_dir(course_id, basedir, datedir=None, use_dataset_latest=False, verbose=True):
     basedir = path(basedir or '')
 
     course_dir = course_id.replace('/','__')
@@ -67,7 +67,8 @@ def find_course_sql_dir(course_id, basedir, datedir=None, use_dataset_latest=Fal
             print msg
             raise Exception(msg)
         datedir = path(datedirs[-1]).basename()
-        print "[find_course_sql_dir] using latest datedir = %s for %s" % (datedir, course_id)
+        if verbose:
+            print "[find_course_sql_dir] using latest datedir = %s for %s" % (datedir, course_id)
 
     if datedir is not None:
         lfp = lfp / datedir
