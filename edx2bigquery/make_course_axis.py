@@ -2,6 +2,7 @@
 
 import os
 import sys
+import traceback
 import edx2course_axis
 import load_course_sql
 import axis2bigquery
@@ -34,4 +35,6 @@ def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=Fals
                                                 force_course_id=course_id)
     except Exception as err:
         print err
+        traceback.print_exc()
+        
         # raise

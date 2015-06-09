@@ -511,8 +511,9 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
         # clean up xml file with xmllint if available
         if 1:
             if os.system('which xmllint')==0:
-                os.system('xmllint --format %s > %s.new' % (bfn, bfn))
-                os.system('mv %s.new %s' % (bfn, bfn))
+                xlret = os.system('xmllint --format %s > %s.new' % (bfn, bfn))
+                if xlret==0:
+                    os.system('mv %s.new %s' % (bfn, bfn))
 
         print "saving data for %s" % cid
 

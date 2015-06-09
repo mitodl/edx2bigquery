@@ -616,7 +616,7 @@ def analyze_course_content(course_id,
         policy = policy or {}
         if  type(elem.tag)==str and (elem.tag.lower() not in IGNORE):
             counts[elem.tag.lower()] += 1
-        if elem.tag in ["sequential", "problem"]:
+        if elem.tag in ["sequential", "problem", "problemset"]:
             keys = ["due", "graded", "format", "showanswer", "start"]
             for k in keys:		# copy inheritable attributes, if they are specified
                 val = elem.get(k)
