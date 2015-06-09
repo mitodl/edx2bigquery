@@ -631,8 +631,10 @@ def analyze_course_content(course_id,
                 # see https://github.com/edx/edx-platform/blob/master/common/lib/xmodule/xmodule/capa_base.py#L118
                 # finished = Show the answer after the student has answered the problem correctly, the student has no attempts left, or the problem due date has passed.
             problem_stats['n_random_script'] += does_problem_have_random_script(elem)
+
             if policy.get('graded')=='true':
                 problem_stats['n_capa_problems_graded'] += 1
+                problem_stats['n_graded_random_script'] += does_problem_have_random_script(elem)
                 if policy.get('showanswer'):
                     problem_stats["n_graded_showanswer_%s" % policy.get('showanswer')] += 1
                 else:

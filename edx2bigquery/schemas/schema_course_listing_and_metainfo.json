@@ -133,6 +133,10 @@
     },
     {
         "type": "INTEGER", 
+        "name": "problem_stat_n_graded_random_script"
+    },
+    {
+        "type": "INTEGER", 
         "name": "problem_stat_n_showanswer_closed"
     },
     {
