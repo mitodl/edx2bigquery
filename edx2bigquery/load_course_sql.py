@@ -183,13 +183,14 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
                 tsv2csv(fn_sm, newfn)
                 fn_sm = newfn
 
-    # rephrase studentmodule if it's using opaque keys
-    fline = ''
-    smfp = openfile(fn_sm)
-    fline = smfp.readline()	# skip first line - it's a header
-    fline = smfp.readline()
-    if 'block-v1:' in fline:
-        rephrase_studentmodule_opaque_keys(fn_sm)
+    if fn_sm.exists():
+        # rephrase studentmodule if it's using opaque keys
+        fline = ''
+        smfp = openfile(fn_sm)
+        fline = smfp.readline()	# skip first line - it's a header
+        fline = smfp.readline()
+        if 'block-v1:' in fline:
+            rephrase_studentmodule_opaque_keys(fn_sm)
 
     def convert_sql(fnroot):
         if os.path.exists(fnroot + ".csv") or os.path.exists(fnroot + ".csv.gz"):
