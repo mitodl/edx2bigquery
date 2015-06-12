@@ -1228,16 +1228,23 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               count(*) as prob_in_common,
               round(avg(max_dt), 3) as avg_max_dt_seconds,
               round(corr(sa.time - min_first_check_time, pa.time - min_first_check_time), 8) as norm_pearson_corr,
-              round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr
+              round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr,
+              third_quartile_dt_seconds - first_quartile_dt_seconds as dt_iqr,
+              dt_std_dev
               FROM
               (
                 SELECT *,
-                  MAX(median_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS median_max_dt_seconds 
+                  MAX(median_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS median_max_dt_seconds,
+                  MAX(first_quartile_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS first_quartile_dt_seconds,
+                  MAX(third_quartile_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS third_quartile_dt_seconds,
+                  STDDEV(max_dt) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_std_dev
                 FROM
                 (
                   SELECT *,
                   (CASE WHEN max_dt IS NOT NULL THEN true END) AS has_max_dt,
-                  PERCENTILE_CONT(.5) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_with_null_rows
+                  PERCENTILE_CONT(.5) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_with_null_rows,
+                  PERCENTILE_CONT(.25) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS first_quartile_with_null_rows,
+                  PERCENTILE_CONT(.75) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS third_quartile_with_null_rows
                   FROM
                   ( 
                     select sa.username as shadow_candidate,
@@ -1285,7 +1292,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                   )
                 )
               )
-              group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds
+              group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds, first_quartile_dt_seconds,
+                            third_quartile_dt_seconds, dt_iqr, dt_std_dev
               #having show_ans_before > 10
               having norm_pearson_corr > -1
               and avg_max_dt_seconds is not null
