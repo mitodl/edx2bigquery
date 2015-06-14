@@ -248,7 +248,7 @@ def analyze_course_single(param, course_id, optargs=None):
     import analyze_content
 
     try:
-        course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", None)
+        course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", {})
     except:
         course_axis_pin_dates = {}
 
@@ -271,7 +271,7 @@ def analyze_course_single(param, course_id, optargs=None):
         sys.stdout.flush()
         raise
 
-def time_on_task(param, course_id, optargs=None, skip_totals=False, just_do_totals=False):
+def time_on_task(param, course_id, optargs=None, skip_totals=False, just_do_totals=False, suppress_errors=False):
     '''
     update time_task table based on tracking logs
 
@@ -301,7 +301,8 @@ def time_on_task(param, course_id, optargs=None, skip_totals=False, just_do_tota
         print "===> Error completing process_course_time_on_task on %s, err=%s" % (course_id, str(err))
         traceback.print_exc()
         sys.stdout.flush()
-        raise
+        if not suppress_errors:
+            raise
 
 def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
     if steps=='daily_logs':
@@ -669,7 +670,7 @@ def doall(param, course_id, args, stdout=None):
         problem_check(param, course_id, args)
         show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
-        time_on_task(param, course_id, args, just_do_totals=True)
+        time_on_task(param, course_id, args, just_do_totals=True, suppress_errors=True)
         analyze_videos(param, course_id, args)
         
         success = True
