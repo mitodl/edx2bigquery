@@ -1228,16 +1228,27 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               count(*) as prob_in_common,
               round(avg(max_dt), 3) as avg_max_dt_seconds,
               round(corr(sa.time - min_first_check_time, pa.time - min_first_check_time), 8) as norm_pearson_corr,
-              round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr
+              round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr,
+              third_quartile_dt_seconds - first_quartile_dt_seconds as dt_iqr,
+              dt_std_dev,
+              percentile90_dt_seconds,
+              third_quartile_dt_seconds as percentile75_dt_seconds
               FROM
               (
                 SELECT *,
-                  MAX(median_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS median_max_dt_seconds 
+                  MAX(median_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS median_max_dt_seconds,
+                  MAX(first_quartile_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS first_quartile_dt_seconds,
+                  MAX(third_quartile_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS third_quartile_dt_seconds,
+                  MAX(percentile90_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS percentile90_dt_seconds,
+                  STDDEV(max_dt) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_std_dev
                 FROM
                 (
                   SELECT *,
                   (CASE WHEN max_dt IS NOT NULL THEN true END) AS has_max_dt,
-                  PERCENTILE_CONT(.5) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_with_null_rows
+                  PERCENTILE_CONT(.50) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_with_null_rows,
+                  PERCENTILE_CONT(.25) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS first_quartile_with_null_rows,
+                  PERCENTILE_CONT(.75) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS third_quartile_with_null_rows,
+                  PERCENTILE_CONT(.90) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS percentile90_with_null_rows
                   FROM
                   ( 
                     select sa.username as shadow_candidate,
@@ -1285,7 +1296,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                   )
                 )
               )
-              group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds
+              group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds, first_quartile_dt_seconds,
+                            third_quartile_dt_seconds, dt_iqr, dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds
               #having show_ans_before > 10
               having norm_pearson_corr > -1
               and avg_max_dt_seconds is not null
@@ -1399,7 +1411,8 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
             SELECT
              "{course_id}" as course_id, username,
              user_id, shadow, ip, grp, certified, percent_show_ans_before, show_ans_before, median_max_dt_seconds, 
-             norm_pearson_corr, unnormalized_pearson_corr,nshow_answer_unique_problems, percent_correct, frac_complete, avg_max_dt_seconds,
+             norm_pearson_corr, unnormalized_pearson_corr,nshow_answer_unique_problems, percent_correct, frac_complete, 
+             dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds, avg_max_dt_seconds,
              verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
             FROM
             (  
@@ -1408,6 +1421,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
                norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified,
                verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade,
                show_ans_before, unnormalized_pearson_corr,
+               dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds,
                SUM(certified = true) OVER (PARTITION BY grp) AS sum_cert_true,
                SUM(certified = false) OVER (PARTITION BY grp) AS sum_cert_false
               FROM
@@ -1418,6 +1432,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
                  username, shadow, ip, grp,
                  percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
                  nshow_answer_unique_problems, show_ans_before, unnormalized_pearson_corr,
+                 dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds,
                  ROUND(ac.percent_correct, 2) AS percent_correct,
                  frac_complete,
                  ac.certified AS certified,
@@ -1431,12 +1446,15 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
                    pc.show_ans_before AS show_ans_before, pc.unnormalized_pearson_corr AS unnormalized_pearson_corr,
                    pc.percent_show_ans_before AS percent_show_ans_before, pc.avg_max_dt_seconds AS avg_max_dt_seconds, 
                    pc.median_max_dt_seconds AS median_max_dt_seconds, pc.norm_pearson_corr AS norm_pearson_corr,
+                   pc.dt_iqr as dt_iqr, pc.dt_std_dev as dt_std_dev, pc.percentile75_dt_seconds as percentile75_dt_seconds,
+                   pc.percentile90_dt_seconds as percentile90_dt_seconds,
                    verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
                   FROM
                   (
                     SELECT
                      user_id, username, shadow_candidate AS shadow, ip, certified, grp, show_ans_before, unnormalized_pearson_corr,
                      percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                     dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds,
                      verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade,
                      GROUP_CONCAT(username) OVER (PARTITION BY grp) AS grp_usernames
                     FROM
@@ -1472,6 +1490,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
                   OR certified = true #Keep previously found cameos
                   GROUP BY user_id, username, shadow, ip, certified, grp, show_ans_before, unnormalized_pearson_corr,
                     percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                    dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds,
                     verified, countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, grade
                 ) AS pc
                 JOIN EACH [{dataset}.stats_attempts_correct] AS ac
@@ -1646,13 +1665,14 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
             SELECT
              "{course_id}" as course_id, user_id, username, shadow as harvester, ip, grp, percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds,
                norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified,
-               show_ans_before, unnormalized_pearson_corr, ipcnt
+               show_ans_before, dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds, unnormalized_pearson_corr, ipcnt
             FROM
             (  
               SELECT 
                user_id, username, shadow, ip, grp, percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds,
                norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified,
                show_ans_before, unnormalized_pearson_corr, ipcnt,
+               dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds,
                SUM(certified = true) OVER (PARTITION BY grp) AS sum_cert_true,
                SUM(certified = false) OVER (PARTITION BY grp) AS sum_cert_false
               FROM
@@ -1663,6 +1683,7 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
                  username, shadow, ip, grp,
                  percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
                  nshow_answer_unique_problems, show_ans_before, unnormalized_pearson_corr,
+                 dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds,
                  ROUND(ac.percent_correct, 2) AS percent_correct,
                  frac_complete,
                  ac.certified AS certified,                       
@@ -1674,12 +1695,15 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
                    user_id, username, shadow, ip, certified, grp, 
                    pc.show_ans_before AS show_ans_before, pc.unnormalized_pearson_corr AS unnormalized_pearson_corr,
                    pc.percent_show_ans_before AS percent_show_ans_before, pc.avg_max_dt_seconds AS avg_max_dt_seconds, 
-                   pc.median_max_dt_seconds AS median_max_dt_seconds, pc.norm_pearson_corr AS norm_pearson_corr
+                   pc.median_max_dt_seconds AS median_max_dt_seconds, pc.norm_pearson_corr AS norm_pearson_corr,
+                   pc.dt_iqr as dt_iqr, pc.dt_std_dev as dt_std_dev, pc.percentile75_dt_seconds as percentile75_dt_seconds,
+                   pc.percentile90_dt_seconds as percentile90_dt_seconds
                   FROM
                   (
                     SELECT
                      user_id, username, shadow_candidate AS shadow, ip, certified, grp, show_ans_before, unnormalized_pearson_corr,
                      percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                     dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds,
                      GROUP_CONCAT(username) OVER (PARTITION BY grp) AS grp_usernames
                     FROM
                     (
@@ -1709,7 +1733,8 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
                   WHERE (','+grp_usernames+',' CONTAINS ','+sa.cameo_candidate+',')#Only keep shadows if cameo in pc
                   OR certified = true #Keep previously found cameos
                   GROUP BY user_id, username, shadow, ip, certified, grp, show_ans_before, unnormalized_pearson_corr,
-                    percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr
+                    percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                    dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds
                 ) AS pc
                 JOIN EACH [{dataset}.stats_attempts_correct] AS ac
                 ON pc.user_id = ac.user_id
