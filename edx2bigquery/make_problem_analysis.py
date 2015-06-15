@@ -1742,7 +1742,7 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
                 #WHERE pc.certified = true
                 #OR percent_correct < 70
               )
-              WHERE ipcnt < 10 #Remove NAT or internet cafe ips                                                     
+              #WHERE ipcnt < 10 #Remove NAT or internet cafe ips                                                     
             )
             # Since clicking show answer or guessing over and over cannot achieve certification, we should have
             # at least one (not certified) harvester, and at least one (certified) master who uses the answers.
