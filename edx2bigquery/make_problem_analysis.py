@@ -1663,15 +1663,22 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
             # where grp is determined by the full transitive closure 
             # of all person_course (username, ip) pairs.
             SELECT
-             "{course_id}" as course_id, user_id, username, shadow as harvester, ip, grp, percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds,
-               norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified,
-               show_ans_before, dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds, unnormalized_pearson_corr, ipcnt
+             "{course_id}" as course_id, user_id, username, shadow as harvester, ip, grp, 
+             show_ans_before, prob_in_common, 
+             show_ans_before / prob_in_common AS frac_show_ans_before,
+             show_ans_before * 100.0 / prob_in_common AS percent_show_ans_before,
+             grade, min_certifying_grade, grade / min_certifying_grade AS frac_certified,
+             median_max_dt_seconds, norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified, verified,
+             dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds, avg_max_dt_seconds, unnormalized_pearson_corr, ipcnt, 
+             countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days
             FROM
             (  
               SELECT 
-               user_id, username, shadow, ip, grp, percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds,
-               norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified,
-               show_ans_before, unnormalized_pearson_corr, ipcnt,
+               user_id, username, shadow, ip, grp, avg_max_dt_seconds, median_max_dt_seconds,
+               norm_pearson_corr, nshow_answer_unique_problems, percent_correct, frac_complete, certified, verified,
+               countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, 
+               time_active_in_days, grade, min_certifying_grade,
+               show_ans_before, prob_in_common, unnormalized_pearson_corr, ipcnt,
                dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds,
                SUM(certified = true) OVER (PARTITION BY grp) AS sum_cert_true,
                SUM(certified = false) OVER (PARTITION BY grp) AS sum_cert_false
@@ -1680,9 +1687,10 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
                 # Find all users with >1 accounts, same ip address, different certification status
                 SELECT
                  pc.user_id as user_id,
-                 username, shadow, ip, grp,
-                 percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
-                 nshow_answer_unique_problems, show_ans_before, unnormalized_pearson_corr,
+                 username, shadow, ip, grp, verified, min_certifying_grade,
+                 countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, 
+                 time_active_in_days, grade, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                 nshow_answer_unique_problems, show_ans_before, prob_in_common, unnormalized_pearson_corr,
                  dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds,
                  ROUND(ac.percent_correct, 2) AS percent_correct,
                  frac_complete,
@@ -1692,28 +1700,45 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
                 FROM
                 (
                   SELECT 
-                   user_id, username, shadow, ip, certified, grp, 
-                   pc.show_ans_before AS show_ans_before, pc.unnormalized_pearson_corr AS unnormalized_pearson_corr,
-                   pc.percent_show_ans_before AS percent_show_ans_before, pc.avg_max_dt_seconds AS avg_max_dt_seconds, 
+                   user_id, username, shadow, ip, certified, grp, verified,
+                   countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, 
+                   time_active_in_days, grade, min_certifying_grade,
+                   pc.show_ans_before AS show_ans_before, pc.prob_in_common AS prob_in_common, 
+                   pc.unnormalized_pearson_corr AS unnormalized_pearson_corr, pc.avg_max_dt_seconds AS avg_max_dt_seconds, 
                    pc.median_max_dt_seconds AS median_max_dt_seconds, pc.norm_pearson_corr AS norm_pearson_corr,
                    pc.dt_iqr as dt_iqr, pc.dt_std_dev as dt_std_dev, pc.percentile75_dt_seconds as percentile75_dt_seconds,
                    pc.percentile90_dt_seconds as percentile90_dt_seconds
                   FROM
                   (
                     SELECT
-                     user_id, username, shadow_candidate AS shadow, ip, certified, grp, show_ans_before, unnormalized_pearson_corr,
-                     percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
+                     user_id, username, shadow_candidate AS shadow, ip, certified, grp, verified,
+                     countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, min_certifying_grade,
+                     time_active_in_days, grade, show_ans_before, prob_in_common, unnormalized_pearson_corr,
+                     avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
                      dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds,
                      GROUP_CONCAT(username) OVER (PARTITION BY grp) AS grp_usernames
                     FROM
                     (
                       SELECT
-                       user_id, a.username, a.ip AS ip, certified, grp,
+                       user_id, a.username, a.ip AS ip, grp, certified, verified,
+                       countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, 
+                       time_active_in_days, grade, min_certifying_grade,
                        GROUP_CONCAT(a.username) OVER (partition by grp) AS grp_usernames
-                      FROM [{dataset}.person_course] AS a
+                      FROM 
+                      (
+                        SELECT
+                         user_id, username, ip, certified, min_certifying_grade,
+                         (CASE WHEN a.mode = "verified" THEN true ELSE false END) AS verified,
+                         countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, 
+                         (sum_dt / 60 / 60/ 24) as time_active_in_days, grade
+                        FROM 
+                        [{dataset}.person_course] AS a
+                        JOIN
+                        [{course_info_table}] AS b
+                        ON a.course_id = b.course_id
+                      ) AS a
                       JOIN EACH [{uname_ip_groups_table}] AS b
                       ON a.ip = b.ip and a.username = b.username
-                      GROUP BY user_id, a.username, ip, certified, grp
                     ) AS pc
                     OUTER LEFT JOIN EACH [{dataset}.stats_show_ans_before] AS sa
                     ON pc.username = sa.cameo_candidate #join on cameo candidate
@@ -1732,9 +1757,11 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
                   #AND sa.norm_pearson_corr > 0
                   WHERE (','+grp_usernames+',' CONTAINS ','+sa.cameo_candidate+',')#Only keep shadows if cameo in pc
                   OR certified = true #Keep previously found cameos
-                  GROUP BY user_id, username, shadow, ip, certified, grp, show_ans_before, unnormalized_pearson_corr,
-                    percent_show_ans_before, avg_max_dt_seconds, median_max_dt_seconds, norm_pearson_corr,
-                    dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds
+                  GROUP BY user_id, username, shadow, ip, certified, grp, verified,
+                   countryLabel, start_time, last_event, nforum_posts, nprogcheck, nvideo, time_active_in_days, 
+                   grade, min_certifying_grade, unnormalized_pearson_corr, norm_pearson_corr,
+                   show_ans_before, prob_in_common,  avg_max_dt_seconds, median_max_dt_seconds,
+                   dt_iqr, dt_std_dev, percentile75_dt_seconds, percentile90_dt_seconds
                 ) AS pc
                 JOIN EACH [{dataset}.stats_attempts_correct] AS ac
                 ON pc.user_id = ac.user_id
