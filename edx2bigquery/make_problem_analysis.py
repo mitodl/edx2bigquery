@@ -1634,7 +1634,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
 
 #-----------------------------------------------------------------------------
 
-def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None):
+def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None, course_info_table=None):
     
     #compute_show_ans_before(course_id, force_recompute, use_dataset_latest)
 
@@ -1778,7 +1778,7 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
             AND sum_cert_false > 0
             # Order by ip to group master and harvesters together. Order by certified so that we always have masters above harvester accounts.
             ORDER BY grp ASC, certified DESC
-          """.format(dataset=dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table)
+          """.format(dataset=dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table, course_info_table=course_info_table)
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
     sys.stdout.flush()

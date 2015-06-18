@@ -473,6 +473,7 @@ def ip_sybils(param, courses, args):
                                                                          force_recompute=args.force_recompute,
                                                                          use_dataset_latest=param.use_dataset_latest,
                                                                          uname_ip_groups_table=param.table,
+                                                                         course_info_table=param.listings,
                                                                      )
             if param.only_step and ("6" in (param.only_step or "").split(',')):
                 make_problem_analysis.compute_cameo_demographics(course_id, 
@@ -1171,7 +1172,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
     parser.add_argument("--only-step", type=str, help="specify single step to take in processing, e.g. for report")
     parser.add_argument("--logs-dir", type=str, help="directory to output split tracking logs into")
-    parser.add_argument("--listings", type=str, help="path to the course listings.csv file")
+    parser.add_argument("--listings", type=str, help="path to the course listings.csv file (or, for some commands, table name for course info listings)")
     parser.add_argument("--dbname", type=str, help="mongodb db name to use for mongo2gs")
     parser.add_argument("--project-id", type=str, help="project-id to use (overriding the default; used by get_course_data)")
     parser.add_argument("--table", type=str, help="bigquery table to use, specified as dataset_id.table_id or just as table_id (for get_course_data)")
