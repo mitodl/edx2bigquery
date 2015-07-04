@@ -111,7 +111,14 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
             print "--> no data in table %s.%s, starting from scratch!" % (dataset, table)
             overwrite = True
         else:
-            last_dates = [get_date_function(x) for x in pc_last['data']]
+            last_dates = []
+            for x in pc_last['data']:
+                try:
+                    add_date = get_date_function(x)
+                    last_dates.append( add_date )
+                except Exception as err:
+                    print "Error with get_date_function occurred. %s" % str( err )
+                    continue
             last_date = max(last_dates)
             table_max_date = last_date.strftime('%Y%m%d')
             if max_date <= table_max_date:
