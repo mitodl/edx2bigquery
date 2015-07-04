@@ -58,7 +58,7 @@ cidre10 = re.compile('/courses/(?P<org>[^/]+)/(?P<course>[^/]+)/(?P<semester>[^+
 # "page": "https://courses.edx.org/courses/MITx/6.00.1x_5/1T2015/courseware/d5d822451677476fbfb0a0f9a14e0501/bbc2f0aa5bc54bf8ba2f6c36391202fb/",
 # "event": "input_i4x-MITx-6_00_1x_5-problem-5bada2f1e64249f996ee1a37df8db810_2_1=..."
 cidre11 = re.compile('/courses/(?P<org>[^/]+)/(?P<course>[^/]+)/(?P<semester>[^+]+)/courseware/(?P<chapter>[^/]+)/(?P<sequential>[^/]+)/')
-cidre11a = re.compile('input_i4x-(?P<org>[^/]+)-(?P<course>[^/]+)-(?P<mtype>[^/]+)-(?P<id>[^=]+)_[0-9]+_[^=]+=.*')
+cidre11a = re.compile('input_i4x-(?P<org>[^-]+?)-(?P<course>[^-]+?)-(?P<mtype>[^-]+?)-(?P<id>.+?)_[0-9]+_[^=]+=.*')
 
 #-----------------------------------------------------------------------------
 # module_id for forums
@@ -235,7 +235,7 @@ def guess_module_id(doc):
         if type(event_dict)==dict and 'id' in event_dict:
             event = event_dict
 
-    if (type(event)==dict and 'id' in event):
+    if (type(event)==dict and 'id' in event and type(event['id']) in [str, unicode]):
         eid = event['id']
         rr = okre4.search(eid)
         if (rr):
