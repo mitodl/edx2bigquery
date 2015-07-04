@@ -428,6 +428,19 @@ def analyze_forum(param, courses, args):
             sys.stdout.flush()
             raise
 
+def course_key_version(param, courses, args):
+    import check_course_key_version
+    for course_id in get_course_ids(courses):
+        try:
+            check_course_key_version.course_key_version(course_id,
+                                                        logs_dir=args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY,
+                                                    )
+        except (AssertionError, Exception) as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+            raise
+
 def attempts_correct(param, courses, args):
     import make_problem_analysis
     for course_id in get_course_ids(courses):
@@ -1033,6 +1046,19 @@ mongo2gs <course_id> ...    : extract tracking logs from mongodb (using mongoexp
                               Rephrases log file entries to be consistent with the schema used for tracking log file data in BigQuery.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
+course_key_version <cid>    : print out what version of course key (standard, v1) is being used for a given course_id.  Needed for opaque key 
+                              handling.  The "standard" course_id format is "org/course/semester".  The opaque-key v1 format is
+                              "course-v1:org+course+semester".  Opaque keys also mangle what is known as a the "module_id", and
+                              use something like "block-v1:MITx+8.MechCx_2+2T2015+type@problem+block@Blocks_on_Ramp_randxyzBILNKOA0".
+                              The opaque key ID's are changed back into the standard format, in most of the parsing of the SQL
+                              and the tracking logs (see addmoduleid.py), but it's still necessary to know which kind of key
+                              is being used, e.g. do that jump_to_id will work properly when linking back to a live course page.
+                              course_id is always stored in tradition format.  course_key is kept in either standard or v1 opaque key
+                              format.  module_id is always standard, and kept as "org/course/<module_type>/<module_id>".  In
+                              the future, there may be a module_key, but that idea isn't currently used.  This particular command
+                              scans some tracking log entries, and if the count of "block-v1" is high, it assigns "v1"
+                              to the course; otherwise, it assigns "standard" as the course key version.
+
 --- COURSE CONTENT DATA RELATED COMMANDS
 
 axis2bq <course_id> ...     : construct "course_axis" table, upload to gs, and generate table in BigQuery dataset for the
@@ -1454,6 +1480,9 @@ check_for_duplicates        : check list of courses for duplicates
 
     elif (args.command=='logs2bq'):
         daily_logs(param, args, args.command)
+
+    elif (args.command=='course_key_version'):
+        course_key_version(param, args, args)
 
     elif (args.command=='tsv2csv'):
         import csv
