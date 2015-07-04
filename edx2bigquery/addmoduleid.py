@@ -137,6 +137,8 @@ def add_module_id(data):
         data['module_id'] = mid
 
     else:
+        if 'instructor' in data['event_type']:
+            return
         sys.stderr.write("Missing module_id: %s\n" % json.dumps(data, indent=4))
         pass
 
@@ -172,6 +174,18 @@ def guess_module_id(doc):
                 return mid
         sys.stderr.write("ok parse failed on %s" % json.dumps(doc, indent=4))
   
+    if (event_type=="problem_graded" and type(event)==list and len(event)>0 and event[0].startswith("input_")):
+        page = doc.get('page', '')
+        # sys.stderr.write("page=%s\n" % page)
+        rr = okre2.search(page)
+        if (rr):
+            rr2 = okre2a.search(event[0])
+            if rr2:
+                mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), 'problem', rr2.group('id'))
+                # sys.stderr.write("ok mid = %s\n" % mid)
+                return mid
+        sys.stderr.write("ok parse failed on %s" % json.dumps(doc, indent=4))
+
     rr = okre3.search(event_type)
     if (rr):
         mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
@@ -186,6 +200,11 @@ def guess_module_id(doc):
   
     if (type(event)==dict):
         rr = okre4.search(event.get('id', ''))
+        if (rr):
+            mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
+            return mid
+    elif (type(event) in [str, unicode]):
+        rr = okre4.search(event)
         if (rr):
             mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
             return mid
