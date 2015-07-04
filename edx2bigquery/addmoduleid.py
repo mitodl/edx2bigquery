@@ -15,8 +15,11 @@ import traceback
 # if problem_id is given
 # i4x://MITx/2.01x/problem/E6_1_1/
 # "id": "i4x://MITx/DemoX/sequential/visualizations"
+# "event_type": "/courses/MITx/6.00.1x_5/1T2015/xqueue/3516/i4x://MITx/6.00.1x_5/problem/L4:L4_Problem_9/score_update"
 cidre3 = re.compile('i4x://([^/]+/[^/]+/[^/]+/[^/]+)')
 cidre3a = re.compile('i4x://([^/]+/[^/]+/[^/]+/[^/]+)/goto_position')
+cidre3b = re.compile('i4x://(?P<org>[^/]+)/(?P<course>[^/]+)/(?P<mtype>[^/]+)/(?P<id>[^/]+)/(?P<action>[^/]+)')
+cidre3c = re.compile('i4x://(?P<org>[^/]+)/(?P<course>[^/]+)/(?P<mtype>[^/]+)/(?P<id>[^/]+)')
 
 # for video events, use event.id
 # "i4x-HarvardX-PH207x-video-Solutions_to_Prevalence_Questions"
@@ -50,7 +53,12 @@ cidre9 = re.compile('/courses/([^/]+/[^/]+)/[^/]+/jump_to_id/([^/]+)(/|)$')
 
 #"event_type": "/courses/MITx/18.01.1x/2T2015/xblock/i4x:;_;_MITx;_18.01.1x;_problem;_ps0A-tab2-problem3/handler/xmodule_handler/input_ajax", 
 # "path": "/courses/MITx/8.MReVx/2T2014/xblock/i4x:;_;_MITx;_8.MReVx;_split_test;_Quiz_Zero_randxyzLQ56GIPQ/handler/log_child_render"
-cidre10 = re.compile('/courses/(?P<org>[^/]+)+/(?P<course>[^/]+)+/(?P<semester>[^+]+)/xblock/i4x:;_;_[^/]+;_[^/]+;_(?P<mtype>[^;]+);_(?P<id>[^/]+)/handler')
+cidre10 = re.compile('/courses/(?P<org>[^/]+)/(?P<course>[^/]+)/(?P<semester>[^+]+)/xblock/i4x:;_;_[^/]+;_[^/]+;_(?P<mtype>[^;]+);_(?P<id>[^/]+)/handler/.*')
+
+# "page": "https://courses.edx.org/courses/MITx/6.00.1x_5/1T2015/courseware/d5d822451677476fbfb0a0f9a14e0501/bbc2f0aa5bc54bf8ba2f6c36391202fb/",
+# "event": "input_i4x-MITx-6_00_1x_5-problem-5bada2f1e64249f996ee1a37df8db810_2_1=..."
+cidre11 = re.compile('/courses/(?P<org>[^/]+)/(?P<course>[^/]+)/(?P<semester>[^+]+)/courseware/(?P<chapter>[^/]+)/(?P<sequential>[^/]+)/')
+cidre11a = re.compile('input_i4x-(?P<org>[^/]+)-(?P<course>[^/]+)-(?P<mtype>[^/]+)-(?P<id>[^=]+)_[0-9]+_[^=]+=.*')
 
 #-----------------------------------------------------------------------------
 # module_id for forums
@@ -103,26 +111,32 @@ fidre8 = re.compile('^/courses/([^/]+/[^/]+)/([^/]+)/discussion/forum/([^/]+)/th
 # path or event_type: "/courses/course-v1:MITx+8.MechCx_2+2T2015/xblock/block-v1:MITx+8.MechCx_2+2T2015+type@problem+block@Blocks_on_Ramp_randxyzBILNKOA0/handler/xmodule_handler/problem_check"
 # "path": "/courses/course-v1:MITx+6.00.1x_6+2T2015/xblock/block-v1:MITx+6.00.1x_6+2T2015+type@recommender+block@0d6bcca84ae54095b001d338a5b4705b/handler/handle_vote"
 
-okre1 = re.compile('/courses/course-v1:(?P<org>[^+]+)+\+(?P<course>[^+]+)+\+(?P<semester>[^+]+)/xblock/block-v1:[^+]+\+[^+]+\+[^+]+\+type@(?P<mtype>[^+]+)\+block@(?P<id>[^/]+)/handler')
+okre1 = re.compile('/courses/course-v1:(?P<org>[^+]+)\+(?P<course>[^+]+)\+(?P<semester>[^+]+)/xblock/block-v1:[^+]+\+[^+]+\+[^+]+\+type@(?P<mtype>[^+]+)\+block@(?P<id>[^/]+)/handler')
 
 # "event_source": "browser"
 # "page": "https://courses.edx.org/courses/course-v1:MITx+8.MechCx_2+2T2015/courseware/Unit_0/Quiz_Zero_randxyzLQ56GIPQ/",
 # "event": "\"input_Blocks_on_Ramp_randxyzBILNKOA0_2_1=choice_3\""
 # "event_type": "problem_check"
 
-okre2 = re.compile('/courses/course-v1:(?P<org>[^+]+)+\+(?P<course>[^+]+)+\+(?P<semester>[^+]+)/courseware')
+okre2 = re.compile('/courses/course-v1:(?P<org>[^+]+)\+(?P<course>[^+]+)\+(?P<semester>[^+]+)/courseware')
 okre2a = re.compile('input_(?P<id>[^=]+)_[0-9]+_[^=]+=')
 
 # "event_type": "/courses/course-v1:MITx+CTL.SC1x_1+2T2015/xblock/block-v1:MITx+CTL.SC1x_1+2T2015+type@sequential+block@5aff08b86e0e431e8ef29b0fbe52ecb
 
-okre3 = re.compile('/courses/course-v1:(?P<org>[^+]+)+\+(?P<course>[^+]+)+\+(?P<semester>[^+]+)/xblock/block-v1:[^+]+\+[^+]+\+[^+]+\+type@(?P<mtype>[^+]+)\+block@(?P<id>[^/]+)')
+okre3 = re.compile('/courses/course-v1:(?P<org>[^+]+)\+(?P<course>[^+]+)\+(?P<semester>[^+]+)/xblock/block-v1:[^+]+\+[^+]+\+[^+]+\+type@(?P<mtype>[^+]+)\+block@(?P<id>[^/]+)')
 
 # event "id": "block-v1:MITx+6.00.1x_6+2T2015+type@sequential+block@videosequence:Lecture_3"
-okre4 = re.compile('block-v1:(?P<org>[^+]+)+\+(?P<course>[^+]+)+\+(?P<semester>[^+]+)\+type@(?P<mtype>[^+]+)\+block@(?P<id>[^/]+)')
+okre4 = re.compile('block-v1:(?P<org>[^+]+)\+(?P<course>[^+]+)\+(?P<semester>[^+]+)\+type@(?P<mtype>[^+]+)\+block@(?P<id>[^/]+)')
+
+# page: "https://courses.edx.org/courses/course-v1:MITx+CTL.SC1x_1+2T2015/courseware/eb6a807af0324d9caaaab908133f3e7c/d05755d771d9486aa78ba888fdcc4125/"
+# with event \"id\": \"i4x-MITx-3_086-2x-video-5ddc3c000e2e4e1b947615b1c92d2b8e\"
+# for stop_video
+okre5 = re.compile('/courses/course-v1:(?P<org>[^+]+)\+(?P<course>[^+]+)\+(?P<semester>[^+]+)/courseware/(?P<chapter>[^/]+)/(?P<id>[^/]+)/')
+okre5a = re.compile('i4x-(?P<org>[^-]+)-(?P<course>[^+]+)-(?P<mtype>[^-]+)-(?P<id>[^-]+)')
 
 #-----------------------------------------------------------------------------
 
-def add_module_id(data):
+def add_module_id(data, verbose=False):
     #if not data['event_js']:
     #    return
     try:
@@ -137,7 +151,11 @@ def add_module_id(data):
         data['module_id'] = mid
 
     else:
+        if not verbose:
+            return
         if 'instructor' in data['event_type']:
+            return
+        if not 'problem' in data['event_type']:
             return
         sys.stderr.write("Missing module_id: %s\n" % json.dumps(data, indent=4))
         pass
@@ -162,7 +180,7 @@ def guess_module_id(doc):
         # sys.stderr.write("ok mid = %s\n" % mid)
         return mid
 
-    if (event_type=="problem_check" and type(event) in [str, unicode] and event.startswith("input_")):
+    if ('problem' in event_type and type(event) in [str, unicode] and event.startswith("input_")):
         page = doc.get('page', '')
         # sys.stderr.write("page=%s\n" % page)
         rr = okre2.search(page)
@@ -172,6 +190,11 @@ def guess_module_id(doc):
                 mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), 'problem', rr2.group('id'))
                 # sys.stderr.write("ok mid = %s\n" % mid)
                 return mid
+        rr2 = cidre11a.search(event)
+        if (rr2):
+            mid = "%s/%s/%s/%s" % (rr2.group('org'), rr2.group('course'), rr2.group('mtype'), rr2.group('id'))
+            # sys.stderr.write("ok mid = %s\n" % mid)
+            return mid
         sys.stderr.write("ok parse failed on %s" % json.dumps(doc, indent=4))
   
     if (event_type=="problem_graded" and type(event)==list and len(event)>0 and event[0].startswith("input_")):
@@ -184,6 +207,11 @@ def guess_module_id(doc):
                 mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), 'problem', rr2.group('id'))
                 # sys.stderr.write("ok mid = %s\n" % mid)
                 return mid
+        rr2 = cidre11a.search(event[0])
+        if (rr2):
+            mid = "%s/%s/%s/%s" % (rr2.group('org'), rr2.group('course'), rr2.group('mtype'), rr2.group('id'))
+            # sys.stderr.write("ok mid = %s\n" % mid)
+            return mid
         sys.stderr.write("ok parse failed on %s" % json.dumps(doc, indent=4))
 
     rr = okre3.search(event_type)
@@ -197,12 +225,33 @@ def guess_module_id(doc):
         mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
         #sys.stderr.write("ok mid = %s\n" % mid)
         return mid
-  
-    if (type(event)==dict):
-        rr = okre4.search(event.get('id', ''))
+
+    if not type(event)==dict:
+        event_dict = None
+        try:
+            event_dict = json.loads(event)
+        except:
+            pass
+        if type(event_dict)==dict and 'id' in event_dict:
+            event = event_dict
+
+    if (type(event)==dict and 'id' in event):
+        eid = event['id']
+        rr = okre4.search(eid)
         if (rr):
             mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
             return mid
+        rr = okre5a.search(eid)
+        if (rr):
+            mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
+            #sys.stderr.write("ok mid = %s\n" % mid)
+            return mid
+        if event_type=='play_video' and '/' not in eid:
+            rr = okre5.search(doc.get('page', ''))
+            if (rr):
+                mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), 'video', eid)
+                return mid
+
     elif (type(event) in [str, unicode]):
         rr = okre4.search(event)
         if (rr):
@@ -297,20 +346,25 @@ def guess_module_id(doc):
         return rr.group(1) + "/jump_to_id/" + rr.group(2)
 
     # event of xblock with i4x
-    rr = cidre10.search(event_type)
+    rr = cidre10.match(event_type)
     if (rr):
         mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
         # sys.stderr.write("ok mid = %s\n" % mid)
         return mid
 
-    rr = cidre10.search(path)
+    rr = cidre10.match(path)
     if (rr):
         mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
         # sys.stderr.write("ok mid = %s\n" % mid)
         return mid
 
-    if (type(event)==str or type(event)==unicode):	# all the rest of the patterns need event to be a dict
-        return
+    if type(event) in [str, unicode] and event.startswith('input_'):
+        #rr = cidre11.search(doc.get('page', ''))
+        rr2 = cidre11a.search(event)
+        if (rr2):
+            mid = "%s/%s/%s/%s" % (rr2.group('org'), rr2.group('course'), rr2.group('mtype'), rr2.group('id'))
+            # sys.stderr.write("ok mid = %s\n" % mid)
+            return mid
 
     rr = cidre3.search(event_type)
     if (rr):
@@ -322,6 +376,20 @@ def guess_module_id(doc):
                 sys.stderr.write("Failed to handle goto_position for" + doc['_id'] + "\n")
         return rr.group(1)
   
+    rr = cidre3b.search(event_type)
+    if (rr):
+        mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
+        return mid
+  
+    if type(event) in [str, unicode]:
+        rr = cidre3c.search(event)
+        if (rr):
+            mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
+            return mid
+
+    if (type(event)==str or type(event)==unicode):	# all the rest of the patterns need event to be a dict
+        return
+
     if (type(event)==dict and event.get('problem_id')): # assumes event is js, not string
         rr = cidre3.search(event['problem_id'])
         if (rr):

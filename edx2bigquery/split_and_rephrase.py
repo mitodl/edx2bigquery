@@ -178,7 +178,7 @@ def do_file(fn, logs_dir=LOGS_DIR, dynamic_dates=False, timezone=None, logfn_kee
         except Exception as err:
             print "[split_and_rephrase] ===> OOPS, failed err=%s in parsing line %s" % (str(err), line)
             raise
-        if (cnt % 10000==0):
+        if ((cnt % 10000)==0):
             sys.stdout.write('.')
             sys.stdout.flush()
     print
