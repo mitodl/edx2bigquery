@@ -48,6 +48,10 @@ cidre8 = re.compile('/courses/([^/]+/[^/]+)/[^/]+/courseware/([^/]+)/$')
 # "event_type" : "/courses/MITx/16.101x/2013_SOND/jump_to_id/16101x_Assumptions"
 cidre9 = re.compile('/courses/([^/]+/[^/]+)/[^/]+/jump_to_id/([^/]+)(/|)$')
 
+#"event_type": "/courses/MITx/18.01.1x/2T2015/xblock/i4x:;_;_MITx;_18.01.1x;_problem;_ps0A-tab2-problem3/handler/xmodule_handler/input_ajax", 
+# "path": "/courses/MITx/8.MReVx/2T2014/xblock/i4x:;_;_MITx;_8.MReVx;_split_test;_Quiz_Zero_randxyzLQ56GIPQ/handler/log_child_render"
+cidre10 = re.compile('/courses/(?P<org>[^/]+)+/(?P<course>[^/]+)+/(?P<semester>[^+]+)/xblock/i4x:;_;_[^/]+;_[^/]+;_(?P<mtype>[^;]+);_(?P<id>[^/]+)/handler')
+
 #-----------------------------------------------------------------------------
 # module_id for forums
 
@@ -93,6 +97,31 @@ fidre6 = re.compile('^/courses/([^/]+/[^/]+)/([^/]+)/discussion/forum/i4x([^/]+)
 fidre7 = re.compile('^/courses/([^/]+/[^/]+)/([^/]+)/discussion/i4x([^/]+)/threads/create')
 fidre8 = re.compile('^/courses/([^/]+/[^/]+)/([^/]+)/discussion/forum/([^/]+)/threads/([^/]+)')
 
+#-----------------------------------------------------------------------------
+# module_id for courses using opaque keys
+
+# path or event_type: "/courses/course-v1:MITx+8.MechCx_2+2T2015/xblock/block-v1:MITx+8.MechCx_2+2T2015+type@problem+block@Blocks_on_Ramp_randxyzBILNKOA0/handler/xmodule_handler/problem_check"
+# "path": "/courses/course-v1:MITx+6.00.1x_6+2T2015/xblock/block-v1:MITx+6.00.1x_6+2T2015+type@recommender+block@0d6bcca84ae54095b001d338a5b4705b/handler/handle_vote"
+
+okre1 = re.compile('/courses/course-v1:(?P<org>[^+]+)+\+(?P<course>[^+]+)+\+(?P<semester>[^+]+)/xblock/block-v1:[^+]+\+[^+]+\+[^+]+\+type@(?P<mtype>[^+]+)\+block@(?P<id>[^/]+)/handler')
+
+# "event_source": "browser"
+# "page": "https://courses.edx.org/courses/course-v1:MITx+8.MechCx_2+2T2015/courseware/Unit_0/Quiz_Zero_randxyzLQ56GIPQ/",
+# "event": "\"input_Blocks_on_Ramp_randxyzBILNKOA0_2_1=choice_3\""
+# "event_type": "problem_check"
+
+okre2 = re.compile('/courses/course-v1:(?P<org>[^+]+)+\+(?P<course>[^+]+)+\+(?P<semester>[^+]+)/courseware')
+okre2a = re.compile('input_(?P<id>[^=]+)_[0-9]+_[^=]+=')
+
+# "event_type": "/courses/course-v1:MITx+CTL.SC1x_1+2T2015/xblock/block-v1:MITx+CTL.SC1x_1+2T2015+type@sequential+block@5aff08b86e0e431e8ef29b0fbe52ecb
+
+okre3 = re.compile('/courses/course-v1:(?P<org>[^+]+)+\+(?P<course>[^+]+)+\+(?P<semester>[^+]+)/xblock/block-v1:[^+]+\+[^+]+\+[^+]+\+type@(?P<mtype>[^+]+)\+block@(?P<id>[^/]+)')
+
+# event "id": "block-v1:MITx+6.00.1x_6+2T2015+type@sequential+block@videosequence:Lecture_3"
+okre4 = re.compile('block-v1:(?P<org>[^+]+)+\+(?P<course>[^+]+)+\+(?P<semester>[^+]+)\+type@(?P<mtype>[^+]+)\+block@(?P<id>[^/]+)')
+
+#-----------------------------------------------------------------------------
+
 def add_module_id(data):
     #if not data['event_js']:
     #    return
@@ -107,10 +136,65 @@ def add_module_id(data):
     if mid is not None and mid:
         data['module_id'] = mid
 
+    else:
+        sys.stderr.write("Missing module_id: %s\n" % json.dumps(data, indent=4))
+        pass
+
 def guess_module_id(doc):
 
     event = doc['event']
     event_type = doc['event_type']
+    path = doc.get('context', {}).get('path', '')
+  
+    # opaque keys
+
+    rr = okre1.search(event_type)
+    if (rr):
+        mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
+        # sys.stderr.write("ok mid = %s\n" % mid)
+        return mid
+  
+    rr = okre1.search(path)
+    if (rr):
+        mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
+        # sys.stderr.write("ok mid = %s\n" % mid)
+        return mid
+
+    if (event_type=="problem_check" and type(event) in [str, unicode] and event.startswith("input_")):
+        page = doc.get('page', '')
+        # sys.stderr.write("page=%s\n" % page)
+        rr = okre2.search(page)
+        if (rr):
+            rr2 = okre2a.search(event.split('&',1)[0])
+            if rr2:
+                mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), 'problem', rr2.group('id'))
+                # sys.stderr.write("ok mid = %s\n" % mid)
+                return mid
+        sys.stderr.write("ok parse failed on %s" % json.dumps(doc, indent=4))
+  
+    rr = okre3.search(event_type)
+    if (rr):
+        mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
+        #sys.stderr.write("ok mid = %s\n" % mid)
+        return mid
+  
+    rr = okre3.search(path)
+    if (rr):
+        mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
+        #sys.stderr.write("ok mid = %s\n" % mid)
+        return mid
+  
+    if (type(event)==dict):
+        rr = okre4.search(event.get('id', ''))
+        if (rr):
+            mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
+            return mid
+
+    # sys.stderr.write('path=%s\n' % json.dumps(path, indent=4))
+    # sys.stderr.write('doc=%s\n' % json.dumps(doc, indent=4))
+    # return
+
+    # non-opaque keys
 
     if event_type in ['add_resource', 'delete_resource', 'recommender_upvote']:
         return None
@@ -192,6 +276,19 @@ def guess_module_id(doc):
     rr = cidre9.search(event_type)
     if (rr):
         return rr.group(1) + "/jump_to_id/" + rr.group(2)
+
+    # event of xblock with i4x
+    rr = cidre10.search(event_type)
+    if (rr):
+        mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
+        # sys.stderr.write("ok mid = %s\n" % mid)
+        return mid
+
+    rr = cidre10.search(path)
+    if (rr):
+        mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
+        # sys.stderr.write("ok mid = %s\n" % mid)
+        return mid
 
     if (type(event)==str or type(event)==unicode):	# all the rest of the patterns need event to be a dict
         return
