@@ -373,7 +373,8 @@ def guess_module_id(doc):
                 mid = rr.group(1) + '/' + event['POST']['position'][0]
                 return mid
             except Exception as err:
-                sys.stderr.write("Failed to handle goto_position for" + doc['_id'] + "\n")
+                sys.stderr.write("Failed to handle goto_position for" + doc.get('_id', '<unknown>') + "\n")
+                sys.stderr.write("%s\n" % json.dumps(doc, indent=4))
         return rr.group(1)
   
     rr = cidre3b.search(event_type)
