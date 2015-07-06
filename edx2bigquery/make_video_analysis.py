@@ -88,14 +88,28 @@ def make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_
     # Create initial video axis
     videoAxisExists = False
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    va_date = None
     try:
         tinfo = bqutil.get_bq_table_info(dataset, TABLE_VIDEO_AXIS )
         assert tinfo is not None, "[analyze videos] %s.%s does not exist. First time creating table" % ( dataset, TABLE_VIDEO_AXIS )
 	videoAxisExists = True
+        va_date = tinfo['lastModifiedTime']		# datetime
     except (AssertionError, Exception) as err:
         print "%s --> Attempting to process %s table" % ( str(err), TABLE_VIDEO_AXIS )
         sys.stdout.flush()
-	pass
+
+    # get course axis time
+    ca_date = None
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, TABLE_COURSE_AXIS )
+        ca_date = tinfo['lastModifiedTime']		# datetime
+    except (AssertionError, Exception) as err:
+        pass
+
+    if videoAxisExists and (not force_recompute) and ca_date and va_date and (ca_date > va_date):
+        force_recompute = True
+        print "video_axis exists, but has date %s, older than course_axis date %s; forcing recompute" % (va_date, ca_date)
+        sys.stdout.flush()
 
     if not videoAxisExists or force_recompute:
         force_recompute = True
