@@ -128,18 +128,18 @@ def rephrase_studentmodule_opaque_keys(fn_sm):
     print "  Running %s" % cmd
     sys.stdout.flush()
     os.system(cmd)
-    ofp = gzip.GzipFile(fn_sm, 'w')
-    with gzip.GzipFile(orig_sm_fn) as smfp:
-        cdr = csv.DictReader(smfp)
-        first = True
-        for entry in cdr:
-            if first:
-                odw = csv.DictWriter(ofp, fieldnames=cdr.fieldnames)
-                odw.writeheader()
-                first = False
-            fix_opaque_keys(entry, 'module_id')
-            fix_opaque_keys(entry, 'course_id')
-            odw.writerow(entry)
+    ofp = openfile(fn_sm, 'w')
+    smfp = openfile(orig_sm_fn)
+    cdr = csv.DictReader(smfp)
+    first = True
+    for entry in cdr:
+        if first:
+            odw = csv.DictWriter(ofp, fieldnames=cdr.fieldnames)
+            odw.writeheader()
+            first = False
+        fix_opaque_keys(entry, 'module_id')
+        fix_opaque_keys(entry, 'course_id')
+        odw.writerow(entry)
     ofp.close()
     print "Rephrased %s -> %s to convert opaque keys syntax to standard module_id and course_id format" % (orig_sm_fn, fn_sm)
     sys.stdout.flush()
@@ -189,7 +189,7 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
         smfp = openfile(fn_sm)
         fline = smfp.readline()	# skip first line - it's a header
         fline = smfp.readline()
-        if 'block-v1:' in fline:
+        if 'block-v1:' in fline or 'course-v1' in fline:
             rephrase_studentmodule_opaque_keys(fn_sm)
 
     def convert_sql(fnroot):
