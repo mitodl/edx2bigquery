@@ -250,6 +250,8 @@ def analyze_course_single(param, course_id, optargs=None):
     try:
         course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", {})
     except:
+        pass
+    if not course_axis_pin_dates:
         course_axis_pin_dates = {}
 
     pin_date = course_axis_pin_dates.get(course_id)
@@ -573,6 +575,8 @@ def axis2bq(param, courses, args):
     try:
         course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", None)
     except:
+        pass
+    if not course_axis_pin_dates:
         course_axis_pin_dates = {}
 
     for course_id in get_course_ids(courses):
