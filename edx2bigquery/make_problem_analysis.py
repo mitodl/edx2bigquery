@@ -1135,7 +1135,8 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
 
 #-----------------------------------------------------------------------------
 
-def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=False, force_num_partitions=None):
+def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=False, force_num_partitions=None, 
+                            testing=False, testing_dataset= None, project_id = None):
     '''
     Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
     cameo candidate - certified | shadow candidate - uncertified
@@ -1154,6 +1155,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = "stats_show_ans_before"
 
+    if testing:
+        project_dataset = project_id + ':' + dataset
+
     #-------------------- partition by nshow_ans_distinct
 
     def make_sad_partition(pmin, pmax):
@@ -1164,7 +1168,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                         count(distinct module_id) * {pmin}
                         FROM [{dataset}.show_answer]
                       )
-        '''.format(dataset=dataset, pmin=pmin, pmax=pmax)
+        '''.format(dataset=project_dataset if testing else dataset, pmin=pmin, pmax=pmax)
         
         if pmax:
             partition += '''
@@ -1174,7 +1178,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                         count(distinct module_id) * {pmax}
                         FROM [{dataset}.show_answer]
                       )
-            '''.format(dataset=dataset, pmin=pmin, pmax=pmax)
+            '''.format(dataset=project_dataset if testing else dataset, pmin=pmin, pmax=pmax)
         return partition
 
     num_partitions = 5
@@ -1191,6 +1195,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     #-------------------- partition by username hash
     
     num_persons = bqutil.get_bq_table_size_rows(dataset, 'person_course')
+    if testing:
+        num_persons = bqutil.get_bq_table_size_rows(dataset, 'person_course', project_id)
     if force_num_partitions:
         num_partitions = force_num_partitions
         print " --> Force the number of partitions to be %d" % force_num_partitions
@@ -1304,7 +1310,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               #having show_ans_before > 10
               having norm_pearson_corr > -1
               and avg_max_dt_seconds is not null
-          """.format(dataset=dataset, course_id = course_id, partition=the_partition[i])
+          """.format(dataset=project_dataset if testing else dataset, course_id = course_id, partition=the_partition[i])
         sql.append(item)
 
 
@@ -1314,6 +1320,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     sasbu = "show_answer"
     try:
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        if testing:
+            tinfo = bqutil.get_bq_table_info(dataset, sasbu, project_id)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
         print "Error %s getting %s.%s" % (err, dataset, sasbu)
@@ -1326,6 +1334,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
 
     try:
         table_date = bqutil.get_bq_table_last_modified_datetime(dataset, table)
+        if testing:
+            table_date = bqutil.get_bq_table_last_modified_datetime(dataset, table, project_id)
     except Exception as err:
         if 'Not Found' in str(err):
             table_date = None
@@ -1343,6 +1353,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     if table_date and not force_recompute:
             # get the latest mod time of tables in depends_on:
             modtimes = [ bqutil.get_bq_table_last_modified_datetime(*(x.split('.',1))) for x in depends_on]
+            if testing:
+                modtimes = [ bqutil.get_bq_table_last_modified_datetime(*(x.split('.',1)), project_id = project_id) for x in depends_on]
             latest = max([x for x in modtimes if x is not None])
         
             if not latest:
@@ -1357,24 +1369,28 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             sys.stdout.flush()
             if i == 0:
                 try:
-                    bqutil.create_bq_table(dataset, table, sql[i], overwrite=True)
+                    bqutil.create_bq_table(testing_dataset if testing else dataset, table, sql[i], overwrite=True)
                 except Exception as err:
                     if (not force_num_partitions) and 'Response too large' in str(err):
                         print err
                         print "==> SQL query failed!  Trying again, with 50% more many partitions"
                         return compute_show_ans_before(course_id, force_recompute=force_recompute, 
                                                        use_dataset_latest=use_dataset_latest, 
-                                                       force_num_partitions=int(num_partitions*1.5))
+                                                       force_num_partitions=int(num_partitions*1.5),
+                                                       testing = testing, project_id = project_id)
                     else:
                         raise
             else:
-                bqutil.create_bq_table(dataset, table, sql[i], overwrite='append')
+                bqutil.create_bq_table(testing_dataset if testing else dataset, table, sql[i], overwrite='append')
+
         if num_partitions > 5:
             print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
             sys.stdout.flush()
             time.sleep(60)
 
     nfound = bqutil.get_bq_table_size_rows(dataset, table)
+    if testing:
+        nfound = bqutil.get_bq_table_size_rows(dataset, table, project_id)
     print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
     sys.stdout.flush()
 
