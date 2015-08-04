@@ -151,6 +151,9 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
         if not state['correct_map']:    # correct map = {} is not of interest
             continue
 
+        if 'student_answers' not in state:  #'student_answers' did not exist in some Davidson courses
+            continue
+            
         answers = state['student_answers']
 
         items = []
