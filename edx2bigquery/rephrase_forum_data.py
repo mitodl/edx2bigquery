@@ -119,6 +119,9 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
 
     check_for_funny_keys(data)
 
+    if 'context' in data:
+        data.pop('context')	# 25aug15: remove key
+
     try:
         check_schema(linecnt, data, the_ds=SCHEMA_DICT, coerce=True)
     except Exception as err:
