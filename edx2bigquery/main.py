@@ -555,6 +555,19 @@ def analyze_ora(param, courses, args):
             traceback.print_exc()
             sys.stdout.flush()
 
+def item_tables(param, courses, args):
+    import make_item_tables
+    for course_id in get_course_ids(courses):
+        try:
+            make_item_tables.make_item_tables(course_id, 
+                                              force_recompute=args.force_recompute,
+                                              use_dataset_latest=param.use_dataset_latest,
+                                          )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+
 def problem_check(param, courses, args):
     import make_problem_analysis
     for course_id in get_course_ids(courses):
@@ -712,6 +725,7 @@ def doall(param, course_id, args, stdout=None):
         time_on_task(param, course_id, args, just_do_totals=True, suppress_errors=True)
         analyze_videos(param, course_id, args)
         make_grading_policy(param, course_id, args)
+        item_tables(param, course_id, args)
         
         success = True
 
@@ -1038,6 +1052,8 @@ analyze_ora <course_id> ... : Analyze openassessment response problem data in tr
                               Uploads the result to google cloud storage and to BigQuery.
 
 time_task <course_id> ...   : Update time_task table of data on time on task, based on daily tracking logs, for specified course.
+
+item_tables <course_id> ... : Make course_item and person_item tables, used for IRT analyses.
 
 staff2bq <staff.csv>        : load staff.csv file into BigQuery; put it in the "courses" dataset.
 
@@ -1574,6 +1590,10 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='grading_policy'):
         courses = get_course_ids(args)
         run_parallel_or_serial(make_grading_policy, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='item_tables'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(item_tables, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='recommend_pin_dates'):
         import make_axis_pin_dates_from_listings
