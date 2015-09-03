@@ -17,15 +17,22 @@ def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=Fals
                                                )
     edx2course_axis.DATADIR = sdir
     edx2course_axis.VERBOSE_WARNINGS = verbose
-    fn = sdir / 'course.xml.tar.gz'
+
+    fn_to_try = ['course.xml.tar.gz',
+                'course-prod-analytics.xml.tar.gz',
+                'course-prod-edge-analytics.xml.tar.gz',
+                'course-prod-edx-replica.xml.tar.gz',
+            ]
+
+    for fntt in fn_to_try:
+        fn = sdir / fntt
+        if os.path.exists(fn):
+            break
+
     if not os.path.exists(fn):
-        fn = sdir / 'course-prod-analytics.xml.tar.gz'
-        if not os.path.exists(fn):
-            fn = sdir / 'course-prod-edge-analytics.xml.tar.gz'
-            if not os.path.exists(fn):
-                print "---> oops, cannot generate course axis for %s, file %s (or 'course.xml.tar.gz' or 'course-prod-edge-analytics.xml.tar.gz') missing!" % (course_id, fn)
-                sys.stdout.flush()
-                return
+        print "---> oops, cannot generate course axis for %s, file %s (or 'course.xml.tar.gz' or 'course-prod-edge-analytics.xml.tar.gz') missing!" % (course_id, fn)
+        sys.stdout.flush()
+        return
 
     # TODO: only create new axis if the table is missing, or the course axis is not already created
 
