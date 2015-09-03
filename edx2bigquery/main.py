@@ -555,6 +555,19 @@ def analyze_ora(param, courses, args):
             traceback.print_exc()
             sys.stdout.flush()
 
+def item_tables(param, courses, args):
+    import make_item_tables
+    for course_id in get_course_ids(courses):
+        try:
+            make_item_tables.make_item_tables(course_id, 
+                                              force_recompute=args.force_recompute,
+                                              use_dataset_latest=param.use_dataset_latest,
+                                          )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+
 def problem_check(param, courses, args):
     import make_problem_analysis
     for course_id in get_course_ids(courses):
@@ -580,7 +593,7 @@ def axis2bq(param, courses, args):
         course_axis_pin_dates = {}
 
     for course_id in get_course_ids(courses):
-        if args.skip_if_exists and axis2bigquery.already_exists(course_id, use_dataset_latest=param.use_dataset_latest):
+        if args.skip_if_exists and make_course_axis.axis2bigquery.already_exists(course_id, use_dataset_latest=param.use_dataset_latest):
             print "--> course_axis for %s already exists, skipping" % course_id
             sys.stdout.flush()
             continue
@@ -588,6 +601,27 @@ def axis2bq(param, courses, args):
         if pin_date:
             print "--> course_axis for %s being pinned to data from dump date %s" % (course_id, pin_date)
         make_course_axis.process_course(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose, pin_date)
+        
+    
+def make_grading_policy(param, courses, args):
+    import make_grading_policy_table
+
+    try:
+        course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", None)
+    except:
+        pass
+    if not course_axis_pin_dates:
+        course_axis_pin_dates = {}
+
+    for course_id in get_course_ids(courses):
+        if args.skip_if_exists and make_grading_policy_table.already_exists(course_id, use_dataset_latest=param.use_dataset_latest):
+            print "--> grading_policy for %s already exists, skipping" % course_id
+            sys.stdout.flush()
+            continue
+        pin_date = course_axis_pin_dates.get(course_id)
+        if pin_date:
+            print "--> course tarfile for %s being pinned to data from dump date %s" % (course_id, pin_date)
+        make_grading_policy_table.make_gp_table(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose, pin_date)
         
 
 def person_day(param, courses, args, check_dates=True):
@@ -690,6 +724,8 @@ def doall(param, course_id, args, stdout=None):
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, just_do_totals=True, suppress_errors=True)
         analyze_videos(param, course_id, args)
+        make_grading_policy(param, course_id, args)
+        item_tables(param, course_id, args)
         
         success = True
 
@@ -1017,6 +1053,8 @@ analyze_ora <course_id> ... : Analyze openassessment response problem data in tr
 
 time_task <course_id> ...   : Update time_task table of data on time on task, based on daily tracking logs, for specified course.
 
+item_tables <course_id> ... : Make course_item and person_item tables, used for IRT analyses.
+
 staff2bq <staff.csv>        : load staff.csv file into BigQuery; put it in the "courses" dataset.
 
 mongo2user_info <course_id> : dump users, profiles, enrollment, certificates CSV files from mongodb for specified course_id's.
@@ -1068,6 +1106,10 @@ course_key_version <cid>    : print out what version of course key (standard, v1
 axis2bq <course_id> ...     : construct "course_axis" table, upload to gs, and generate table in BigQuery dataset for the
                               specified course_id's.  
                               Accepts the "--clist" flag, to process specified list of courses in the config file's "courses" dict.
+
+grading_policy <course_id>  : construct the "grading_policy" table, upload to gs, and generate table in BigQuery dataset, for
+                              the specified course_id's.  Uses pin dates, just as does axis2bq.  Requires course.tar.gz file,
+                              from the weekly SQL dumps.
 
 recommend_pin_dates         : produce a list of recommended "pin dates" for the course axis, based on the specified --listings.  Example:
                               -->  edx2bigquery --clist=all --listings="course_listings.json" --course-base-dir=DATA-SQL recommend_pin_dates
@@ -1544,6 +1586,14 @@ check_for_duplicates        : check list of courses for duplicates
         courses = get_course_ids(args)
         run_parallel_or_serial(axis2bq, param, courses, args, parallel=args.parallel)
         # axis2bq(param, args, args)
+
+    elif (args.command=='grading_policy'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(make_grading_policy, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='item_tables'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(item_tables, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='recommend_pin_dates'):
         import make_axis_pin_dates_from_listings
