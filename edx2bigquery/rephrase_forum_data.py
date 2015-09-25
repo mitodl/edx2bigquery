@@ -21,6 +21,7 @@ from addmoduleid import add_module_id
 from check_schema_tracking_log import check_schema, schema2dict
 from load_course_sql import find_course_sql_dir
 from path import path
+from edx2course_axis import date_parse
 import bqutil
 import gsutil
 
@@ -41,14 +42,21 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
 
     def fix_date(dstr):
         if dstr:
-            dtime = int(dstr)
-            if dtime:
+            try:
+                dtime = int(dstr)
+                if dtime:
+                    try:
+                        dt = datetime.datetime.utcfromtimestamp(dtime/1000.0)
+                    except Exception as err:
+                        print "oops, failed to convert in utcfromtimestamp dtime=%s, dstr=%s" % (dtime, dstr)
+                        raise
+                    return str(dt)
+            except Exception as err:
                 try:
-                    dt = datetime.datetime.utcfromtimestamp(dtime/1000.0)
+                    dt = date_parse(dstr[:16])
+                    return str(dt)
                 except Exception as err:
-                    print "oops, failed to convert in utcfromtimestamp dtime=%s, dstr=%s" % (dtime, dstr)
-                    raise
-                return str(dt)
+                    return dstr
         return None
 
     def do_fix_date(field, rec):

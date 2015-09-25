@@ -145,6 +145,7 @@ def date_parse(datestr, retbad=False):
                '%Y-%m-%dT%H:%M:%S',
                '%Y-%m-%dT%H:%M:%S+00:00',	# 2014-12-09T15:00:00+00:00 
                '%Y-%m-%dT%H:%M',		# 2013-02-12T19:00
+               '%Y-%m-%dT%H:%M:%S+0000',	# 2015-06-09T12:25:21.801+0000
                '%B %d, %Y',			# February 25, 2013
                '%B %d, %H:%M, %Y', 		# December 12, 22:00, 2012
                '%B %d, %Y, %H:%M', 		# March 25, 2013, 22:00
