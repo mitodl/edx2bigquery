@@ -37,7 +37,10 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
             fnset = gsutil.get_gs_file_list(gb)
             local_dt = gsutil.get_local_file_mtime_in_utc(ofn)
             fnb = 'person_course.csv.gz'
-            if local_dt >= fnset[fnb]['date']:
+            if not fnb in fnset:
+                print "%s/%s missing!  skipping %s" % (gb, fnb, course_id)
+                continue
+            if (fnb in fnset) and (local_dt >= fnset[fnb]['date']):
                 print "%s already exists with date %s (gs file date %s), not re-downloading" % (ofn, local_dt, fnset[fnb]['date'])
                 sys.stdout.flush()
                 continue
