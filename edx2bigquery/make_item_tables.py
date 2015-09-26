@@ -27,6 +27,7 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
                                                                     Unique ID for an assessment item (constructed using the problem module_id, and linked to problem_analysis table keys)
     problem_id                              string  CheckPoint_1_Newton_s_First_Law 
                                                                     Unique ID for an assessment problem (constructed using problem url_name)
+    assignment_short_id                     string  HW_4            Unique short ID for assignment, using assignment short name + "_" + assignment_seq_num (should be same as what shows up in user's edX platform progress page)
     item_weight                             float   6.59E-05        Fraction of overall grade (between 0 and 1) contributed by this item
     n_user_responses                        integer 4868            Number of users who provided a response to this assessment item
     problem_name                            string  CheckPoint 1: Newton's First Law        
@@ -36,7 +37,9 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
     assignment_type                         string  Checkpoint      The assignment type within which the assignment exists
     assignment_type_weight                  float   0.1             Fraction of the overall grade contributed by the assignment type
     n_assignments_of_type                   integer 11              Number of assignments of this type
+    assignment_seq_num                      integer 3               Sequential number of the assignment_type within the course
     chapter_number                          integer 3               Number of the chapter within which the problem exists
+    section_number                          integer 3               Number of the section (aka sequential) within which the problem exists
     content_index                           integer 141             Index number of the problem within the content course axis
     problem_weight                          integer 1               Weight of the problem within the assignment
     item_points_possible                    float   1               Always 1 (used for debugging - number of points assigned to an item)
@@ -51,6 +54,9 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
                                                                     Date when problem was due
     problem_path                            string  /Unit_1/Newtons_First_Law/2/1   
                                                                     Path of problem within course content, specifying chapter and sequential
+    problem_short_id                        string  HW_7__3         short (and unique) problem ID, made using assignment short ID + "__" + problem number
+    item_short_id                           string  HW_7__3_1       short (and unique) item ID, made using problem short ID + "_" + item number
+    item_nid                                integer 41              item numerical id (equal to the row number of this entry in the course_itm table)
     cumulative_item_weight                  float   6.59E-05        Cumulative fraction of item weights (for debugging: should increase to 1.0 by the end of table)
 
 
@@ -59,17 +65,19 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
     tablename = "course_item"
 
     the_sql = """
-# make course-item dataset
-# items with weight and cumulative weight column (for double-checking - should end with 1.0)
 SELECT 
     # '{course_id}' as course_id,
     *,
+    CONCAT(assignment_short_id, "__", STRING(problem_number)) as problem_short_id,
+    CONCAT(assignment_short_id, "__", STRING(problem_number), "_", STRING(item_number)) as item_short_id,
+    row_number() over (order by content_index, item_number) as item_nid,
     sum(item_weight) over (order by content_index, item_number) cumulative_item_weight
 FROM
 (
     # items with additional data about fraction_of_overall_grade from grading_policy
     SELECT item_id, 
         problem_id,
+        CONCAT(GP.short_label, "_", STRING(assignment_seq_num)) as assignment_short_id,
         (problem_weight * GP.fraction_of_overall_grade / n_items / sum_problem_weight_in_assignment / n_assignments_of_type) as item_weight,
         n_user_responses,
         problem_name,
@@ -78,8 +86,11 @@ FROM
         CI.assignment_type as assignment_type,
         GP.fraction_of_overall_grade as assignment_type_weight,
         n_assignments_of_type,
+        assignment_seq_num,
         chapter_number,
         content_index,
+        section_number,
+        problem_number,
         problem_weight,
         item_points_possible,
         problem_points_possible,
@@ -104,7 +115,10 @@ FROM
                 over (partition by assignment_id) sum_problem_weight_in_assignment,
             assignment_type,
             n_assignments_of_type,
+            assignment_seq_num,
             chapter_number,
+            section_number,
+            problem_number,
             problem_path,
             content_index,
             start_date,
@@ -125,7 +139,10 @@ FROM
                 assignment_id,
                 assignment_type,
                 n_assignments_of_type,
+                CA.assignment_seq_num as assignment_seq_num,
                 CA.chapter_number as chapter_number,
+                CA.section_number as section_number,
+                CA.problem_number as problem_number,
                 CA.path as problem_path,
                 CA.index as content_index,
                 CA.start as start_date,
@@ -176,37 +193,96 @@ FROM
             ) as PA
             JOIN 
             (
-                # course_axis with chapter number and number of assignments of type
-                SELECT *,  # add column with number of assignments of type
-                    SUM(IF(problem_number=1, 1, 0)) over (partition by assignment_type) n_assignments_of_type,
+                # master table of graded problems from course_axis, with assignment metadata
+                SELECT module_id,
+                    url_name,
+                    index,
+                    weight,
+                    assignment_type,
+                    MAX(IF(problem_number=1, x_assignment_seq_num, null)) over (partition by assignment_id) as assignment_seq_num,
+                    problem_number,
+                    assignment_id,
+                    n_assignments_of_type,
+                    name,
+                    path,
+                    start,
+                    due,
+                    chapter_number,
+                    section_number,
                 FROM
                 (
-                    SELECT *,  # add column with problem number within assignment_id
-                        row_number() over (partition by assignment_id order by index) problem_number,
+                    # course_axis with chapter number and number of assignments of type
+                    SELECT *,  # add column with number of assignments of type
+                        SUM(IF(problem_number=1, 1, 0)) over (partition by assignment_type) n_assignments_of_type,
+                        row_number() over (partition by assignment_type, problem_number order by index) as x_assignment_seq_num,
                     FROM
                     (
-                        SELECT module_id,
-                            url_name,
-                            index,
-                            If(data.weight is null, 1.0, data.weight) as weight,
-                            gformat as assignment_type,
-                            chapter_number,
-                            CONCAT(gformat, "_ch", STRING(chapter_number)) as assignment_id,  #  assignment_id = assignment_type + ch_chapter_number
-                            name,
-                            path,
-                            start,
-                            due,
-                        FROM [{dataset}.course_axis] CAI
-                        JOIN
-                        (   # join course_axis with itself to get chapter_number
-                            SELECT module_id as chapter_mid, 
-                                row_number() over (partition by category order by index) as chapter_number
-                            FROM  [{dataset}.course_axis] 
-                            where category = "chapter"
-                            order by index
-                        ) CHN
-                        ON CAI.chapter_mid = CHN.chapter_mid
-                        where gformat is not null
+                        SELECT *,  
+                            # add column with problem number within assignment_id
+                            row_number() over (partition by assignment_id order by index) problem_number,
+                        FROM
+                        (
+                            # course axis of problems which have non-null grading_format, including chapter number
+                            # and section (aka sequential) number (within the chapter)
+                            SELECT CAI.module_id as module_id,
+                                CAI.url_name as url_name,
+                                index,
+                                weight,
+                                assignment_type,
+                                chapter_number,
+                                section_number,
+                                #  assignment_id = assignment_type + ch_chapter_number + sec_section_number
+                                CONCAT(assignment_type, "_ch", STRING(chapter_number), "_sec", STRING(section_number)) as assignment_id,  
+                                name,
+                                path,
+                                start,
+                                due,
+                            FROM 
+                            (
+                                # course axis entries of things which have non-null grading format, with section_mid from path
+                                SELECT module_id,
+                                    url_name,
+                                    index,
+                                    If(data.weight is null, 1.0, data.weight) as weight,
+                                    gformat as assignment_type,
+                                    chapter_mid as chapter_mid,
+                                    REGEXP_EXTRACT(path, '^/[^/]+/([^/]+)') as section_mid,
+                                    name,
+                                    path,
+                                    start,
+                                    due,
+                                FROM [{dataset}.course_axis] CAI
+                                where gformat is not null 
+                                and category = "problem"
+                                order by index
+                            ) CAI
+                            JOIN  # join course_axis with itself to get chapter_number and section_number
+                            (   
+                                # get chapters and sections (aka sequentials) with module_id, chapter_number, and section_number
+                                # each assignment is identified by assignment_type + chapter_number + section_number
+                                # note in some previous calculations, the section_number was left out by mistake
+                                # see https://github.com/edx/edx-platform/blob/master/common/lib/xmodule/xmodule/course_module.py#L1305
+                                SELECT module_id, url_name,
+                                    max(if(category="chapter", x_chapter_number, null)) over (partition by chapter_mid order by index) as chapter_number,
+                                    section_number,
+                                FROM
+                                (
+                                    SELECT module_id, url_name,
+                                        row_number() over (partition by category order by index) as x_chapter_number,
+                                        row_number() over (partition by chapter_mid, category order by index) as section_number,
+                                        index,
+                                        category,
+                                        if(category="chapter", module_id, chapter_mid) as chapter_mid,
+                                    FROM  [{dataset}.course_axis] 
+                                    where category = "chapter" or category = "sequential"
+                                    order by index
+                                )
+                                order by index
+                            ) CHN
+                            # ON CAI.chapter_mid = CHN.chapter_mid  # old, for assignments by chapter
+                            ON CAI.section_mid = CHN.url_name     # correct way, for assignments by section (aka sequential)
+                            # where gformat is not null
+                        )
                     )
                 )
                 order by index
@@ -255,7 +331,9 @@ def create_person_item_table(course_id, force_recompute=False, use_dataset_lates
 # compute person-item table
 
 SELECT user_id, 
-    PA.item_id as item_id,
+    # PA.item_id as item_id,
+    CI.item_short_id as item_short_id,
+    CI.item_nid as item_nid,
     item_grade,
     n_attempts,
     date
