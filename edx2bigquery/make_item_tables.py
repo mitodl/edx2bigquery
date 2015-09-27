@@ -16,6 +16,8 @@ import bqutil
 def make_item_tables(course_id, force_recompute=False, use_dataset_latest=False):
     create_course_item_table(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
     create_person_item_table(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
+    create_person_problem_table(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
+    create_course_problem_table(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
 
 
 def create_course_item_table(course_id, force_recompute=False, use_dataset_latest=False):
@@ -27,6 +29,7 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
                                                                     Unique ID for an assessment item (constructed using the problem module_id, and linked to problem_analysis table keys)
     problem_id                              string  CheckPoint_1_Newton_s_First_Law 
                                                                     Unique ID for an assessment problem (constructed using problem url_name)
+    problem_nid                             integer 27              unique problem numerical id (equal to the sequential count of problems up to this one)
     assignment_short_id                     string  HW_4            Unique short ID for assignment, using assignment short name + "_" + assignment_seq_num (should be same as what shows up in user's edX platform progress page)
     item_weight                             float   6.59E-05        Fraction of overall grade (between 0 and 1) contributed by this item
     n_user_responses                        integer 4868            Number of users who provided a response to this assessment item
@@ -56,7 +59,7 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
                                                                     Path of problem within course content, specifying chapter and sequential
     problem_short_id                        string  HW_7__3         short (and unique) problem ID, made using assignment short ID + "__" + problem number
     item_short_id                           string  HW_7__3_1       short (and unique) item ID, made using problem short ID + "_" + item number
-    item_nid                                integer 41              item numerical id (equal to the row number of this entry in the course_itm table)
+    item_nid                                integer 41              unique item numerical id (equal to the row number of this entry in the course_itm table)
     cumulative_item_weight                  float   6.59E-05        Cumulative fraction of item weights (for debugging: should increase to 1.0 by the end of table)
 
 
@@ -77,6 +80,7 @@ FROM
     # items with additional data about fraction_of_overall_grade from grading_policy
     SELECT item_id, 
         problem_id,
+        max(if(item_number=1, x_item_nid, null)) over (partition by problem_id) as problem_nid,
         CONCAT(GP.short_label, "_", STRING(assignment_seq_num)) as assignment_short_id,
         (problem_weight * GP.fraction_of_overall_grade / n_items / sum_problem_weight_in_assignment / n_assignments_of_type) as item_weight,
         n_user_responses,
@@ -107,6 +111,7 @@ FROM
         SELECT item_id, item_number,
             n_items,
             problem_id,
+            row_number() over (partition by item_number order by content_index) as x_item_nid,
             n_user_responses,
             problem_name,
             assignment_id,
@@ -363,6 +368,112 @@ order by user_id, CI.content_index, CI.item_number
                                     startIndex=-2)
     except Exception as err:
         print "[make_person_item_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename)
+        print the_sql
+        raise
+
+    if not bqdat:
+        nfound = 0
+    else:
+        nfound = bqutil.get_bq_table_size_rows(dataset, tablename)
+    print "--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound)
+    sys.stdout.flush()
+    
+
+def create_person_problem_table(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    Generate person_problem table, with one row per (user_id, problem_id), giving problem raw_score earned, attempts,
+    and datestamp.
+
+    Computed by aggregating over person_item, and joining with course_item
+    '''
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    tablename = "person_problem"
+
+    the_sql = """
+# compute person-problem table for {course_id}
+
+SELECT user_id,
+    CI.problem_nid as problem_nid,
+    sum(item_grade) as problem_raw_score,
+    sum(item_grade) / sum(CI.item_points_possible) * 100 as problem_pct_score,
+    max(n_attempts) as n_attempts,
+    max(date) as date,
+    
+FROM [{dataset}.person_item] PI
+JOIN [{dataset}.course_item] CI
+    
+on PI.item_nid = CI.item_nid
+group by user_id, problem_nid
+order by user_id, problem_nid
+    """.format(dataset=dataset, course_id=course_id)
+
+    depends_on = [ "%s.course_item" % dataset,
+                   "%s.person_item" % dataset
+               ]
+
+    try:
+        bqdat = bqutil.get_bq_table(dataset, tablename, the_sql, 
+                                    depends_on=depends_on,
+                                    force_query=force_recompute,
+                                    startIndex=-2)
+    except Exception as err:
+        print "[make_person_problem_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename)
+        print the_sql
+        raise
+
+    if not bqdat:
+        nfound = 0
+    else:
+        nfound = bqutil.get_bq_table_size_rows(dataset, tablename)
+    print "--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound)
+    sys.stdout.flush()
+    
+
+def create_course_problem_table(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    Generate course_problem table, with one row per (problem_id), giving average points, standard deviation on points,
+    number of unique users attempted, max points possible.
+
+    Uses person_item and course_item.
+    '''
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    tablename = "course_problem"
+
+    the_sql = """
+# compute course_problem table for {course_id}
+SELECT problem_id, problem_short_id, 
+  avg(problem_grade) as avg_problem_raw_score,
+  stddev(problem_grade) as sdv_problem_raw_score,
+  # max(problem_grade) as max_problem_raw_score,
+  max(possible_raw_score) as max_possible_raw_score,
+  avg(problem_grade / possible_raw_score * 100) as avg_problem_pct_score,
+  count(unique(user_id)) as n_unique_users_attempted,
+  problem_name,
+FROM
+(
+    SELECT problem_id, problem_short_id, sum(item_grade) as problem_grade, user_id,
+        sum(CI.item_points_possible) as possible_raw_score, problem_name,
+    FROM [{dataset}.person_item] PI
+    JOIN [{dataset}.course_item] CI
+    on PI.item_nid = CI.item_nid
+    group by problem_short_id, problem_id, user_id, problem_name
+)
+group by problem_id, problem_short_id, problem_name
+# order by problem_short_id
+order by avg_problem_pct_score desc
+    """.format(dataset=dataset, course_id=course_id)
+
+    depends_on = [ "%s.course_item" % dataset,
+                   "%s.person_item" % dataset
+               ]
+
+    try:
+        bqdat = bqutil.get_bq_table(dataset, tablename, the_sql, 
+                                    depends_on=depends_on,
+                                    force_query=force_recompute,
+                                    startIndex=-2)
+    except Exception as err:
+        print "[make_course_problem_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename)
         print the_sql
         raise
 
