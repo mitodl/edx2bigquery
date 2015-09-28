@@ -35,6 +35,8 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
     n_user_responses                        integer 4868            Number of users who provided a response to this assessment item
     problem_name                            string  CheckPoint 1: Newton's First Law        
                                                                     Name of problem within which this item exists
+    chapter_name                            string  Chapter 1       Name of chapter within which the problem exists
+    section_name                            string  Section 1       Name of section (aka sequential) within which the problem exists
     assignment_id                           string  Checkpoint_ch3  Unique ID for the assignment within which the problem exists
     n_problems_in_assignment                integer 23              Number of problems within the assignment
     assignment_type                         string  Checkpoint      The assignment type within which the assignment exists
@@ -84,6 +86,8 @@ FROM
         CONCAT(GP.short_label, "_", STRING(assignment_seq_num)) as assignment_short_id,
         (problem_weight * GP.fraction_of_overall_grade / n_items / sum_problem_weight_in_assignment / n_assignments_of_type) as item_weight,
         n_user_responses,
+        chapter_name,
+        section_name,
         problem_name,
         CI.assignment_id as assignment_id,
         n_problems_in_assignment,
@@ -113,6 +117,8 @@ FROM
             problem_id,
             row_number() over (partition by item_number order by content_index) as x_item_nid,
             n_user_responses,
+            chapter_name,
+            section_name,
             problem_name,
             assignment_id,
             sum(if(assignment_id is not null and item_number=1, 1, 0)) over (partition by assignment_id) n_problems_in_assignment,
@@ -141,6 +147,8 @@ FROM
                 problem_id,
                 n_user_responses,
                 CA.name as problem_name,
+                chapter_name,
+                section_name,
                 assignment_id,
                 assignment_type,
                 n_assignments_of_type,
@@ -208,6 +216,8 @@ FROM
                     problem_number,
                     assignment_id,
                     n_assignments_of_type,
+                    chapter_name,
+                    section_name,
                     name,
                     path,
                     start,
@@ -238,6 +248,8 @@ FROM
                                 section_number,
                                 #  assignment_id = assignment_type + ch_chapter_number + sec_section_number
                                 CONCAT(assignment_type, "_ch", STRING(chapter_number), "_sec", STRING(section_number)) as assignment_id,  
+                                chapter_name,
+                                section_name,
                                 name,
                                 path,
                                 start,
@@ -267,16 +279,19 @@ FROM
                                 # each assignment is identified by assignment_type + chapter_number + section_number
                                 # note in some previous calculations, the section_number was left out by mistake
                                 # see https://github.com/edx/edx-platform/blob/master/common/lib/xmodule/xmodule/course_module.py#L1305
-                                SELECT module_id, url_name,
+                                SELECT module_id, url_name, name as section_name,
                                     max(if(category="chapter", x_chapter_number, null)) over (partition by chapter_mid order by index) as chapter_number,
                                     section_number,
+                                    chapter_name,
                                 FROM
                                 (
                                     SELECT module_id, url_name,
                                         row_number() over (partition by category order by index) as x_chapter_number,
                                         row_number() over (partition by chapter_mid, category order by index) as section_number,
+                                        FIRST_VALUE(name) over (partition by chapter_mid order by index) as chapter_name,
                                         index,
                                         category,
+                                        name,
                                         if(category="chapter", module_id, chapter_mid) as chapter_mid,
                                     FROM  [{dataset}.course_axis] 
                                     where category = "chapter" or category = "sequential"
