@@ -9,7 +9,7 @@
 #
 # From an edX xml file set, generate:
 #
-#   course_id, index, url_name,  category, gformat, start, due, name, path, module_id, data
+#   course_id, index, url_name,  category, gformat, start, due, name, path, module_id, data, chapter_mid, graded
 #
 # course_id = edX standard {org}/{course_num}/{semester}
 # index     = integer giving temporal order of course material
@@ -23,6 +23,7 @@
 # module_id = edX standard {org}/{course_num}/{category}/{url_name} id for an x-module
 # data      = extra data for element, eg you-tube id's for videos
 # chapter_mid = module_id of the chapter within which this x-module exists (empty if not within a chapter)
+# graded    = boolean specifying if the section (ie sequential) was to be graded or not
 # 
 #
 # usage:   python edx2course_axis.py COURSE_DIR
@@ -59,7 +60,7 @@ FORCE_NO_HIDE = False
 #-----------------------------------------------------------------------------
 
 # storage class for each axis element
-Axel = namedtuple('Axel', 'course_id index url_name category gformat start due name path module_id data chapter_mid')
+Axel = namedtuple('Axel', 'course_id index url_name category gformat start due name path module_id data chapter_mid graded')
 
 class Policy(object):
     '''
@@ -67,7 +68,7 @@ class Policy(object):
     '''
     policy = None
     grading_policy = None
-    InheritedSettings = ['format', 'hide_from_toc', 'start', 'due']
+    InheritedSettings = ['format', 'hide_from_toc', 'start', 'due', 'graded']
 
     def __init__(self, pfn):
         '''
@@ -145,6 +146,7 @@ def date_parse(datestr, retbad=False):
                '%Y-%m-%dT%H:%M:%S',
                '%Y-%m-%dT%H:%M:%S+00:00',	# 2014-12-09T15:00:00+00:00 
                '%Y-%m-%dT%H:%M',		# 2013-02-12T19:00
+               '%Y-%m-%dT%H:%M:%S+0000',	# 2015-06-09T12:25:21.801+0000
                '%B %d, %Y',			# February 25, 2013
                '%B %d, %H:%M, %Y', 		# December 12, 22:00, 2012
                '%B %d, %Y, %H:%M', 		# March 25, 2013, 22:00
@@ -366,6 +368,8 @@ def make_axis(dir):
                 if url_name=='hw0':
                     logit( "gformat for hw0 = %s" % gformat)
 
+                graded = x.get('graded', policy.get_metadata(x, 'graded', ''))
+
                 # compute path
                 # The hierarchy goes: `course > chapter > (problemset | sequential | videosequence)`
                 if x.tag=='chapter':
@@ -387,7 +391,7 @@ def make_axis(dir):
 
                 # done with getting all info for this axis element; save it
                 path_str = '/' + '/'.join(path)
-                ae = Axel(cid, index[0], url_name, x.tag, gformat, start, due, dn, path_str, module_id, data, chapter)
+                ae = Axel(cid, index[0], url_name, x.tag, gformat, start, due, dn, path_str, module_id, data, chapter, graded)
                 caxis.append(ae)
                 index[0] += 1
             else:
@@ -520,7 +524,7 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
 
         fix_duplicate_url_name_vertical(cdat['axis'])
 
-        header = ("index", "url_name", "category", "gformat", "start", 'due', "name", "path", "module_id", "data", "chapter_mid")
+        header = ("index", "url_name", "category", "gformat", "start", 'due', "name", "path", "module_id", "data", "chapter_mid", "graded")
         caset = [{ x: getattr(ae,x) for x in header } for ae in cdat['axis']]
 
         # optional save to mongodb
@@ -533,9 +537,9 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
 
         # print out to text file
         afp = codecs.open('%s/axis_%s.txt' % (DATADIR, cid.replace('/','__')),'w', encoding='utf8')
-        aformat = "%8s\t%40s\t%24s\t%16s\t%16s\t%16s\t%s\t%s\t%s\t%s\t%s\n"
+        aformat = "%8s\t%40s\t%24s\t%16s\t%16s\t%16s\t%s\t%s\t%s\t%s\t%s\t%s\n"
         afp.write(aformat % header)
-        afp.write(aformat % tuple(["--------"] *11))
+        afp.write(aformat % tuple(["--------"] *len(aformat.split('\t'))))
         for ca in caset:
             afp.write(aformat % tuple([ca[x] for x in header]))
         afp.close()

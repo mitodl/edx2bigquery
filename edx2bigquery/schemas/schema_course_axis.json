@@ -71,6 +71,11 @@
             "type": "STRING",
             "name": "chapter_mid",
 	    "description": "module-id of chapter within which this module element exists"
+        },
+        {
+            "type": "STRING",
+            "name": "graded",
+	    "description": "boolean specifying if the seciton (aka sequential) has graded content or not"
         }
     ]
 }

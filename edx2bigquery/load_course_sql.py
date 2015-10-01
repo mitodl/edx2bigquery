@@ -22,7 +22,7 @@
 
 import os
 import sys
-import auth
+#import auth
 import json
 import time
 import glob
