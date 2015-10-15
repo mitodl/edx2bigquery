@@ -278,6 +278,25 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
 
     data.pop('event_js')	# leftover from mongo import script
 
+    #-----------------------------------------
+    # check for null values in speed_change_video
+    # Error encountered parsing LAC data from Oct. 2013
+
+    def check_empty_value(data_dict, *keys):
+        key = keys[0]
+        if type(data_dict)==dict and key in data_dict:
+            if len(keys)==1:
+                if float(data_dict[key]) != float(data_dict[key]):
+                    print data_dict[key]
+                    data_dict.pop(key)
+            else:
+                check_empty_value(data_dict[key], *keys[1:])
+
+    if data['event_type']=='speed_change_video':
+        if 'event_struct' in data:
+            check_empty_value(data['event_struct'],'new_speed')
+
+
     # check for any funny keys, recursively
     funny_key_sections = []
     def check_for_funny_keys(entry, name='toplevel'):
