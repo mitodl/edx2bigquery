@@ -383,7 +383,7 @@ def CreateForumPerson( course_id, force_recompute=False, use_dataset_latest=Fals
   
             except Exception as err:
 
-                if ( (('Response too large to return.' in str(err)) or ('Resources exceeded during query execution')) and has_hash_limit ):
+                if ( (('Response too large to return.' in str(err)) or ('Resources exceeded during query execution' in str(err))) and has_hash_limit ):
 
                     hash_limit = int( hash_limit * 2.0 )
                     print '[make_forum_analysis] Response too large to return. Attempting to break down into multiple queries and append instead... using hash of %s' % hash_limit
@@ -391,12 +391,12 @@ def CreateForumPerson( course_id, force_recompute=False, use_dataset_latest=Fals
 
                 else:
 
-                    print the_sql
+                    print '[make_forum_analysis] An error occurred with this query: %s' % the_sql
                     raise
 
         else:
 
-            print the_sql
+	    print '[make_forum_analysis] An error occurred with this query: %s' % the_sql
             raise
 
     print "Done with Forum Person for %s (end %s)"  % (course_id, datetime.datetime.now())

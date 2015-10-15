@@ -726,6 +726,7 @@ def doall(param, course_id, args, stdout=None):
         analyze_videos(param, course_id, args)
         make_grading_policy(param, course_id, args)
         item_tables(param, course_id, args)
+        analyze_forum(param, course_id, args)
         
         success = True
 
