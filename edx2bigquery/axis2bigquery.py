@@ -46,7 +46,7 @@ def do_save(cid, caset_in, xbundle, datadir, log_msg, use_dataset_latest=False):
         linecnt += 1
         ca['course_id'] = cid
         data = ca['data']
-        if data:
+        if data and not type(data)==dict:
             try:
                 ca['data'] = json.loads(data)	# make it native, for mongo
             except Exception as err:
