@@ -462,7 +462,7 @@ def create_course_problem_table(course_id, force_recompute=False, use_dataset_la
 
     the_sql = """
 # compute course_problem table for {course_id}
-SELECT problem_id, problem_short_id, 
+SELECT problem_nid, problem_id, problem_short_id, 
   avg(problem_grade) as avg_problem_raw_score,
   stddev(problem_grade) as sdv_problem_raw_score,
   # max(problem_grade) as max_problem_raw_score,
@@ -473,14 +473,14 @@ SELECT problem_id, problem_short_id,
   is_split,
 FROM
 (
-    SELECT problem_id, problem_short_id, sum(item_grade) as problem_grade, user_id,
+    SELECT problem_nid, problem_id, problem_short_id, sum(item_grade) as problem_grade, user_id,
         sum(CI.item_points_possible) as possible_raw_score, problem_name, is_split
     FROM [{dataset}.person_item] PI
     JOIN [{dataset}.course_item] CI
     on PI.item_nid = CI.item_nid
-    group by problem_short_id, problem_id, user_id, problem_name, is_split
+    group by problem_nid, problem_short_id, problem_id, user_id, problem_name, is_split
 )
-group by problem_id, problem_short_id, problem_name, is_split
+group by problem_nid, problem_id, problem_short_id, problem_name, is_split
 # order by problem_short_id
 order by avg_problem_pct_score desc
     """.format(dataset=dataset, course_id=course_id)
