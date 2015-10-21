@@ -45,7 +45,7 @@ import datetime
 import xbundle
 import tempfile
 from collections import namedtuple, defaultdict
-from lxml import etree
+from lxml import etree,html
 from path import path
 from fix_unicode import fix_bad_unicode
 
@@ -329,10 +329,73 @@ def make_axis(dir):
 
             if x.tag=='problem' and x.get('weight') is not None and x.get('weight'):
                 try:
-                    data = '{"weight": %f}' % float(x.get('weight'))
+                    # Changed from string to dict. In next code block.
+                    data = {"weight": "%f" % float(x.get('weight'))}
                 except Exception as err:
                     logit("    Error converting weight %s" % x.get('weight'))
-                
+
+            ### Had a hard time making my code work within the try/except for weight. Happy to improve
+            ### Also note, weight is typically missing in problems. So I find it weird that we throw an exception.
+            if x.tag=='problem':
+                # Initialize data if no weight
+                if not data:
+                    data = {}
+
+                # meta will store all problem related metadata, then be used to update data
+                meta = {}
+                # Parts is meant to help debug - an ordered list of encountered problem types with url names
+                # Likely should not be pulled to Big Query 
+                meta['parts'] = []
+                # Known Problem Types
+                known_problem_types = ['multiplechoiceresponse','numericalresponse','choiceresponse',
+                                       'optionresponse','stringresponse','formularesponse',
+                                       'customresponse','fieldset']
+
+                # Loop through all child nodes in a problem. If encountering a known problem type, add metadata.
+                for a in x:
+                    if a.tag in known_problem_types:
+                        meta['parts'].append({'ptype':a.tag,'url_name':a.get('url_name')})
+
+                    # Check for a solution - can eventually be updated to contain more descriptive information
+                    if a.tag == 'solution':
+                        solution = x.find('.//solution')
+                        if solution is not None:
+                            text = ''.join(html.tostring(e, pretty_print=True) for e in solution)
+                            ### Low stakes check for solution (65 char). We could feasibly just store the solution text.
+                            ### 65 is roughly the number of html element characters in a default solution template.
+                            if len(text) > 65:
+                                meta['solution'] = True
+                    
+                    # Check for accompanying image
+                    if a.tag == 'img':
+                        meta['image'] = True #Note, one can use a.get('src'), but needs to account for multiple images
+
+                ### If meta is empty, log all tags for debugging later. 
+                if len(meta)==0:
+                    logit('problem type not found - here is the list of tags:['+','.join(a.tag if a else ' ' for a in x)+']')
+                    # print 'problem type not found - here is the list of tags:['+','.join(a.tag for a in x)+']'
+
+                ### Add easily accessible metadata for problems
+                # num_parts: number of parts
+                # ptype: problem type - note, mixed is used when parts are not of same type
+                if len(meta['parts']) > 0:
+                    # Number of Parts
+                    meta['num_parts'] = len(meta['parts'])
+
+                    # Problem Type
+                    if all(meta['parts'][0]['ptype'] == item['ptype'] for item in meta['parts']):
+                        meta['ptype'] = meta['parts'][0]['ptype']
+                        # print meta['parts'][0]['ptype']
+                    else:
+                        meta['ptype'] = 'mixed'
+
+                # Update data field
+                ### ! For now, removing the parts field. 
+                del meta["parts"]               
+
+                data.update(meta)
+                data = json.dumps(data)
+
             if x.tag=='html':
                 iframe = x.find('.//iframe')
                 if iframe is not None:
