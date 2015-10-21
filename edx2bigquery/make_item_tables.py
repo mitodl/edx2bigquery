@@ -63,7 +63,7 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
     item_short_id                           string  HW_7__3_1       short (and unique) item ID, made using problem short ID + "_" + item number
     item_nid                                integer 41              unique item numerical id (equal to the row number of this entry in the course_itm table)
     cumulative_item_weight                  float   6.59E-05        Cumulative fraction of item weights (for debugging: should increase to 1.0 by the end of table)
-
+    is_split                                boolean False           Boolean flag indicating if this item was within an A/B split_test or not
 
     '''
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
@@ -108,6 +108,7 @@ FROM
         n_items,
         start_date,
         due_date,
+        is_split,
         problem_path,
     FROM
     (
@@ -134,6 +135,7 @@ FROM
             content_index,
             start_date,
             due_date,
+            is_split,
             problem_weight,
             item_points_possible,
             problem_points_possible,
@@ -160,6 +162,7 @@ FROM
                 CA.index as content_index,
                 CA.start as start_date,
                 CA.due as due_date,
+                CA.is_split as is_split,
                 if(CA.weight is null, 1.0, CA.weight) as problem_weight,
                 item_points_possible,
                 problem_points_possible,
@@ -222,6 +225,7 @@ FROM
                     path,
                     start,
                     due,
+                    is_split,
                     chapter_number,
                     section_number,
                 FROM
@@ -254,6 +258,7 @@ FROM
                                 path,
                                 start,
                                 due,
+                                is_split,
                             FROM 
                             (
                                 # course axis entries of things which have non-null grading format, with section_mid from path
@@ -268,6 +273,7 @@ FROM
                                     path,
                                     start,
                                     due,
+                                    is_split,
                                 FROM [{dataset}.course_axis] CAI
                                 where gformat is not null 
                                 and category = "problem"
@@ -456,7 +462,7 @@ def create_course_problem_table(course_id, force_recompute=False, use_dataset_la
 
     the_sql = """
 # compute course_problem table for {course_id}
-SELECT problem_id, problem_short_id, 
+SELECT problem_nid, problem_id, problem_short_id, 
   avg(problem_grade) as avg_problem_raw_score,
   stddev(problem_grade) as sdv_problem_raw_score,
   # max(problem_grade) as max_problem_raw_score,
@@ -464,16 +470,17 @@ SELECT problem_id, problem_short_id,
   avg(problem_grade / possible_raw_score * 100) as avg_problem_pct_score,
   count(unique(user_id)) as n_unique_users_attempted,
   problem_name,
+  is_split,
 FROM
 (
-    SELECT problem_id, problem_short_id, sum(item_grade) as problem_grade, user_id,
-        sum(CI.item_points_possible) as possible_raw_score, problem_name,
+    SELECT problem_nid, problem_id, problem_short_id, sum(item_grade) as problem_grade, user_id,
+        sum(CI.item_points_possible) as possible_raw_score, problem_name, is_split
     FROM [{dataset}.person_item] PI
     JOIN [{dataset}.course_item] CI
     on PI.item_nid = CI.item_nid
-    group by problem_short_id, problem_id, user_id, problem_name
+    group by problem_nid, problem_short_id, problem_id, user_id, problem_name, is_split
 )
-group by problem_id, problem_short_id, problem_name
+group by problem_nid, problem_id, problem_short_id, problem_name, is_split
 # order by problem_short_id
 order by avg_problem_pct_score desc
     """.format(dataset=dataset, course_id=course_id)
