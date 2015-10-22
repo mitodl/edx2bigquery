@@ -281,20 +281,22 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
     #-----------------------------------------
     # check for null values in speed_change_video
     # Error encountered parsing LAC data from Oct. 2013
+    # Requires that we also be able to convert the value to a float
 
-    def check_empty_value(data_dict, *keys):
-        key = keys[0]
-        if type(data_dict)==dict and key in data_dict:
-            if len(keys)==1:
-                if float(data_dict[key]) != float(data_dict[key]):
-                    print data_dict[key]
-                    data_dict.pop(key)
-            else:
-                check_empty_value(data_dict[key], *keys[1:])
+    def string_is_float(s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
 
     if data['event_type']=='speed_change_video':
-        if 'event_struct' in data:
-            check_empty_value(data['event_struct'],'new_speed')
+        if 'event_struct' in data and 'new_speed' in data['event_struct']:
+            # First check if string is float
+            if string_is_float(data['event_struct']['new_speed']):
+                # Second check if value is null
+                if float(data['event_struct']['new_speed']) != float(data['event_struct']['new_speed']):
+                    data['event_struct'].pop('new_speed')
 
 
     # check for any funny keys, recursively
