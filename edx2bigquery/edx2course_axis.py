@@ -343,9 +343,9 @@ def make_axis(dir):
 
                 # meta will store all problem related metadata, then be used to update data
                 meta = {}
-                # Parts is meant to help debug - an ordered list of encountered problem types with url names
+                # Items is meant to help debug - an ordered list of encountered problem types with url names
                 # Likely should not be pulled to Big Query 
-                meta['parts'] = []
+                meta['items'] = []
                 # Known Problem Types
                 known_problem_types = ['multiplechoiceresponse','numericalresponse','choiceresponse',
                                        'optionresponse','stringresponse','formularesponse',
@@ -354,7 +354,7 @@ def make_axis(dir):
                 # Loop through all child nodes in a problem. If encountering a known problem type, add metadata.
                 for a in x:
                     if a.tag in known_problem_types:
-                        meta['parts'].append({'ptype':a.tag,'url_name':a.get('url_name')})
+                        meta['items'].append({'itype':a.tag,'url_name':a.get('url_name')})
 
                     # Check for a solution - can eventually be updated to contain more descriptive information
                     if a.tag == 'solution':
@@ -364,34 +364,34 @@ def make_axis(dir):
                             ### Low stakes check for solution (65 char). We could feasibly just store the solution text.
                             ### 65 is roughly the number of html element characters in a default solution template.
                             if len(text) > 65:
-                                meta['solution'] = True
+                                meta['has_solution'] = True
                     
                     # Check for accompanying image
                     if a.tag == 'img':
-                        meta['image'] = True #Note, one can use a.get('src'), but needs to account for multiple images
+                        meta['has_image'] = True #Note, one can use a.get('src'), but needs to account for multiple images
 
                 ### If meta is empty, log all tags for debugging later. 
                 if len(meta)==0:
-                    logit('problem type not found - here is the list of tags:['+','.join(a.tag if a else ' ' for a in x)+']')
+                    logit('item type not found - here is the list of tags:['+','.join(a.tag if a else ' ' for a in x)+']')
                     # print 'problem type not found - here is the list of tags:['+','.join(a.tag for a in x)+']'
 
                 ### Add easily accessible metadata for problems
-                # num_parts: number of parts
-                # ptype: problem type - note, mixed is used when parts are not of same type
-                if len(meta['parts']) > 0:
-                    # Number of Parts
-                    meta['num_parts'] = len(meta['parts'])
+                # num_items: number of items
+                # itype: problem type - note, mixed is used when items are not of same type
+                if len(meta['items']) > 0:
+                    # Number of Items
+                    meta['num_items'] = len(meta['items'])
 
                     # Problem Type
-                    if all(meta['parts'][0]['ptype'] == item['ptype'] for item in meta['parts']):
-                        meta['ptype'] = meta['parts'][0]['ptype']
-                        # print meta['parts'][0]['ptype']
+                    if all(meta['items'][0]['itype'] == item['itype'] for item in meta['items']):
+                        meta['itype'] = meta['items'][0]['itype']
+                        # print meta['items'][0]['itype']
                     else:
-                        meta['ptype'] = 'mixed'
+                        meta['itype'] = 'mixed'
 
                 # Update data field
-                ### ! For now, removing the parts field. 
-                del meta["parts"]               
+                ### ! For now, removing the items field. 
+                del meta["items"]               
 
                 data.update(meta)
                 data = json.dumps(data)

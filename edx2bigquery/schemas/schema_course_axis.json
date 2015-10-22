@@ -77,22 +77,22 @@
                         },
                         {
                             "type": "STRING", 
-                            "name": "ptype",
+                            "name": "itype",
                             "description": "Problem type for problems found in course.xml - only searches within a list of known problem types"
                         },
                         {
                             "type": "INTEGER", 
-                            "name": "num_parts",
+                            "name": "num_items",
                             "description": "Number of problem sub-parts, or the number of ptypes found in a single problem"
                         },
                         {
                             "type": "BOOLEAN", 
-                            "name": "solution",
+                            "name": "has_solution",
                             "description": "Boolean as to whether a solution exists in the problem."
                         },
                         {
                             "type": "BOOLEAN", 
-                            "name": "image",
+                            "name": "has_image",
                             "description": "Boolean as to whether the problem contains an image."
                         }
                     ] 
