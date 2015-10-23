@@ -31,6 +31,7 @@ import gzip
 import string
 import datetime
 import traceback
+from math import isnan
 from path import path
 from addmoduleid import add_module_id
 from check_schema_tracking_log import check_schema
@@ -295,7 +296,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
             # First check if string is float
             if string_is_float(data['event_struct']['new_speed']):
                 # Second check if value is null
-                if float(data['event_struct']['new_speed']) != float(data['event_struct']['new_speed']):
+                if isnan(float(data['event_struct']['new_speed'])):
                     data['event_struct'].pop('new_speed')
 
 
