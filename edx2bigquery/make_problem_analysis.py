@@ -1369,7 +1369,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             sys.stdout.flush()
             if i == 0:
                 try:
-                    bqutil.create_bq_table(testing_dataset if testing else dataset, table, sql[i], overwrite=True)
+                    bqutil.create_bq_table(testing_dataset if testing else dataset, dataset + '_' + table if testing else table, sql[i], overwrite=True)
                 except Exception as err:
                     if (not force_num_partitions) and 'Response too large' in str(err):
                         print err
@@ -1381,7 +1381,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                     else:
                         raise
             else:
-                bqutil.create_bq_table(testing_dataset if testing else dataset, table, sql[i], overwrite='append')
+                bqutil.create_bq_table(testing_dataset if testing else dataset, dataset + '_' + table if testing else table, sql[i], overwrite='append')
 
         if num_partitions > 5:
             print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
