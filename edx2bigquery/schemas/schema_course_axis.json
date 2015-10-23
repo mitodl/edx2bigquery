@@ -58,22 +58,42 @@
                         {
                             "type": "STRING", 
                             "name": "ytid",
-			    "description": "youtube ID of video element, or of youtube video within an iframe in an HTML element"
+			                "description": "youtube ID of video element, or of youtube video within an iframe in an HTML element"
                         },
                         {
                             "type": "FLOAT", 
                             "name": "weight",
-			    "description": "grading weight (for problems)"
+			                "description": "grading weight (for problems)"
                         },
                         {
                             "type": "STRING", 
                             "name": "group_id_to_child",
-			    "description": "children in A/B test partition (for split_test)"
+			                "description": "children in A/B test partition (for split_test)"
                         },
                         {
                             "type": "STRING", 
                             "name": "user_partition_id",
-			    "description": "A/B user partition ID (for split_test)"
+			                "description": "A/B user partition ID (for split_test)"
+                        },
+                        {
+                            "type": "STRING", 
+                            "name": "itype",
+                            "description": "Problem type for problems found in course.xml - only searches within a list of known problem types"
+                        },
+                        {
+                            "type": "INTEGER", 
+                            "name": "num_items",
+                            "description": "Number of problem sub-parts, or the number of ptypes found in a single problem"
+                        },
+                        {
+                            "type": "BOOLEAN", 
+                            "name": "has_solution",
+                            "description": "Boolean as to whether a solution exists in the problem."
+                        },
+                        {
+                            "type": "BOOLEAN", 
+                            "name": "has_image",
+                            "description": "Boolean as to whether the problem contains an image."
                         }
                     ] 
         },
