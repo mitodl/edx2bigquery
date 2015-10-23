@@ -1370,7 +1370,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             sys.stdout.flush()
             if i == 0:
                 try:
-                    bqutil.create_bq_table(testing_dataset if testing else dataset, table, sql[i], overwrite=True)
+                    bqutil.create_bq_table(testing_dataset if testing else dataset, dataset + '_' + table if testing else table, sql[i], overwrite=True)
                 except Exception as err:
                     if (not force_num_partitions) and 'Response too large' in str(err):
                         print err
@@ -1382,7 +1382,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                     else:
                         raise
             else:
-                bqutil.create_bq_table(testing_dataset if testing else dataset, table, sql[i], overwrite='append')
+                bqutil.create_bq_table(testing_dataset if testing else dataset, dataset + '_' + table if testing else table, sql[i], overwrite='append')
 
         if num_partitions > 5:
             print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
@@ -1654,7 +1654,8 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
 
 #-----------------------------------------------------------------------------
 
-def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None, course_info_table=None):
+def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None, course_info_table=None)
+                                       testing=False, testing_dataset= None, project_id = None):
     
     #compute_show_ans_before(course_id, force_recompute, use_dataset_latest)
 
@@ -1675,6 +1676,9 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = "stats_ip_pair_sybils3_unfiltered"
+
+    if testing:
+        project_dataset = project_id + ':' + dataset
 
     SQL = """# Northcutt SQL for finding sybils UNFILTERED
             ##################################
@@ -1798,7 +1802,7 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
             AND sum_cert_false > 0
             # Order by ip to group master and harvesters together. Order by certified so that we always have masters above harvester accounts.
             ORDER BY grp ASC, certified DESC
-          """.format(dataset=dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table, course_info_table=course_info_table)
+          """.format(dataset=project_dataset if testing else dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table, course_info_table=course_info_table)
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
     sys.stdout.flush()
@@ -1806,6 +1810,8 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
     sasbu = "stats_show_ans_before"
     try:
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
+        if testing:
+            tinfo = bqutil.get_bq_table_info(dataset, sasbu, project_id)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
         print "Error %s getting %s.%s" % (err, dataset, sasbu)
@@ -1962,6 +1968,9 @@ def compute_cameo_demographics(course_id, force_recompute=False, use_dataset_lat
                                             ],
                                     startIndex=-2,
                                 )
+        if testing:
+            bqutil.create_bq_table(testing_dataset, table, SQL, overwrite=True)
+            
     except Exception as err:
         print "[compute_cameo_demographics] oops, failed in running SQL=%s, err=%s" % (SQL, err)
         raise
