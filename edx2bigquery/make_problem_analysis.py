@@ -306,6 +306,7 @@ def problem_check_tables(course_id, force_recompute=False, use_dataset_latest=Fa
                    username,
                    #context.user_id as user_id,
                    '{course_id}' as course_id,
+                   ip,
                    module_id,
                    event_struct.answers as student_answers,
                    event_struct.attempts as attempts,
@@ -351,6 +352,7 @@ def make_show_answer_table(course_id, force_recompute=False, use_dataset_latest=
                    username,
                    # context.user_id as user_id,
                    '{course_id}' as course_id,
+                   ip,
                    module_id,
                from {DATASETS}
                where (event_type = "show_answer" or event_type = "showanswer")
