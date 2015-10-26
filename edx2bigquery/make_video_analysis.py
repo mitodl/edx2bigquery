@@ -17,6 +17,7 @@ from collections import OrderedDict
 from collections import defaultdict
 from check_schema_tracking_log import schema2dict, check_schema
 from load_course_sql import find_course_sql_dir, openfile
+from unidecode import unidecode
 
 import re
 from time import sleep
@@ -464,7 +465,11 @@ def findVideoLength(dataset, youtube_id, api_key=None):
     '''
     Handle video length lookup
     '''
-
+    try:
+        youtube_id = unidecode(youtube_id)
+    except Exception as err:
+        print "youtube_id is not ascii?  ytid=", youtube_id
+        return 0
     try:
         assert youtube_id is not None, "[analyze videos] youtube id does not exist"
         content, stats = get_youtube_api_stats(youtube_id=youtube_id, api_key=api_key, part=YOUTUBE_PARTS)

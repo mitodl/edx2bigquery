@@ -9,7 +9,7 @@
 #
 # From an edX xml file set, generate:
 #
-#   course_id, index, url_name,  category, gformat, start, due, name, path, module_id, data
+#   course_id, index, url_name,  category, gformat, start, due, name, path, module_id, data, chapter_mid, graded
 #
 # course_id = edX standard {org}/{course_num}/{semester}
 # index     = integer giving temporal order of course material
@@ -23,6 +23,9 @@
 # module_id = edX standard {org}/{course_num}/{category}/{url_name} id for an x-module
 # data      = extra data for element, eg you-tube id's for videos
 # chapter_mid = module_id of the chapter within which this x-module exists (empty if not within a chapter)
+# graded    = boolean specifying if the section (ie sequential) was to be graded or not
+# parent    = url_name of the parent of this item
+# is_split  = boolean specifying if this item is in a split_test
 # 
 #
 # usage:   python edx2course_axis.py COURSE_DIR
@@ -42,7 +45,7 @@ import datetime
 import xbundle
 import tempfile
 from collections import namedtuple, defaultdict
-from lxml import etree
+from lxml import etree,html
 from path import path
 from fix_unicode import fix_bad_unicode
 
@@ -59,7 +62,7 @@ FORCE_NO_HIDE = False
 #-----------------------------------------------------------------------------
 
 # storage class for each axis element
-Axel = namedtuple('Axel', 'course_id index url_name category gformat start due name path module_id data chapter_mid')
+Axel = namedtuple('Axel', 'course_id index url_name category gformat start due name path module_id data chapter_mid graded parent is_split')
 
 class Policy(object):
     '''
@@ -67,7 +70,7 @@ class Policy(object):
     '''
     policy = None
     grading_policy = None
-    InheritedSettings = ['format', 'hide_from_toc', 'start', 'due']
+    InheritedSettings = ['format', 'hide_from_toc', 'start', 'due', 'graded']
 
     def __init__(self, pfn):
         '''
@@ -145,6 +148,7 @@ def date_parse(datestr, retbad=False):
                '%Y-%m-%dT%H:%M:%S',
                '%Y-%m-%dT%H:%M:%S+00:00',	# 2014-12-09T15:00:00+00:00 
                '%Y-%m-%dT%H:%M',		# 2013-02-12T19:00
+               '%Y-%m-%dT%H:%M:%S+0000',	# 2015-06-09T12:25:21.801+0000
                '%B %d, %Y',			# February 25, 2013
                '%B %d, %H:%M, %Y', 		# December 12, 22:00, 2012
                '%B %d, %Y, %H:%M', 		# March 25, 2013, 22:00
@@ -269,7 +273,8 @@ def make_axis(dir):
         index = [1]
         caxis = []
     
-        def walk(x, seq_num=1, path=[], seq_type=None, parent_start=None, parent=None, chapter=None):
+        def walk(x, seq_num=1, path=[], seq_type=None, parent_start=None, parent=None, chapter=None,
+                 parent_url_name=None, is_split_flag=False):
             '''
             Recursively traverse course tree.  
             
@@ -280,6 +285,8 @@ def make_axis(dir):
             parent_start = start date of parent of current etree element
             parent   = parent module
             chapter  = the last chapter module_id seen while walking through the tree
+            parent_url_name = url_name of parent
+            is_split_flag   = boolean indicating if this subtree is within a split_test
             '''
             url_name = x.get('url_name',x.get('url_name_orig',''))
             if not url_name:
@@ -314,12 +321,81 @@ def make_axis(dir):
                 if data:
                     data = '{"ytid": "%s"}' % data
 
+            if x.tag=="split_test":
+                data = {}
+                to_copy = ['group_id_to_child', 'user_partition_id']
+                for tc in to_copy:
+                    data[tc] = x.get(tc, None)
+
             if x.tag=='problem' and x.get('weight') is not None and x.get('weight'):
                 try:
-                    data = '{"weight": %f}' % float(x.get('weight'))
+                    # Changed from string to dict. In next code block.
+                    data = {"weight": "%f" % float(x.get('weight'))}
                 except Exception as err:
                     logit("    Error converting weight %s" % x.get('weight'))
-                
+
+            ### Had a hard time making my code work within the try/except for weight. Happy to improve
+            ### Also note, weight is typically missing in problems. So I find it weird that we throw an exception.
+            if x.tag=='problem':
+                # Initialize data if no weight
+                if not data:
+                    data = {}
+
+                # meta will store all problem related metadata, then be used to update data
+                meta = {}
+                # Items is meant to help debug - an ordered list of encountered problem types with url names
+                # Likely should not be pulled to Big Query 
+                meta['items'] = []
+                # Known Problem Types
+                known_problem_types = ['multiplechoiceresponse','numericalresponse','choiceresponse',
+                                       'optionresponse','stringresponse','formularesponse',
+                                       'customresponse','fieldset']
+
+                # Loop through all child nodes in a problem. If encountering a known problem type, add metadata.
+                for a in x:
+                    if a.tag in known_problem_types:
+                        meta['items'].append({'itype':a.tag,'url_name':a.get('url_name')})
+
+                    # Check for a solution - can eventually be updated to contain more descriptive information
+                    if a.tag == 'solution':
+                        solution = x.find('.//solution')
+                        if solution is not None:
+                            text = ''.join(html.tostring(e, pretty_print=True) for e in solution)
+                            ### Low stakes check for solution (65 char). We could feasibly just store the solution text.
+                            ### 65 is roughly the number of html element characters in a default solution template.
+                            if len(text) > 65:
+                                meta['has_solution'] = True
+                    
+                    # Check for accompanying image
+                    if a.tag == 'img':
+                        meta['has_image'] = True #Note, one can use a.get('src'), but needs to account for multiple images
+
+                ### If meta is empty, log all tags for debugging later. 
+                if len(meta)==0:
+                    logit('item type not found - here is the list of tags:['+','.join(a.tag if a else ' ' for a in x)+']')
+                    # print 'problem type not found - here is the list of tags:['+','.join(a.tag for a in x)+']'
+
+                ### Add easily accessible metadata for problems
+                # num_items: number of items
+                # itype: problem type - note, mixed is used when items are not of same type
+                if len(meta['items']) > 0:
+                    # Number of Items
+                    meta['num_items'] = len(meta['items'])
+
+                    # Problem Type
+                    if all(meta['items'][0]['itype'] == item['itype'] for item in meta['items']):
+                        meta['itype'] = meta['items'][0]['itype']
+                        # print meta['items'][0]['itype']
+                    else:
+                        meta['itype'] = 'mixed'
+
+                # Update data field
+                ### ! For now, removing the items field. 
+                del meta["items"]               
+
+                data.update(meta)
+                data = json.dumps(data)
+
             if x.tag=='html':
                 iframe = x.find('.//iframe')
                 if iframe is not None:
@@ -366,6 +442,8 @@ def make_axis(dir):
                 if url_name=='hw0':
                     logit( "gformat for hw0 = %s" % gformat)
 
+                graded = x.get('graded', policy.get_metadata(x, 'graded', ''))
+
                 # compute path
                 # The hierarchy goes: `course > chapter > (problemset | sequential | videosequence)`
                 if x.tag=='chapter':
@@ -387,7 +465,9 @@ def make_axis(dir):
 
                 # done with getting all info for this axis element; save it
                 path_str = '/' + '/'.join(path)
-                ae = Axel(cid, index[0], url_name, x.tag, gformat, start, due, dn, path_str, module_id, data, chapter)
+                ae = Axel(cid, index[0], url_name, x.tag, gformat, start, due, dn, path_str, module_id, data, chapter, graded,
+                          parent_url_name,
+                          is_split_flag)
                 caxis.append(ae)
                 index[0] += 1
             else:
@@ -410,7 +490,10 @@ def make_axis(dir):
                     seq_num = 1
                 for y in x:
                     if (not str(y).startswith('<!--')) and (not y.tag in ['discussion', 'source']):
-                        walk(y, seq_num, path, seq_type, parent_start=start, parent=x, chapter=the_chapter)
+                        walk(y, seq_num, path, seq_type, parent_start=start, parent=x, chapter=the_chapter,
+                             parent_url_name=url_name,
+                             is_split_flag=((x.tag=="split_test") or is_split_flag),
+                        )
                         if not inherit_seq_num:
                             seq_num += 1
                 
@@ -520,7 +603,8 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
 
         fix_duplicate_url_name_vertical(cdat['axis'])
 
-        header = ("index", "url_name", "category", "gformat", "start", 'due', "name", "path", "module_id", "data", "chapter_mid")
+        header = ("index", "url_name", "category", "gformat", "start", 'due', "name", "path", "module_id", "data", "chapter_mid", "graded",
+                  "parent", "is_split")
         caset = [{ x: getattr(ae,x) for x in header } for ae in cdat['axis']]
 
         # optional save to mongodb
@@ -533,9 +617,9 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
 
         # print out to text file
         afp = codecs.open('%s/axis_%s.txt' % (DATADIR, cid.replace('/','__')),'w', encoding='utf8')
-        aformat = "%8s\t%40s\t%24s\t%16s\t%16s\t%16s\t%s\t%s\t%s\t%s\t%s\n"
+        aformat = "%8s\t%40s\t%24s\t%16s\t%16s\t%16s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n"
         afp.write(aformat % header)
-        afp.write(aformat % tuple(["--------"] *11))
+        afp.write(aformat % tuple(["--------"] *len(aformat.split('\t'))))
         for ca in caset:
             afp.write(aformat % tuple([ca[x] for x in header]))
         afp.close()

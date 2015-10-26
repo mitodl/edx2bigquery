@@ -142,7 +142,9 @@ def load_grading_policy(gpstr, verbose=False, gpfn=None):
     print "[grading_policy] %d assignments = %s" % (len(gptab), [x['assignment_type'] for x in gptab])
     print "[grading_policy] assignment weights = ", weights
     if not abs(sum(weights)-1.0) < 0.001:
-        raise Exception("Error!  Sum of assignment weights in grading policy = %s (should be 1.0)" % sum(weights))
+        msg = "Error!  Sum of assignment weights in grading policy = %s (should be 1.0)" % sum(weights)
+        #raise Exception(msg)
+        print msg
 
     if verbose:
         print "fields = ", fields

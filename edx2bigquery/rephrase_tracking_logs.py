@@ -31,6 +31,7 @@ import gzip
 import string
 import datetime
 import traceback
+from math import isnan
 from path import path
 from addmoduleid import add_module_id
 from check_schema_tracking_log import check_schema
@@ -246,6 +247,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                              ['event_struct', 'requested_skip_interval'],
                              ['event_struct', 'submitted_answer'],
                              ['event_struct', 'num_attempts'],
+                             ['event_struct', 'task_id'],	# 05oct15
                              ['nonInteraction'], 	# 24aug15
                              ['label'],	 		# 24aug15
                          ])
@@ -276,6 +278,27 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
     check_empty(data, 'context', "user_id")
 
     data.pop('event_js')	# leftover from mongo import script
+
+    #-----------------------------------------
+    # check for null values in speed_change_video
+    # Error encountered parsing LAC data from Oct. 2013
+    # Requires that we also be able to convert the value to a float
+
+    def string_is_float(s):
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
+
+    if data['event_type']=='speed_change_video':
+        if 'event_struct' in data and 'new_speed' in data['event_struct']:
+            # First check if string is float
+            if string_is_float(data['event_struct']['new_speed']):
+                # Second check if value is null
+                if isnan(float(data['event_struct']['new_speed'])):
+                    data['event_struct'].pop('new_speed')
+
 
     # check for any funny keys, recursively
     funny_key_sections = []
