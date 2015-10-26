@@ -1136,7 +1136,7 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
 #-----------------------------------------------------------------------------
 
 def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=False, force_num_partitions=None, 
-                            testing=False, testing_dataset= None, project_id = None):
+                            testing=False, testing_dataset= None, project_id = None, online = False):
     '''
     Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
     cameo candidate - certified | shadow candidate - uncertified
@@ -1280,7 +1280,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                       ) sa
                       JOIN EACH [{dataset}.person_course] pc
                       ON sa.username = pc.username
-                      where certified = false
+                      where {not_certified_filter}
                       and {partition}
                     )sa
                     JOIN EACH
@@ -1291,14 +1291,15 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                       FROM
                       (
                         SELECT 
-                        username, module_id, MAX(time) as time, MIN(time) as first_check
+                        username, module_id, MAX(time) as time, MIN(time) as first_check,
+                        COUNT(time) OVER (PARTITION BY username) as ncorrect
                         FROM [{dataset}.problem_check]
                         where success = 'correct'
                         group each by username, module_id
                       ) pa
                       JOIN EACH [{dataset}.person_course] pc
                       on pa.username = pc.username
-                      where certified = true
+                      where {certified_filter}
                     ) pa
                     on sa.module_id = pa.module_id
                     WHERE sa.username != pa.username
@@ -1310,7 +1311,11 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               #having show_ans_before > 10
               having norm_pearson_corr > -1
               and avg_max_dt_seconds is not null
-          """.format(dataset=project_dataset if testing else dataset, course_id = course_id, partition=the_partition[i])
+          """.format(dataset=project_dataset if testing else dataset, 
+                     course_id = course_id, 
+                     partition=the_partition[i],
+                     not_certified_filter='nshow_ans_distinct >= 5' if online else 'certified = false',
+                     certified_filter= 'ncorrect >= 5' if online else "certified = true")
         sql.append(item)
 
 
@@ -1653,7 +1658,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
 
 #-----------------------------------------------------------------------------
 
-def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None, course_info_table=None)
+def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None, course_info_table=None,
                                        testing=False, testing_dataset= None, project_id = None):
     
     #compute_show_ans_before(course_id, force_recompute, use_dataset_latest)
