@@ -1654,7 +1654,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
 
 #-----------------------------------------------------------------------------
 
-def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None, course_info_table=None)
+def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dataset_latest=False, uname_ip_groups_table=None, course_info_table=None,
                                        testing=False, testing_dataset= None, project_id = None):
     
     #compute_show_ans_before(course_id, force_recompute, use_dataset_latest)
