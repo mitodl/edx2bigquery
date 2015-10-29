@@ -121,6 +121,7 @@ def convert_data_dict_to_csv(tdata):
 def get_table_data(dataset_id, table_id, key=None, logger=default_logger, 
                    project_id=DEFAULT_PROJECT_ID, 
                    return_csv=False,
+                   convert_timestamps=False,
                    startIndex=None, maxResults=1000000):
     '''
     Retrieve data from a specific BQ table.  Normally return this as a dict, with
@@ -192,7 +193,11 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
         values = OrderedDict()
         for i in xrange(0, len(fields)):
             cell = row['f'][i]
-            values[field_names[i]] = cell['v']
+            # if field is a TIMESTMP then convert to datetime
+            if convert_timestamps and fields[i]['type']=='TIMESTAMP':
+                values[field_names[i]] = bq_timestamp_milliseconds_to_datetime(cell['v'], divisor=1)
+            else:
+                values[field_names[i]] = cell['v']
         ret['data'].append(values)
         if key is not None:
             the_key = values[key['name']]
@@ -242,12 +247,12 @@ def get_bq_table_size_bytes(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID)
         return int(tinfo['numBytes'])
     return None
 
-def bq_timestamp_milliseconds_to_datetime(timestamp):
+def bq_timestamp_milliseconds_to_datetime(timestamp, divisor=1000.0):
     '''
     Convert a millisecond timestamp to a python datetime object
     '''
     if timestamp:
-        return datetime.datetime.utcfromtimestamp(float(timestamp)/1000.0)
+        return datetime.datetime.utcfromtimestamp(float(timestamp)/divisor)
     return None
 
 def get_bq_table_creation_datetime(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):

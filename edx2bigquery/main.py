@@ -853,7 +853,9 @@ def get_data_tables(tables, args):
             continue
 
         try:
-            bqdat = bqutil.get_table_data(dataset, tablename, return_csv=(out_fmt=='csv'), **optargs)
+            bqdat = bqutil.get_table_data(dataset, tablename, 
+                                          convert_timestamps=True,
+                                          return_csv=(out_fmt=='csv'), **optargs)
         except Exception as err:
             if args.skip_missing and 'HttpError 404' in str(err):
                 print "--> missing table [%s.%s] Skipping..." % (dataset, tablename)
@@ -1466,7 +1468,10 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='get_table_data'):
         import bqutil
         dataset = args.courses[0].replace('/', '__').replace('.', '_')
-        print json.dumps(bqutil.get_table_data(dataset, args.courses[1]), indent=4)
+        print json.dumps(bqutil.get_table_data(dataset, 
+                                               args.courses[1],
+                                               convert_timestamps=True,
+                                           ), indent=4)
 
     elif (args.command=='check_for_duplicates'):
         courses = []
