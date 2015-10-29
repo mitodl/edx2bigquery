@@ -302,7 +302,7 @@ FROM
                                 and category = "problem"
                                 order by index
                             ) CAI
-                            JOIN  # join course_axis with itself to get chapter_number and section_number
+                            LEFT JOIN  # join course_axis with itself to get chapter_number and section_number
                             (   
                                 # get chapters and sections (aka sequentials) with module_id, chapter_number, and section_number
                                 # each assignment is identified by assignment_type + chapter_number + section_number
@@ -323,7 +323,7 @@ FROM
                                         name,
                                         if(category="chapter", module_id, chapter_mid) as chapter_mid,
                                     FROM  [{dataset}.course_axis] 
-                                    where category = "chapter" or category = "sequential"
+                                    where category = "chapter" or category = "sequential" or category = "videosequence"
                                     order by index
                                 )
                                 order by index
@@ -332,7 +332,7 @@ FROM
                             ON CAI.section_mid = CHN.url_name     # correct way, for assignments by section (aka sequential)
                             # where gformat is not null
                         ) CAPN
-                        JOIN # join with course_axis to get names of verticals in which problems reside
+                        LEFT JOIN # join with course_axis to get names of verticals in which problems reside
                         (
                             # get verticals
                             SELECT url_name as vertical_url_name, 
