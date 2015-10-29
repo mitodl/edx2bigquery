@@ -88,6 +88,7 @@ FROM
         n_user_responses,
         chapter_name,
         section_name,
+        vertical_name,
         problem_name,
         CI.assignment_id as assignment_id,
         n_problems_in_assignment,
@@ -120,6 +121,7 @@ FROM
             n_user_responses,
             chapter_name,
             section_name,
+            vertical_name,
             problem_name,
             assignment_id,
             sum(if(assignment_id is not null and item_number=1, 1, 0)) over (partition by assignment_id) n_problems_in_assignment,
@@ -151,6 +153,7 @@ FROM
                 CA.name as problem_name,
                 chapter_name,
                 section_name,
+                vertical_name,
                 assignment_id,
                 assignment_type,
                 n_assignments_of_type,
@@ -209,6 +212,7 @@ FROM
             ) as PA
             JOIN 
             (
+                # -------------------------------------------------- graded problems from course axis
                 # master table of graded problems from course_axis, with assignment metadata
                 SELECT module_id,
                     url_name,
@@ -221,6 +225,7 @@ FROM
                     n_assignments_of_type,
                     chapter_name,
                     section_name,
+                    vertical_name,
                     name,
                     path,
                     start,
@@ -236,7 +241,23 @@ FROM
                         row_number() over (partition by assignment_type, problem_number order by index) as x_assignment_seq_num,
                     FROM
                     (
-                        SELECT *,  
+                        # ---------------------------------------- course axis with vertical name
+                        SELECT module_id,
+                            url_name,
+                            index,
+                            weight,
+                            assignment_type,
+                            chapter_number,
+                            section_number,
+                            assignment_id,  
+                            chapter_name,
+                            section_name,
+                            vertical_name,
+                            name,
+                            path,
+                            start,
+                            due,
+                            is_split,
                             # add column with problem number within assignment_id
                             row_number() over (partition by assignment_id order by index) problem_number,
                         FROM
@@ -259,6 +280,7 @@ FROM
                                 start,
                                 due,
                                 is_split,
+                                parent,
                             FROM 
                             (
                                 # course axis entries of things which have non-null grading format, with section_mid from path
@@ -274,6 +296,7 @@ FROM
                                     start,
                                     due,
                                     is_split,
+                                    parent,
                                 FROM [{dataset}.course_axis] CAI
                                 where gformat is not null 
                                 and category = "problem"
@@ -308,10 +331,21 @@ FROM
                             # ON CAI.chapter_mid = CHN.chapter_mid  # old, for assignments by chapter
                             ON CAI.section_mid = CHN.url_name     # correct way, for assignments by section (aka sequential)
                             # where gformat is not null
-                        )
+                        ) CAPN
+                        JOIN # join with course_axis to get names of verticals in which problems reside
+                        (
+                            # get verticals
+                            SELECT url_name as vertical_url_name, 
+                                name as vertical_name,
+                            FROM  [{dataset}.course_axis] 
+                            where category = "vertical"
+                        ) CAV
+                        ON CAPN.parent = CAV.vertical_url_name
+                        # ---------------------------------------- END course axis with vertical_name
                     )
                 )
                 order by index
+                # -------------------------------------------------- END graded problems from course axis
             ) CA
             ON PA.problem_id = CA.url_name
         )
