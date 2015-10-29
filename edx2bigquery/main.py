@@ -723,7 +723,11 @@ def doall(param, course_id, args, stdout=None):
         show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, just_do_totals=True, suppress_errors=True)
-        analyze_videos(param, course_id, args)
+        try:
+            analyze_videos(param, course_id, args)
+        except Exception as err:
+            print "--> Failed in analyze_videos with err=%s" % str(err)
+            print "--> continuing with doall anyway"
         make_grading_policy(param, course_id, args)
         item_tables(param, course_id, args)
         analyze_forum(param, course_id, args)
@@ -1616,7 +1620,9 @@ check_for_duplicates        : check list of courses for duplicates
         person_day(param, args, args)
 
     elif (args.command=='enrollment_day'):
-        enrollment_day(param, args, args)
+        # enrollment_day(param, args, args)
+        courses = get_course_ids(args)
+        run_parallel_or_serial(enrollment_day, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='person_course'):
         # person_course(param, args, args)
