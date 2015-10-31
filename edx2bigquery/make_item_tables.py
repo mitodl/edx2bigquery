@@ -64,6 +64,7 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
     item_nid                                integer 41              unique item numerical id (equal to the row number of this entry in the course_itm table)
     cumulative_item_weight                  float   6.59E-05        Cumulative fraction of item weights (for debugging: should increase to 1.0 by the end of table)
     is_split                                boolean False           Boolean flag indicating if this item was within an A/B split_test or not
+    split_name                              string  CircMotionAB    Name of the split_test within which this item is placed, if is_split is True
 
     '''
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
@@ -110,6 +111,7 @@ FROM
         start_date,
         due_date,
         is_split,
+        split_name,
         problem_path,
     FROM
     (
@@ -138,6 +140,7 @@ FROM
             start_date,
             due_date,
             is_split,
+            split_name,
             problem_weight,
             item_points_possible,
             problem_points_possible,
@@ -166,6 +169,7 @@ FROM
                 CA.start as start_date,
                 CA.due as due_date,
                 CA.is_split as is_split,
+                CA.split_name as split_name,
                 if(CA.weight is null, 1.0, CA.weight) as problem_weight,
                 item_points_possible,
                 problem_points_possible,
@@ -231,6 +235,7 @@ FROM
                     start,
                     due,
                     is_split,
+                    split_name,
                     chapter_number,
                     section_number,
                 FROM
@@ -258,6 +263,7 @@ FROM
                             start,
                             due,
                             is_split,
+                            split_name,
                             # add column with problem number within assignment_id
                             row_number() over (partition by assignment_id order by index) problem_number,
                         FROM
@@ -280,6 +286,7 @@ FROM
                                 start,
                                 due,
                                 is_split,
+                                split_name,
                                 parent,
                             FROM 
                             (
@@ -296,6 +303,7 @@ FROM
                                     start,
                                     due,
                                     is_split,
+                                    split_url_name as split_name,
                                     parent,
                                 FROM [{dataset}.course_axis] CAI
                                 where gformat is not null 
@@ -364,6 +372,7 @@ order by content_index, item_number
 
     try:
         bqdat = bqutil.get_bq_table(dataset, tablename, the_sql, 
+                                    newer_than=datetime.datetime(2015, 10, 31, 17, 00),
                                     depends_on=depends_on,
                                     force_query=force_recompute)
     except Exception as err:
@@ -505,16 +514,17 @@ SELECT problem_nid, problem_id, problem_short_id,
   count(unique(user_id)) as n_unique_users_attempted,
   problem_name,
   is_split,
+  split_name,
 FROM
 (
     SELECT problem_nid, problem_id, problem_short_id, sum(item_grade) as problem_grade, user_id,
-        sum(CI.item_points_possible) as possible_raw_score, problem_name, is_split
+        sum(CI.item_points_possible) as possible_raw_score, problem_name, is_split, split_name,
     FROM [{dataset}.person_item] PI
     JOIN [{dataset}.course_item] CI
     on PI.item_nid = CI.item_nid
-    group by problem_nid, problem_short_id, problem_id, user_id, problem_name, is_split
+    group by problem_nid, problem_short_id, problem_id, user_id, problem_name, is_split, split_name
 )
-group by problem_nid, problem_id, problem_short_id, problem_name, is_split
+group by problem_nid, problem_id, problem_short_id, problem_name, is_split, split_name
 # order by problem_short_id
 order by avg_problem_pct_score desc
     """.format(dataset=dataset, course_id=course_id)
