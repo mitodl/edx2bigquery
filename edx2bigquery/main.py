@@ -853,7 +853,7 @@ def get_data_tables(tables, args):
             open(ofn, 'w').write(json.dumps(tinfo['schema']['fields'], indent=4))
             continue
 
-        if args.only_if_newer:
+        if args.only_if_newer and os.path.exists(ofn):
             mod_dt = bqutil.get_bq_table_last_modified_datetime(dataset, tablename)
             of_dt = gsutil.get_local_file_mtime_in_utc(ofn,make_tz_unaware=True)
             if (mod_dt < of_dt):
