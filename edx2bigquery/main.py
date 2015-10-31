@@ -787,6 +787,7 @@ def get_data_tables(tables, args):
     arguments provide options for combing outputs, and for loading output back into BigQuery
     '''
     import bqutil
+    import gsutil
     import gzip
     import codecs
 
@@ -851,6 +852,15 @@ def get_data_tables(tables, args):
             print "Saving schema file as %s" % ofn
             open(ofn, 'w').write(json.dumps(tinfo['schema']['fields'], indent=4))
             continue
+
+        if args.only_if_newer:
+            mod_dt = bqutil.get_bq_table_last_modified_datetime(dataset, tablename)
+            of_dt = gsutil.get_local_file_mtime_in_utc(ofn,make_tz_unaware=True)
+            if (mod_dt < of_dt):
+                print "--> only_if_newer specified, and table %s mt=%s, file mt=%s, so skipping" % (tablename,
+                                                                                                    mod_dt,
+                                                                                                    of_dt)
+                continue
 
         try:
             bqdat = bqutil.get_table_data(dataset, tablename, 
@@ -1246,6 +1256,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--just-do-geoip", help="for person_course, just update geoip using local db", action="store_true")
     parser.add_argument("--just-do-totals", help="for time_task, just compute total sums", action="store_true")
     parser.add_argument("--just-get-schema", help="for get_course_data and get_data, just return the table schema as a json file", action="store_true")
+    parser.add_argument("--only-if-newer", help="for get_course_data and get_data, only get if bq table newer than local file", action="store_true")
     parser.add_argument("--limit-query-size", help="for time_task, limit query size to one day at a time and use hashing for large tables", action="store_true")
     parser.add_argument("--table-max-size-mb", type=int, help="maximum log table size for query size limit processing, in MB (defaults to 800)")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
