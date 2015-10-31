@@ -12,6 +12,7 @@ Make tables for IRT analyses.
 
 import sys
 import bqutil
+import datetime
 
 def make_item_tables(course_id, force_recompute=False, use_dataset_latest=False):
     create_course_item_table(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
