@@ -430,6 +430,23 @@ def analyze_forum(param, courses, args):
             sys.stdout.flush()
             raise
 
+def problem_events(param, courses, args):
+    import make_problem_events
+    for course_id in get_course_ids(courses):
+        try:
+            make_problem_events.ExtractProblemEvents(course_id,
+                                                     force_recompute=args.force_recompute,
+                                                     use_dataset_latest=param.use_dataset_latest,
+                                                     skip_last_day=args.skip_last_day,
+                                                     end_date=args.end_date,
+                                                 )
+
+        except (AssertionError, Exception) as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+            raise
+
 def course_key_version(param, courses, args):
     import check_course_key_version
     for course_id in get_course_ids(courses):
@@ -1068,6 +1085,8 @@ analyze_forum <course_id>   : Analyze forum events, generating the forum_events 
 analyze_ora <course_id> ... : Analyze openassessment response problem data in tracking logs, generating the ora_events table as a result.  
                               Uploads the result to google cloud storage and to BigQuery.
 
+problem_events <course_id>  : Extract capa problem events from the tracking logs, generating the problem_events table as a result.
+
 time_task <course_id> ...   : Update time_task table of data on time on task, based on daily tracking logs, for specified course.
 
 item_tables <course_id> ... : Make course_item and person_item tables, used for IRT analyses.
@@ -1587,6 +1606,10 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='analyze_videos'):
         courses = get_course_ids(args)
         run_parallel_or_serial(analyze_videos, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='problem_events'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(problem_events, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='analyze_forum'):
         courses = get_course_ids(args)
