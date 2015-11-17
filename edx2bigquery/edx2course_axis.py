@@ -358,15 +358,15 @@ def make_axis(dir):
 
                 ### Check for accompanying image
                 images = x.findall('.//img')
-                meta['img'] = False
+                # meta['has_image'] = False
                 
                 if images and len(images)>0:
-                    meta['img'] = True #Note, one can use a.get('src'), but needs to account for multiple images
+                    meta['has_image'] = True #Note, one can use a.get('src'), but needs to account for multiple images
                     # print meta['img'],len(images)
 
                 ### Search for all solution tags in a problem
                 solutions = x.findall('.//solution')
-                meta['solution'] = False
+                # meta['has_solution'] = False
 
                 if solutions and len(solutions)>0:
                     text = ''
@@ -376,7 +376,7 @@ def make_axis(dir):
                         # In 8.05x, common to put image in one solution tag, and the text in a second. So we are checking each tag.
                         # If we find one solution with > 65 char, or one solution with an image, we set meta['solution'] = True
                         if len(text) > 65 or 'img src' in text:
-                            meta['solution'] = True
+                            meta['has_solution'] = True
 
                 ### If meta is empty, log all tags for debugging later. 
                 if len(meta)==0:
