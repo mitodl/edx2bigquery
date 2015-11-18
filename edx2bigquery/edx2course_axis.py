@@ -356,19 +356,27 @@ def make_axis(dir):
                     if a.tag in known_problem_types:
                         meta['items'].append({'itype':a.tag,'url_name':a.get('url_name')})
 
-                    # Check for a solution - can eventually be updated to contain more descriptive information
-                    if a.tag == 'solution':
-                        solution = x.find('.//solution')
-                        if solution is not None:
-                            text = ''.join(html.tostring(e, pretty_print=True) for e in solution)
-                            ### Low stakes check for solution (65 char). We could feasibly just store the solution text.
-                            ### 65 is roughly the number of html element characters in a default solution template.
-                            if len(text) > 65:
-                                meta['has_solution'] = True
-                    
-                    # Check for accompanying image
-                    if a.tag == 'img':
-                        meta['has_image'] = True #Note, one can use a.get('src'), but needs to account for multiple images
+                ### Check for accompanying image
+                images = x.findall('.//img')
+                # meta['has_image'] = False
+                
+                if images and len(images)>0:
+                    meta['has_image'] = True #Note, one can use a.get('src'), but needs to account for multiple images
+                    # print meta['img'],len(images)
+
+                ### Search for all solution tags in a problem
+                solutions = x.findall('.//solution')
+                # meta['has_solution'] = False
+
+                if solutions and len(solutions)>0:
+                    text = ''
+                    for sol in solutions:
+                        text = text.join(html.tostring(e, pretty_print=False) for e in sol)
+                        # This if statment checks each solution. Note, many MITx problems have multiple solution tags.
+                        # In 8.05x, common to put image in one solution tag, and the text in a second. So we are checking each tag.
+                        # If we find one solution with > 65 char, or one solution with an image, we set meta['solution'] = True
+                        if len(text) > 65 or 'img src' in text:
+                            meta['has_solution'] = True
 
                 ### If meta is empty, log all tags for debugging later. 
                 if len(meta)==0:
