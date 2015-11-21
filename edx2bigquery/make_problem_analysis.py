@@ -1185,7 +1185,7 @@ def compute_problem_check_show_answer_ip(course_id, force_recompute=False, use_d
 
     if testing:
         bqutil.create_bq_table(testing_dataset,dataset+'_'+table, SQL, overwrite=overwrite, 
-                               project_id=project_id, output_project_id='mitx-research', 
+                               output_project_id='mitx-research', 
                                allowLargeResults=True, sql_for_description=SQL)
     else:
         bqutil.create_bq_table(dataset, table, SQL, overwrite=overwrite, allowLargeResults=True, sql_for_description=SQL)
