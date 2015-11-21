@@ -1137,7 +1137,7 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
 #-----------------------------------------------------------------------------
 
 def compute_problem_check_show_answer_ip(course_id, force_recompute=False, use_dataset_latest=False, overwrite=True,
-                                       testing=False, testing_dataset= None):
+                                       testing=False, testing_dataset=None, project_id=None):
     
     '''
     This table holds all the problem_check and show_answer events extracted from
@@ -1184,14 +1184,14 @@ def compute_problem_check_show_answer_ip(course_id, force_recompute=False, use_d
     sys.stdout.flush()
 
     if testing:
-        bqutil.create_bq_table(testing_dataset,dataset+'_'+table, SQL, overwrite=overwrite, 
-                               output_project_id='mitx-research', 
+        bqutil.create_bq_table(testing_dataset,dataset+'_'+table, SQL, overwrite=overwrite,
+                               project_id=project_id,output_project_id='mitx-research', 
                                allowLargeResults=True, sql_for_description=SQL)
     else:
         bqutil.create_bq_table(dataset, table, SQL, overwrite=overwrite, allowLargeResults=True, sql_for_description=SQL)
 
     if testing:
-        nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset, table_id=table, project_id='mitx-research')
+        nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset, table_id=dataset+'_'+table, project_id='mitx-research')
     else:
         nfound = bqutil.get_bq_table_size_rows(dataset, table)
     print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
