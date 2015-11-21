@@ -1136,8 +1136,72 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
 
 #-----------------------------------------------------------------------------
 
+def compute_problem_check_show_answer_ip(course_id, force_recompute=False, use_dataset_latest=False, overwrite=True,
+                                       testing=False, testing_dataset=None, project_id=None):
+    
+    '''
+    This table holds all the problem_check and show_answer events extracted from
+    all of the tracking logs for a course. 
+
+    The primary purpose of this table is to obtain the associated ip addresses for each event
+    in the problem_check and show_answer tables.
+
+    Unlike problem_check and show_answer - this does not append each day, but is
+    ran over the entire set of all days of tracking logs in a single iteration.
+
+    This function is expensive and should be called seldomly.
+    '''
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    tracking_log_dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=False) + '_logs'
+    table = "stats_problem_check_show_answer_ip"
+
+    SQL = """
+    SELECT
+      time,
+      username,
+      context.user_id as user_id,
+      course_id as course_id,
+      module_id,
+      CASE WHEN event_type = "problem_check" or event_type = "save_problem_check"
+           THEN 'problem_check'
+           ELSE 'show_answer'
+           END AS event_type,
+      ip
+    from (
+      TABLE_QUERY({tracking_log_dataset},
+           "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) <= 30000101" #less than Jan 01, 3000
+         )
+      )
+
+    where (event_type = "problem_check" or event_type = "save_problem_check" or event_type = "show_answer" or event_type = "showanswer")
+      and event_source = "server"
+      and time > TIMESTAMP("2010-10-01 01:02:03")
+    order by time
+    """.format(tracking_log_dataset=tracking_log_dataset)
+
+    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    sys.stdout.flush()
+
+    if testing:
+        bqutil.create_bq_table(testing_dataset,dataset+'_'+table, SQL, overwrite=overwrite,
+                               project_id=project_id,output_project_id='mitx-research', 
+                               allowLargeResults=True, sql_for_description=SQL)
+    else:
+        bqutil.create_bq_table(dataset, table, SQL, overwrite=overwrite, allowLargeResults=True, sql_for_description=SQL)
+
+    if testing:
+        nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset, table_id=dataset+'_'+table, project_id='mitx-research')
+    else:
+        nfound = bqutil.get_bq_table_size_rows(dataset, table)
+    print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
+    sys.stdout.flush()
+
+#-----------------------------------------------------------------------------
+
 def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=False, force_num_partitions=None, 
-                            testing=False, testing_dataset= None, project_id = None):
+                            testing=False, testing_dataset= None, project_id = None, online = False,
+                            precompute_pcsai=False, problem_check_show_answer_ip_table=None):
     '''
     Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
     cameo candidate - certified | shadow candidate - uncertified
@@ -1153,11 +1217,21 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     cases, even if the user tried to figure it out without gaming first.
     '''
 
+    #Runs compute_problem_check_show_answer_ip for this course before running show_ans_before
+    if precompute_pcsai:
+        compute_problem_check_show_answer_ip(course_id, force_recompute, use_dataset_latest, 
+                                       testing=testing, testing_dataset=testing_dataset)
+
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = "stats_show_ans_before"
 
+    if problem_check_show_answer_ip_table is None:
+        #Set to default
+        problem_check_show_answer_ip_table = dataset + '.problem_check_show_answer_ip'
+
     if testing:
         project_dataset = project_id + ':' + dataset
+        problem_check_show_answer_ip_table = 'mitx-research:' + testing_dataset + '.' + dataset + '_stats_problem_check_show_answer_ip'
 
     #-------------------- partition by nshow_ans_distinct
 
@@ -1233,8 +1307,12 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               cameo_candidate,
               shadow_candidate,
               round(median_max_dt_seconds, 3) as median_max_dt_seconds,
-              round(sum(sa_before_pa) / count(*), 4)*100 as percent_show_ans_before,
+              sum(sa_before_pa) / count(*) * 100 as percent_show_ans_before,
               sum(sa_before_pa) as show_ans_before,
+              sum(same_ip) as nsame_ip,
+              sum(case when sa_before_pa and same_ip then 1 else 0 end) as nsame_ip_given_sab,
+              sum(case when sa_before_pa and same_ip then 1 else 0 end) / sum(sa_before_pa) * 100 as percent_same_ip_given_sab,
+              sum(same_ip) / count(*) * 100 as percent_same_ip,
               count(*) as prob_in_common,
               round(avg(max_dt), 3) as avg_max_dt_seconds,
               round(corr(sa.time - min_first_check_time, pa.time - min_first_check_time), 8) as norm_pearson_corr,
@@ -1263,43 +1341,74 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                   ( 
                     select sa.username as shadow_candidate,
                     pa.username as cameo_candidate,
-                    sa.time, pa.time,
+                    sa.time, pa.time, 
                     sa.time < pa.time as sa_before_pa,
+                    sa.ip, pa.ip,
+                    sa.ip == pa.ip as same_ip,
                     (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
                     USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time
                     FROM
                     (
                       #Certified = false for shadow candidate
-                      SELECT sa.username as username, module_id, sa.time as time  
+                      SELECT sa.username as username, module_id, sa.time as time, sa.ip as ip,  
                       FROM
                       (
                           SELECT 
-                          username, module_id, MIN(time) as time, 
+                          username, module_id, MIN(time) as time, FIRST(ip) AS ip, #MIN == FIRST because ordered by time
                           count(distinct module_id) over (partition by username) as nshow_ans_distinct
-                          FROM [{dataset}.show_answer] 
+                          FROM 
+                          (
+                            SELECT 
+                              a.time as time,
+                              a.username as username,
+                              a.course_id as course_id,
+                              a.module_id as module_id,
+                              ip
+                            FROM [{dataset}.show_answer] a
+                            JOIN EACH [{problem_check_show_answer_ip_table}] b
+                            ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
+                            WHERE b.event_type = 'show_answer'
+                          )
                           group each by username, module_id
+                          order by time ASC
                       ) sa
                       JOIN EACH [{dataset}.person_course] pc
                       ON sa.username = pc.username
-                      where certified = false
+                      where {not_certified_filter}
                       and {partition}
                     )sa
                     JOIN EACH
                     (
                       #certified = true for cameo candidate
-                      SELECT pa.username as username, module_id, time,
+                      SELECT pa.username as username, module_id, time, pa.ip as ip,
                       MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time
                       FROM
                       (
                         SELECT 
-                        username, module_id, MAX(time) as time, MIN(time) as first_check
-                        FROM [{dataset}.problem_check]
+                        username, module_id, MAX(time) as time, MIN(time) as first_check, 
+                        LAST(ip) AS ip, #MAX == LAST because ordered by time
+                        COUNT(time) OVER (PARTITION BY username) as ncorrect
+                        FROM 
+                        (
+                          SELECT 
+                            a.time as time,
+                            a.username as username,
+                            a.course_id as course_id,
+                            a.module_id as module_id,
+                            a.success as success,
+                            ip
+                          FROM [{dataset}.problem_check] a
+                          JOIN EACH [{problem_check_show_answer_ip_table}] b
+                          ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
+                          WHERE b.event_type = 'problem_check'
+                        ) 
                         where success = 'correct'
                         group each by username, module_id
+                        ORDER BY time ASC
                       ) pa
                       JOIN EACH [{dataset}.person_course] pc
                       on pa.username = pc.username
-                      where certified = true
+                      where {certified_filter}
                     ) pa
                     on sa.module_id = pa.module_id
                     WHERE sa.username != pa.username
@@ -1311,7 +1420,12 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               #having show_ans_before > 10
               having norm_pearson_corr > -1
               and avg_max_dt_seconds is not null
-          """.format(dataset=project_dataset if testing else dataset, course_id = course_id, partition=the_partition[i])
+          """.format(dataset=project_dataset if testing else dataset, 
+                     course_id = course_id, 
+                     partition=the_partition[i],
+                     problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
+                     not_certified_filter='nshow_ans_distinct >= 5' if online else 'certified = false',
+                     certified_filter= 'ncorrect >= 5' if online else "certified = true")
         sql.append(item)
 
 
@@ -1391,7 +1505,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
 
     nfound = bqutil.get_bq_table_size_rows(dataset, table)
     if testing:
-        nfound = bqutil.get_bq_table_size_rows(dataset, table, project_id)
+        nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset, table_id=table, project_id='mitx-research')
     print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
     sys.stdout.flush()
 
