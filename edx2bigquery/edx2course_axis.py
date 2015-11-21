@@ -62,7 +62,7 @@ FORCE_NO_HIDE = False
 #-----------------------------------------------------------------------------
 
 # storage class for each axis element
-Axel = namedtuple('Axel', 'course_id index url_name category gformat start due name path module_id data chapter_mid graded parent is_split')
+Axel = namedtuple('Axel', 'course_id index url_name category gformat start due name path module_id data chapter_mid graded parent is_split split_url_name')
 
 class Policy(object):
     '''
@@ -274,7 +274,7 @@ def make_axis(dir):
         caxis = []
     
         def walk(x, seq_num=1, path=[], seq_type=None, parent_start=None, parent=None, chapter=None,
-                 parent_url_name=None, is_split_flag=False):
+                 parent_url_name=None, split_url_name=None):
             '''
             Recursively traverse course tree.  
             
@@ -286,7 +286,7 @@ def make_axis(dir):
             parent   = parent module
             chapter  = the last chapter module_id seen while walking through the tree
             parent_url_name = url_name of parent
-            is_split_flag   = boolean indicating if this subtree is within a split_test
+            split_url_name   = url_name of split_test element if this subtree is in a split_test, otherwise None
             '''
             url_name = x.get('url_name',x.get('url_name_orig',''))
             if not url_name:
@@ -356,19 +356,27 @@ def make_axis(dir):
                     if a.tag in known_problem_types:
                         meta['items'].append({'itype':a.tag,'url_name':a.get('url_name')})
 
-                    # Check for a solution - can eventually be updated to contain more descriptive information
-                    if a.tag == 'solution':
-                        solution = x.find('.//solution')
-                        if solution is not None:
-                            text = ''.join(html.tostring(e, pretty_print=True) for e in solution)
-                            ### Low stakes check for solution (65 char). We could feasibly just store the solution text.
-                            ### 65 is roughly the number of html element characters in a default solution template.
-                            if len(text) > 65:
-                                meta['has_solution'] = True
-                    
-                    # Check for accompanying image
-                    if a.tag == 'img':
-                        meta['has_image'] = True #Note, one can use a.get('src'), but needs to account for multiple images
+                ### Check for accompanying image
+                images = x.findall('.//img')
+                # meta['has_image'] = False
+                
+                if images and len(images)>0:
+                    meta['has_image'] = True #Note, one can use a.get('src'), but needs to account for multiple images
+                    # print meta['img'],len(images)
+
+                ### Search for all solution tags in a problem
+                solutions = x.findall('.//solution')
+                # meta['has_solution'] = False
+
+                if solutions and len(solutions)>0:
+                    text = ''
+                    for sol in solutions:
+                        text = text.join(html.tostring(e, pretty_print=False) for e in sol)
+                        # This if statment checks each solution. Note, many MITx problems have multiple solution tags.
+                        # In 8.05x, common to put image in one solution tag, and the text in a second. So we are checking each tag.
+                        # If we find one solution with > 65 char, or one solution with an image, we set meta['solution'] = True
+                        if len(text) > 65 or 'img src' in text:
+                            meta['has_solution'] = True
 
                 ### If meta is empty, log all tags for debugging later. 
                 if len(meta)==0:
@@ -467,7 +475,8 @@ def make_axis(dir):
                 path_str = '/' + '/'.join(path)
                 ae = Axel(cid, index[0], url_name, x.tag, gformat, start, due, dn, path_str, module_id, data, chapter, graded,
                           parent_url_name,
-                          is_split_flag)
+                          not split_url_name==None,
+                          split_url_name)
                 caxis.append(ae)
                 index[0] += 1
             else:
@@ -490,9 +499,12 @@ def make_axis(dir):
                     seq_num = 1
                 for y in x:
                     if (not str(y).startswith('<!--')) and (not y.tag in ['discussion', 'source']):
+                        if not split_url_name and x.tag=="split_test":
+                            split_url_name = url_name
+                                
                         walk(y, seq_num, path, seq_type, parent_start=start, parent=x, chapter=the_chapter,
                              parent_url_name=url_name,
-                             is_split_flag=((x.tag=="split_test") or is_split_flag),
+                             split_url_name=split_url_name,
                         )
                         if not inherit_seq_num:
                             seq_num += 1
@@ -604,7 +616,7 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
         fix_duplicate_url_name_vertical(cdat['axis'])
 
         header = ("index", "url_name", "category", "gformat", "start", 'due', "name", "path", "module_id", "data", "chapter_mid", "graded",
-                  "parent", "is_split")
+                  "parent", "is_split", "split_url_name")
         caset = [{ x: getattr(ae,x) for x in header } for ae in cdat['axis']]
 
         # optional save to mongodb
@@ -617,7 +629,7 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
 
         # print out to text file
         afp = codecs.open('%s/axis_%s.txt' % (DATADIR, cid.replace('/','__')),'w', encoding='utf8')
-        aformat = "%8s\t%40s\t%24s\t%16s\t%16s\t%16s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n"
+        aformat = "%8s\t%40s\t%24s\t%16s\t%16s\t%16s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n"
         afp.write(aformat % header)
         afp.write(aformat % tuple(["--------"] *len(aformat.split('\t'))))
         for ca in caset:

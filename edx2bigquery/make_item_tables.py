@@ -12,6 +12,7 @@ Make tables for IRT analyses.
 
 import sys
 import bqutil
+import datetime
 
 def make_item_tables(course_id, force_recompute=False, use_dataset_latest=False):
     create_course_item_table(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
@@ -64,6 +65,7 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
     item_nid                                integer 41              unique item numerical id (equal to the row number of this entry in the course_itm table)
     cumulative_item_weight                  float   6.59E-05        Cumulative fraction of item weights (for debugging: should increase to 1.0 by the end of table)
     is_split                                boolean False           Boolean flag indicating if this item was within an A/B split_test or not
+    split_name                              string  CircMotionAB    Name of the split_test within which this item is placed, if is_split is True
 
     '''
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
@@ -88,6 +90,7 @@ FROM
         n_user_responses,
         chapter_name,
         section_name,
+        vertical_name,
         problem_name,
         CI.assignment_id as assignment_id,
         n_problems_in_assignment,
@@ -109,6 +112,7 @@ FROM
         start_date,
         due_date,
         is_split,
+        split_name,
         problem_path,
     FROM
     (
@@ -120,6 +124,7 @@ FROM
             n_user_responses,
             chapter_name,
             section_name,
+            vertical_name,
             problem_name,
             assignment_id,
             sum(if(assignment_id is not null and item_number=1, 1, 0)) over (partition by assignment_id) n_problems_in_assignment,
@@ -136,6 +141,7 @@ FROM
             start_date,
             due_date,
             is_split,
+            split_name,
             problem_weight,
             item_points_possible,
             problem_points_possible,
@@ -151,6 +157,7 @@ FROM
                 CA.name as problem_name,
                 chapter_name,
                 section_name,
+                vertical_name,
                 assignment_id,
                 assignment_type,
                 n_assignments_of_type,
@@ -163,6 +170,7 @@ FROM
                 CA.start as start_date,
                 CA.due as due_date,
                 CA.is_split as is_split,
+                CA.split_name as split_name,
                 if(CA.weight is null, 1.0, CA.weight) as problem_weight,
                 item_points_possible,
                 problem_points_possible,
@@ -209,6 +217,7 @@ FROM
             ) as PA
             JOIN 
             (
+                # -------------------------------------------------- graded problems from course axis
                 # master table of graded problems from course_axis, with assignment metadata
                 SELECT module_id,
                     url_name,
@@ -221,11 +230,13 @@ FROM
                     n_assignments_of_type,
                     chapter_name,
                     section_name,
+                    vertical_name,
                     name,
                     path,
                     start,
                     due,
                     is_split,
+                    split_name,
                     chapter_number,
                     section_number,
                 FROM
@@ -236,7 +247,24 @@ FROM
                         row_number() over (partition by assignment_type, problem_number order by index) as x_assignment_seq_num,
                     FROM
                     (
-                        SELECT *,  
+                        # ---------------------------------------- course axis with vertical name
+                        SELECT module_id,
+                            url_name,
+                            index,
+                            weight,
+                            assignment_type,
+                            chapter_number,
+                            section_number,
+                            assignment_id,  
+                            chapter_name,
+                            section_name,
+                            vertical_name,
+                            name,
+                            path,
+                            start,
+                            due,
+                            is_split,
+                            split_name,
                             # add column with problem number within assignment_id
                             row_number() over (partition by assignment_id order by index) problem_number,
                         FROM
@@ -259,6 +287,8 @@ FROM
                                 start,
                                 due,
                                 is_split,
+                                split_name,
+                                parent,
                             FROM 
                             (
                                 # course axis entries of things which have non-null grading format, with section_mid from path
@@ -274,12 +304,14 @@ FROM
                                     start,
                                     due,
                                     is_split,
+                                    split_url_name as split_name,
+                                    parent,
                                 FROM [{dataset}.course_axis] CAI
                                 where gformat is not null 
                                 and category = "problem"
                                 order by index
                             ) CAI
-                            JOIN  # join course_axis with itself to get chapter_number and section_number
+                            LEFT JOIN  # join course_axis with itself to get chapter_number and section_number
                             (   
                                 # get chapters and sections (aka sequentials) with module_id, chapter_number, and section_number
                                 # each assignment is identified by assignment_type + chapter_number + section_number
@@ -300,7 +332,7 @@ FROM
                                         name,
                                         if(category="chapter", module_id, chapter_mid) as chapter_mid,
                                     FROM  [{dataset}.course_axis] 
-                                    where category = "chapter" or category = "sequential"
+                                    where category = "chapter" or category = "sequential" or category = "videosequence"
                                     order by index
                                 )
                                 order by index
@@ -308,10 +340,21 @@ FROM
                             # ON CAI.chapter_mid = CHN.chapter_mid  # old, for assignments by chapter
                             ON CAI.section_mid = CHN.url_name     # correct way, for assignments by section (aka sequential)
                             # where gformat is not null
-                        )
+                        ) CAPN
+                        LEFT JOIN # join with course_axis to get names of verticals in which problems reside
+                        (
+                            # get verticals
+                            SELECT url_name as vertical_url_name, 
+                                name as vertical_name,
+                            FROM  [{dataset}.course_axis] 
+                            where category = "vertical"
+                        ) CAV
+                        ON CAPN.parent = CAV.vertical_url_name
+                        # ---------------------------------------- END course axis with vertical_name
                     )
                 )
                 order by index
+                # -------------------------------------------------- END graded problems from course axis
             ) CA
             ON PA.problem_id = CA.url_name
         )
@@ -330,6 +373,7 @@ order by content_index, item_number
 
     try:
         bqdat = bqutil.get_bq_table(dataset, tablename, the_sql, 
+                                    newer_than=datetime.datetime(2015, 10, 31, 17, 00),
                                     depends_on=depends_on,
                                     force_query=force_recompute)
     except Exception as err:
@@ -471,16 +515,17 @@ SELECT problem_nid, problem_id, problem_short_id,
   count(unique(user_id)) as n_unique_users_attempted,
   problem_name,
   is_split,
+  split_name,
 FROM
 (
     SELECT problem_nid, problem_id, problem_short_id, sum(item_grade) as problem_grade, user_id,
-        sum(CI.item_points_possible) as possible_raw_score, problem_name, is_split
+        sum(CI.item_points_possible) as possible_raw_score, problem_name, is_split, split_name,
     FROM [{dataset}.person_item] PI
     JOIN [{dataset}.course_item] CI
     on PI.item_nid = CI.item_nid
-    group by problem_nid, problem_short_id, problem_id, user_id, problem_name, is_split
+    group by problem_nid, problem_short_id, problem_id, user_id, problem_name, is_split, split_name
 )
-group by problem_nid, problem_id, problem_short_id, problem_name, is_split
+group by problem_nid, problem_id, problem_short_id, problem_name, is_split, split_name
 # order by problem_short_id
 order by avg_problem_pct_score desc
     """.format(dataset=dataset, course_id=course_id)

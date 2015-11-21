@@ -9,14 +9,25 @@ import json
 import gsutil
 import bqutil
 import copy
+import datetime
 from path import path
 from check_schema_tracking_log import check_schema, schema2dict
 
 def already_exists(course_id, use_dataset_latest=False):
+    '''
+    Return True if course_axis table already exists, and is sufficiently new
+    '''
     table = "course_axis"
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
-    tables = bqutil.get_list_of_table_ids(dataset)
-    return table in tables
+    # tables = bqutil.get_list_of_table_ids(dataset)
+    # return table in tables
+    try:
+        mdt = bqutil.get_bq_table_last_modified_datetime(dataset, table)
+    except Exception as err:
+        return False
+    if mdt < datetime.datetime(2015, 10, 31, 17, 00):
+        return False
+    return True
 
 def do_save(cid, caset_in, xbundle, datadir, log_msg, use_dataset_latest=False):
     '''

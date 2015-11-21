@@ -146,7 +146,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
     SQL = """
             SELECT 
   		    "{course_id}" as course_id,
-	            time, 
+                time, 
                     event_struct.user_id as user_id, 
                     (case when (event_type = "edx.course.enrollment.activated" 
                                 and event_struct.mode = "honor")
@@ -161,6 +161,12 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
                           when (event_type = "edx.course.enrollment.deactivated" 
                                 and event_struct.mode = "verified")
                           then -1 
+                          when (event_type = "edx.course.enrollment.mode_changed" 
+                                and event_struct.mode = "verified")
+                          then 1 
+                          when (event_type = "edx.course.enrollment.mode_changed" 
+                                and event_struct.mode = "honor")
+                          then -1 
                           else 0 end) as diff_enrollment_verified,
                     (case when (event_type = "edx.course.enrollment.activated" 
                                 and event_struct.mode = "audit")
@@ -171,7 +177,8 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
                           else 0 end) as diff_enrollment_audit,
             FROM {DATASETS} 
             where (event_type = "edx.course.enrollment.activated") or
-                  (event_type = "edx.course.enrollment.deactivated")
+                  (event_type = "edx.course.enrollment.deactivated") or
+                  (event_type = "edx.course.enrollment.mode_changed")
                   and time > TIMESTAMP("{last_date}")
             order by time;
             """

@@ -116,6 +116,11 @@
             "type": "BOOLEAN",
             "name": "is_split",
 	    "description": "boolean specifying if this element is in a split_test or not"
+        },
+        {
+            "type": "STRING",
+            "name": "split_url_name",
+	    "description": "url_name for the split_test if this element is within a split_test"
         }
 
     ]

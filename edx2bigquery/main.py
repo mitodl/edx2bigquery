@@ -430,6 +430,23 @@ def analyze_forum(param, courses, args):
             sys.stdout.flush()
             raise
 
+def problem_events(param, courses, args):
+    import make_problem_events
+    for course_id in get_course_ids(courses):
+        try:
+            make_problem_events.ExtractProblemEvents(course_id,
+                                                     force_recompute=args.force_recompute,
+                                                     use_dataset_latest=param.use_dataset_latest,
+                                                     skip_last_day=args.skip_last_day,
+                                                     end_date=args.end_date,
+                                                 )
+
+        except (AssertionError, Exception) as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+            raise
+
 def course_key_version(param, courses, args):
     import check_course_key_version
     for course_id in get_course_ids(courses):
@@ -723,7 +740,11 @@ def doall(param, course_id, args, stdout=None):
         show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, just_do_totals=True, suppress_errors=True)
-        analyze_videos(param, course_id, args)
+        try:
+            analyze_videos(param, course_id, args)
+        except Exception as err:
+            print "--> Failed in analyze_videos with err=%s" % str(err)
+            print "--> continuing with doall anyway"
         make_grading_policy(param, course_id, args)
         item_tables(param, course_id, args)
         analyze_forum(param, course_id, args)
@@ -783,6 +804,7 @@ def get_data_tables(tables, args):
     arguments provide options for combing outputs, and for loading output back into BigQuery
     '''
     import bqutil
+    import gsutil
     import gzip
     import codecs
 
@@ -847,6 +869,15 @@ def get_data_tables(tables, args):
             print "Saving schema file as %s" % ofn
             open(ofn, 'w').write(json.dumps(tinfo['schema']['fields'], indent=4))
             continue
+
+        if args.only_if_newer and os.path.exists(ofn):
+            mod_dt = bqutil.get_bq_table_last_modified_datetime(dataset, tablename)
+            of_dt = gsutil.get_local_file_mtime_in_utc(ofn,make_tz_unaware=True)
+            if (mod_dt < of_dt):
+                print "--> only_if_newer specified, and table %s mt=%s, file mt=%s, so skipping" % (tablename,
+                                                                                                    mod_dt,
+                                                                                                    of_dt)
+                continue
 
         try:
             bqdat = bqutil.get_table_data(dataset, tablename, 
@@ -1054,6 +1085,8 @@ analyze_forum <course_id>   : Analyze forum events, generating the forum_events 
 analyze_ora <course_id> ... : Analyze openassessment response problem data in tracking logs, generating the ora_events table as a result.  
                               Uploads the result to google cloud storage and to BigQuery.
 
+problem_events <course_id>  : Extract capa problem events from the tracking logs, generating the problem_events table as a result.
+
 time_task <course_id> ...   : Update time_task table of data on time on task, based on daily tracking logs, for specified course.
 
 item_tables <course_id> ... : Make course_item and person_item tables, used for IRT analyses.
@@ -1242,6 +1275,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--just-do-geoip", help="for person_course, just update geoip using local db", action="store_true")
     parser.add_argument("--just-do-totals", help="for time_task, just compute total sums", action="store_true")
     parser.add_argument("--just-get-schema", help="for get_course_data and get_data, just return the table schema as a json file", action="store_true")
+    parser.add_argument("--only-if-newer", help="for get_course_data and get_data, only get if bq table newer than local file", action="store_true")
     parser.add_argument("--limit-query-size", help="for time_task, limit query size to one day at a time and use hashing for large tables", action="store_true")
     parser.add_argument("--table-max-size-mb", type=int, help="maximum log table size for query size limit processing, in MB (defaults to 800)")
     parser.add_argument("--nskip", type=int, help="number of steps to skip")
@@ -1573,6 +1607,10 @@ check_for_duplicates        : check list of courses for duplicates
         courses = get_course_ids(args)
         run_parallel_or_serial(analyze_videos, param, courses, args, parallel=args.parallel)
 
+    elif (args.command=='problem_events'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(problem_events, param, courses, args, parallel=args.parallel)
+
     elif (args.command=='analyze_forum'):
         courses = get_course_ids(args)
         run_parallel_or_serial(analyze_forum, param, courses, args, parallel=args.parallel)
@@ -1621,7 +1659,9 @@ check_for_duplicates        : check list of courses for duplicates
         person_day(param, args, args)
 
     elif (args.command=='enrollment_day'):
-        enrollment_day(param, args, args)
+        # enrollment_day(param, args, args)
+        courses = get_course_ids(args)
+        run_parallel_or_serial(enrollment_day, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='person_course'):
         # person_course(param, args, args)
