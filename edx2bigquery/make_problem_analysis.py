@@ -1440,12 +1440,14 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               #having show_ans_before > 10
               having norm_pearson_corr > -1
               and avg_max_dt_seconds is not null
+              {X_gte_5_if_online}
           """.format(dataset=project_id + ':' + dataset if testing else dataset, 
                      course_id = course_id, 
                      partition=the_partition[i],
                      problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
                      not_certified_filter='nshow_ans_distinct >= 5' if online else 'certified = false',
-                     certified_filter= 'ncorrect >= 5' if online else "certified = true")
+                     certified_filter= 'ncorrect >= 10' if online else "certified = true",
+                     X_gte_5_if_online='and show_ans_before >= 5' if online else '')
         sql.append(item)
 
 
