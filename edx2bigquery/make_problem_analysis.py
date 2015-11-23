@@ -1136,7 +1136,7 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
 
 #-----------------------------------------------------------------------------
 
-def compute_problem_check_show_answer_ip(course_id, force_recompute=False, use_dataset_latest=False, overwrite=True,
+def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, overwrite=True,
                                        testing=False, testing_dataset=None, project_id=None):
     
     '''
@@ -1201,7 +1201,7 @@ def compute_problem_check_show_answer_ip(course_id, force_recompute=False, use_d
 
 def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=False, force_num_partitions=None, 
                             testing=False, testing_dataset= None, project_id = None, online = False,
-                            precompute_pcsai=False, problem_check_show_answer_ip_table=None):
+                            problem_check_show_answer_ip_table=None):
     '''
     Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
     cameo candidate - certified | shadow candidate - uncertified
@@ -1217,21 +1217,27 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     cases, even if the user tried to figure it out without gaming first.
     '''
 
-    #Runs compute_problem_check_show_answer_ip for this course before running show_ans_before
-    if precompute_pcsai:
-        compute_problem_check_show_answer_ip(course_id, force_recompute, use_dataset_latest, 
-                                       testing=testing, testing_dataset=testing_dataset)
-
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = "stats_show_ans_before"
 
     if problem_check_show_answer_ip_table is None:
-        #Set to default
-        problem_check_show_answer_ip_table = dataset + '.problem_check_show_answer_ip'
-
-    if testing:
-        project_dataset = project_id + ':' + dataset
-        problem_check_show_answer_ip_table = 'mitx-research:' + testing_dataset + '.' + dataset + '_stats_problem_check_show_answer_ip'
+        if testing:
+            default_table_info = bqutil.get_bq_table_info(dataset,'stats_problem_check_show_answer_ip', project_id=project_id)
+            if default_table_info is not None:
+                problem_check_show_answer_ip_table = project_id + ':'+ dataset + '.stats_problem_check_show_answer_ip'
+            else:
+                #Default table doesn't exist, Check if testing table exists
+                testing_table_info = bqutil.get_bq_table_info(testing_dataset,
+                                     dataset + '_stats_problem_check_show_answer_ip', project_id='mitx-research')
+                if testing_table_info is None:
+                    compute_problem_check_show_answer_ip(course_id, use_dataset_latest, testing=True, 
+                                                         testing_dataset=testing_dataset, project_id=project_id)
+                problem_check_show_answer_ip_table = 'mitx-research:' + testing_dataset + '.' + dataset + '_stats_problem_check_show_answer_ip'
+        else:
+            default_table_info = bqutil.get_bq_table_info(dataset,'stats_problem_check_show_answer_ip')
+            if default_table_info is None:
+                compute_problem_check_show_answer_ip(course_id, use_dataset_latest)
+            problem_check_show_answer_ip_table = dataset + '.stats_problem_check_show_answer_ip'
 
     #-------------------- partition by nshow_ans_distinct
 
@@ -1420,7 +1426,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               #having show_ans_before > 10
               having norm_pearson_corr > -1
               and avg_max_dt_seconds is not null
-          """.format(dataset=project_dataset if testing else dataset, 
+          """.format(dataset=project_id + ':' + dataset if testing else dataset, 
                      course_id = course_id, 
                      partition=the_partition[i],
                      problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
