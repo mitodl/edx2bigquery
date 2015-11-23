@@ -1136,7 +1136,7 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
 
 #-----------------------------------------------------------------------------
 
-def compute_problem_check_show_answer_ip(course_id, force_recompute=False, use_dataset_latest=False, overwrite=True,
+def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, overwrite=True,
                                        testing=False, testing_dataset=None, project_id=None):
     
     '''
@@ -1201,7 +1201,7 @@ def compute_problem_check_show_answer_ip(course_id, force_recompute=False, use_d
 
 def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=False, force_num_partitions=None, 
                             testing=False, testing_dataset= None, project_id = None, online = False,
-                            precompute_pcsai=False, problem_check_show_answer_ip_table=None):
+                            problem_check_show_answer_ip_table=None):
     '''
     Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
     cameo candidate - certified | shadow candidate - uncertified
@@ -1217,21 +1217,27 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     cases, even if the user tried to figure it out without gaming first.
     '''
 
-    #Runs compute_problem_check_show_answer_ip for this course before running show_ans_before
-    if precompute_pcsai:
-        compute_problem_check_show_answer_ip(course_id, force_recompute, use_dataset_latest, 
-                                       testing=testing, testing_dataset=testing_dataset)
-
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     table = "stats_show_ans_before"
 
     if problem_check_show_answer_ip_table is None:
-        #Set to default
-        problem_check_show_answer_ip_table = dataset + '.problem_check_show_answer_ip'
-
-    if testing:
-        project_dataset = project_id + ':' + dataset
-        problem_check_show_answer_ip_table = 'mitx-research:' + testing_dataset + '.' + dataset + '_stats_problem_check_show_answer_ip'
+        if testing:
+            default_table_info = bqutil.get_bq_table_info(dataset,'stats_problem_check_show_answer_ip', project_id=project_id)
+            if default_table_info is not None:
+                problem_check_show_answer_ip_table = project_id + ':'+ dataset + '.stats_problem_check_show_answer_ip'
+            else:
+                #Default table doesn't exist, Check if testing table exists
+                testing_table_info = bqutil.get_bq_table_info(testing_dataset,
+                                     dataset + '_stats_problem_check_show_answer_ip', project_id='mitx-research')
+                if testing_table_info is None:
+                    compute_problem_check_show_answer_ip(course_id, use_dataset_latest, testing=True, 
+                                                         testing_dataset=testing_dataset, project_id=project_id)
+                problem_check_show_answer_ip_table = 'mitx-research:' + testing_dataset + '.' + dataset + '_stats_problem_check_show_answer_ip'
+        else:
+            default_table_info = bqutil.get_bq_table_info(dataset,'stats_problem_check_show_answer_ip')
+            if default_table_info is None:
+                compute_problem_check_show_answer_ip(course_id, use_dataset_latest)
+            problem_check_show_answer_ip_table = dataset + '.stats_problem_check_show_answer_ip'
 
     #-------------------- partition by nshow_ans_distinct
 
@@ -1276,12 +1282,13 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
         num_partitions = force_num_partitions
         print " --> Force the number of partitions to be %d" % force_num_partitions
     else:
+        #Twice the paritions if running in a course that hasn't completed (online == True) since we consider more pairs
         if num_persons > 60000:
-            num_partitions = int(num_persons / 3000)  # because the number of certificate earners is also likely higher
+            num_partitions = int(num_persons / (1500 if online else 3000))  # because the number of certificate earners is also likely higher
         elif num_persons > 10000:
-            num_partitions = int(num_persons / 5000)
+            num_partitions = int(num_persons / (2500 if online else 5000))
         else:
-            num_partitions = 2
+            num_partitions = 4 if online else 2
     print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
 
     def make_username_partition(nparts, pnum):
@@ -1320,7 +1327,10 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               third_quartile_dt_seconds - first_quartile_dt_seconds as dt_iqr,
               dt_std_dev,
               percentile90_dt_seconds,
-              third_quartile_dt_seconds as percentile75_dt_seconds
+              third_quartile_dt_seconds as percentile75_dt_seconds,
+              modal_ip,
+              CH_modal_ip,
+              mile_dist_between_modal_ips
               FROM
               (
                 SELECT *,
@@ -1346,11 +1356,18 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                     sa.ip, pa.ip,
                     sa.ip == pa.ip as same_ip,
                     (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
-                    USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time
+                    USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time,
+                    CH_modal_ip, modal_ip,
+                    #Haversine: Uses (latitude, longitude) to compute straight-line distance in miles
+                    7958.75 * ASIN(SQRT(POW(SIN((RADIANS(lat2) - RADIANS(lat1))/2),2) 
+                    + COS(RADIANS(lat1)) * COS(RADIANS(lat2)) 
+                    * POW(SIN((RADIANS(lon2) - RADIANS(lon1))/2),2))) AS mile_dist_between_modal_ips
                     FROM
                     (
                       #Certified = false for shadow candidate
-                      SELECT sa.username as username, module_id, sa.time as time, sa.ip as ip,  
+                      SELECT
+                        sa.username as username, module_id, sa.time as time, sa.ip as ip, 
+                        pc.ip as CH_modal_ip, pc.latitude as lat2, pc.longitude as lon2
                       FROM
                       (
                           SELECT 
@@ -1380,8 +1397,10 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                     JOIN EACH
                     (
                       #certified = true for cameo candidate
-                      SELECT pa.username as username, module_id, time, pa.ip as ip,
-                      MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time
+                      SELECT 
+                        pa.username as username, module_id, time, pa.ip as ip,
+                        MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time, 
+                        pc.ip as modal_ip, pc.latitude as lat1, pc.longitude as lon1
                       FROM
                       (
                         SELECT 
@@ -1416,16 +1435,19 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                 )
               )
               group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds, first_quartile_dt_seconds,
-                            third_quartile_dt_seconds, dt_iqr, dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds
+                            third_quartile_dt_seconds, dt_iqr, dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds,
+                            modal_ip, CH_modal_ip, mile_dist_between_modal_ips
               #having show_ans_before > 10
               having norm_pearson_corr > -1
               and avg_max_dt_seconds is not null
-          """.format(dataset=project_dataset if testing else dataset, 
+              {X_gte_5_if_online}
+          """.format(dataset=project_id + ':' + dataset if testing else dataset, 
                      course_id = course_id, 
                      partition=the_partition[i],
                      problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
                      not_certified_filter='nshow_ans_distinct >= 5' if online else 'certified = false',
-                     certified_filter= 'ncorrect >= 5' if online else "certified = true")
+                     certified_filter= 'ncorrect >= 10' if online else "certified = true",
+                     X_gte_5_if_online='and show_ans_before >= 5' if online else '')
         sql.append(item)
 
 
