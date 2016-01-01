@@ -1032,6 +1032,9 @@ nightly <course_id> ...     : Run sequence of commands for common nightly update
                               This includes logs2gs, logs2bq, person_day, enrollment_day, person_course (forced recompute),
                               and problem_check.
 
+--external command <cid>... : Run external command on data from one or more course_id's.  Also uses the --extparam settings.
+                              External commands are defined in edx2bigquery_config.
+
 --- SQL DATA RELATED COMMANDS
 
 waldofy <sql_data_dir>      : Apply HarvardX Jim Waldo conventions to SQL data as received from edX, which renames files to be
@@ -1269,6 +1272,9 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--clist", type=str, help="specify name of list of courses to iterate command over")
     parser.add_argument("--force-recompute", help="force recomputation", action="store_true")
     parser.add_argument("--dataset-latest", help="use the *_latest SQL dataset", action="store_true")
+    parser.add_argument("--skiprun", help="for external command, print, and skip running", action="store_true")
+    parser.add_argument("--external", help="run specified command as being an external command", action="store_true")
+    parser.add_argument("--extparam", type=str, help="configure parameter for external command, e.g. --extparam irt_type=2pl")
     parser.add_argument("--skip-geoip", help="skip geoip (and modal IP) processing in person_course", action="store_true")
     parser.add_argument("--skip-if-exists", help="skip processing in person_course if table already exists", action="store_true")
     parser.add_argument("--just-do-nightly", help="for person_course, just update activity stats for new logs", action="store_true")
@@ -1319,6 +1325,10 @@ check_for_duplicates        : check list of courses for duplicates
     param.table_max_size_mb = args.table_max_size_mb
     param.only_step = args.only_step
     param.table = args.table
+    param.extparam = args.extparam
+    param.skiprun = args.skiprun
+    param.verbose = args.verbose
+    param.project_id = args.output_project_id or getattr(edx2bigquery_config, "PROJECT_ID", None)
 
     # default end date for person_course
     try:
@@ -1330,6 +1340,29 @@ check_for_duplicates        : check list of courses for duplicates
         param.DEFAULT_MONGO_DB = getattr(edx2bigquery_config, "DEFAULT_MONGO_DB", None)
     except:
         param.DEFAULT_MONGO_DB = None
+
+    #-----------------------------------------------------------------------------            
+    # external command?
+
+    if args.external:
+        from run_external import run_external_script
+
+        extcmd = args.command
+        try:
+            ecinfo = edx2bigquery_config.external_commands	# dict of external commands, with settings
+        except:
+            ecinfo = {}
+        if not extcmd in ecinfo:
+            print "Unknown external command %s (must be defined in edx2bigquery_config)" % (extcmd)
+            sys.exit(0)
+
+        courses = get_course_ids(args)
+        for course_id in courses:
+            print "-"*100
+            print "Running external command %s" % extcmd
+            print "-"*100
+            run_external_script(extcmd, param, ecinfo, course_id)
+        sys.exit(0)
 
     #-----------------------------------------------------------------------------            
 
