@@ -1363,6 +1363,7 @@ check_for_duplicates        : check list of courses for duplicates
             print "-"*100
             print "[%s] Running external command %s" % (course_id, extcmd)
             print "-"*100
+            sys.stdout.flush()
             run_external_script(extcmd, param, ecinfo, course_id)
         sys.exit(0)
 
