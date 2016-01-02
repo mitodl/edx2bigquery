@@ -119,6 +119,7 @@ def run_external_script(extcmd, param, ecinfo, course_id):
         print "Working directory: %s" % rundir
         print "Logging to %s" % lfn
         print runcmd
+        sys.stdout.flush()
         if not param.skiprun:
             start = datetime.datetime.now()
             os.system(runcmd)
