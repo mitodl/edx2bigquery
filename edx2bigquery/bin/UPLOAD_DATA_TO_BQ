@@ -1,0 +1,31 @@
+#!/bin/bash
+#
+# File:   UPLOAD_DATA_TO_BQ
+# Date:   31-Dec-15
+# Author: I. Chuang <ichuang@mit.edu>
+#
+# bash script to upload csv data to bigquery, using bq
+#
+# Usage:   UPLOAD_DATA_TO_BQ project_id csvfn tablepath schema_text working_dir description
+#
+# Will execute command like:
+#
+#    bq load ds.small gs://mybucket/small.csv name:integer,value:string
+#    bq update --description "Dataset description" tablepath
+
+echo "-------------------- setting up environment"
+source ~/.edx2bigquery_init
+
+echo "-------------------- uploading"
+
+cd $5
+
+gsfn=gs://$1/tmp/$2
+gsutil cp -Z $2 $gsfn
+echo "bq load --project_id $1 --skip_leading_rows 1 $3 $gsfn $4"
+bq load --replace --project_id $1 --skip_leading_rows 1 $3 $gsfn $4
+bq update --project_id $1 --description "$5" $3
+gsutil rm $gsfn
+
+echo "uploaded $2"
+

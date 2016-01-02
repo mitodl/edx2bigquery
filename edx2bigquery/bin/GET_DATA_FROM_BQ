@@ -1,0 +1,24 @@
+#!/bin/bash
+#
+# File:   GET_DATA_FROM_BQ
+# Date:   14-Dec-15
+# Author: I. Chuang <ichuang@mit.edu>
+#
+# bash script to retrieve data csv from bigquery
+#
+# Usage:   GET_DATA_FROM_BQ project_id full_table_path working_dir
+
+echo "-------------------- setting up environment"
+source ~/.edx2bigquery_init
+
+echo "-------------------- extracting and copying"
+
+cd $3
+echo "bq extract --project $1 --compression=GZIP $2 gs://$1/tmp/$4.gz"
+# bq extract --compression=GZIP $1:$2 gs://$1/tmp/$4.gz
+bq extract --project $1 --compression=GZIP $2 gs://$1/tmp/$4.gz
+
+gsutil cp gs://$1/tmp/$4.gz .
+gunzip $4.gz
+gsutil rm gs://$1/tmp/$4.gz
+echo "extracted $4.gz"

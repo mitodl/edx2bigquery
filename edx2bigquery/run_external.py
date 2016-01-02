@@ -30,7 +30,7 @@ def run_external_script(extcmd, param, ecinfo, course_id):
     cidns = course_id.replace('/', '__')
     cidns_nodots = course_id.replace('/', '__').replace('.', '_').replace('-', '_')
 
-    mypath = path(os.path.realpath(__file__)).dirname().dirname()
+    mypath = path(os.path.realpath(__file__)).dirname()
     edx2bigquery_context = {'lib': mypath / "lib",
                             'bin': mypath / "bin",
                         }
