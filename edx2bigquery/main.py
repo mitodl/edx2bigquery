@@ -1349,9 +1349,11 @@ check_for_duplicates        : check list of courses for duplicates
 
         extcmd = args.command
         try:
-            ecinfo = edx2bigquery_config.external_commands	# dict of external commands, with settings
+            eec = edx2bigquery_config.extra_external_commands	# dict of external commands, with settings
         except:
-            ecinfo = {}
+            eec = {}
+        from config_external import external_commands as ecinfo
+        ecinfo.update(eec)
         if not extcmd in ecinfo:
             print "Unknown external command %s (must be defined in edx2bigquery_config)" % (extcmd)
             sys.exit(0)

@@ -12,13 +12,13 @@ data_files = [
 
 setup(
     name='edx2bigquery',
-    version='1.2.2',
+    version='1.3.0',
     author='I. Chuang',
     author_email='ichuang@mit.edu',
     packages=['edx2bigquery', 'edx2bigquery.test'],
     scripts=[],
-    url='http://pypi.python.org/pypi/latex2edx/',
-    license='LICENSE.txt',
+    url='https://github.com/mitodl/edx2bigquery',
+    license='LICENSE',
     description='Import research data from edX dumps into google BigQuery',
     long_description=open('README.md').read(),
     include_package_data=True,
@@ -40,6 +40,7 @@ setup(
     dependency_links = [
         ],
     package_dir={'edx2bigquery': 'edx2bigquery'},
+    package_data={'edx2bigquery': ['lib/*', 'bin/*'] },
     # package_data={ 'edx2bigquery': ['python_lib/*.py'] },
     # data_files = data_files,
     test_suite = "edx2bigquery.test",
