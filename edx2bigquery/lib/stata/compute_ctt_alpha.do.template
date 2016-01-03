@@ -49,42 +49,6 @@ local stitle = "[`course_id']"
 
 run {lib_dir}/stata/edx2bq_util.do
 
-****************************************
-* table of items: one per problem
-
-local ulfn = "DATA/DATA-`cidns'-item-listings-unique.dta"
-di "ulfn = `ulfn'"
-capture confirm file "`ulfn'"
-if ((_rc > 0) | 0 | $force_recompute) {{
-
-	get_bq_data_csv "`table_prefix'.course_item"  "`table_prefix'__course_item.csv"  "DATA/DATA-`cidns'__course_item.dta"
-	* get_dataset_gzip_ok DATA/DATA-`cidns'__course_item.dta
-	
-	drop if !(item_number==1)
-	drop item_id
-	drop item_weight item_number
-	drop item_short
-	drop item*
-	rename problem_id problem_url
-	* gen plabel = "[" + string(problem_nid) + "] " + problem_url + " " + chapter_name + "/" + section_name + "/" + problem_name
-
-	capture gen plabel = "[" + string(problem_nid) + "] " + problem_short_id + " " + chapter_name + "/" + section_name + "/" + problem_name
-
-	if (_rc > 0){{
-		* some courses don't use chapter and section names
-		gen plabel = "[" + string(problem_nid) + "] " + problem_short_id + "/" + problem_name
-	}}
-	
-	save DATA/DATA-`cidns'-item-listings.dta, replace
-
-	* make version with problem_url guaranteed unique
-	collapse (min) problem_nid (firstnm) plabel, by(problem_url)
-	save "`ulfn'", replace
-}}
-else{{
-	use "`ulfn'", replace
-}}
-
 *****************************************************************************
 * get person responses to items (item matrix, wide)
 
@@ -92,39 +56,7 @@ local pitemfn = "DATA/DATA-`cidns'__person_problem_wide.dta"
 di "pitemfn = `pitemfn'"
 capture confirm file "`pitemfn'"
 if ((_rc > 0) | 0 | $force_recompute) {{
-
-	* start with long table, direct from bigquery
-	get_bq_data_csv "`table_prefix'.person_problem"  "`table_prefix'__person_problem.csv"  "DATA/DATA-`cidns'__person_problem.dta"
-
-	* drop raw_score column
-	drop problem_ra~e  
-	
-	* rename pct_score to be "item" 
-	rename problem_pc~e pct_score 
-
-	* now the columns are user_id, problem_nid, pct_score
-	* make wide version
-	rename pct_score y
-	keep user_id problem_nid y
-	reshape wide y, i(user_id) j(problem_nid)
-
-	summarize
-
-	* add labels to variables
-	foreach x of varlist y* {{
-		local inum = substr("`x'", 2, length("`x'"))
-		preserve
-		use "`ulfn'", replace
-		local xlabel = subinstr(plabel[`inum'], char(34), "", 100)
-		* di `"`xlabel'"'
-		* local xlabel = plabel[`inum']
-		restore
-		quietly label var `x' `"`xlabel'"'
-	}}
-
-	fsum, label
-
-	save "`pitemfn'", replace
+	do $lib_dir/stata/make_person_problem_wide.do `cidns' `table_prefix' `pitemfn'
 }}
 
 *****************************************************************************
