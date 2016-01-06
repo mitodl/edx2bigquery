@@ -5,6 +5,7 @@
 
 import os
 import sys
+
 import argparse
 import json
 import traceback
@@ -1033,7 +1034,8 @@ nightly <course_id> ...     : Run sequence of commands for common nightly update
                               and problem_check.
 
 --external command <cid>... : Run external command on data from one or more course_id's.  Also uses the --extparam settings.
-                              External commands are defined in edx2bigquery_config.
+                              External commands are defined in edx2bigquery_config.  Use --skiprun to create the external script
+                              without running.
 
 --- SQL DATA RELATED COMMANDS
 

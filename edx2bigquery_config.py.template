@@ -1,0 +1,41 @@
+#-----------------------------------------------------------------------------
+#
+# sample edx2bigquery_config.py file
+#
+course_id_list = [
+        "MITx/2.03x/3T2013",
+]
+
+courses = {
+    'year2': course_id_list,
+    'all_harvardx': [
+        "HarvardX/AI12.1x/2013_SOND",
+    ],
+}
+
+# google cloud project access
+auth_key_file = "USE_GCLOUD_AUTH"
+auth_service_acct = None
+
+# google youtube API
+API_KEY = "my_api_key"
+
+# google bigquery config
+PROJECT_ID = "x-data"
+
+# google cloud storage
+GS_BUCKET = "gs://x-data"
+
+# local file configuration
+COURSE_SQL_BASE_DIR = "X-Year-1-data-sql"
+COURSE_SQL_DATE_DIR = '2013-09-08'
+TRACKING_LOGS_DIRECTORY = "TRACKING_LOGS"
+DEFAULT_END_DATE = "2115-01-01"
+
+# local parallel processing
+MAXIMUM_PARALLEL_PROCESSES = 3
+
+# external command definitions
+extra_external_commands = {}
+
+#-----------------------------------------------------------------------------

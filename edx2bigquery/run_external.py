@@ -9,6 +9,7 @@ import datetime
 import bqutil
 import json
 
+from jinja2 import Template
 from path import path
 
 def run_external_script(extcmd, param, ecinfo, course_id):
@@ -75,7 +76,8 @@ def run_external_script(extcmd, param, ecinfo, course_id):
     tem = codecs.open(the_template).read()
     tem = unicode(tem)
     try:
-        script_file = tem.format(**context)
+        # script_file = tem.format(**context)
+        script_file = Template(tem).render(**context)
     except Exception as err:
         print "Oops, cannot properly format template %s" % the_template
         print "Error %s" % str(err)

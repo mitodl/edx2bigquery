@@ -36,6 +36,8 @@ setup(
                       'lxml',
                       'BeautifulSoup',
                       'unicodecsv',
+                      'Jinja2',
+                      'google-api-python-client',
                       ],
     dependency_links = [
         ],
