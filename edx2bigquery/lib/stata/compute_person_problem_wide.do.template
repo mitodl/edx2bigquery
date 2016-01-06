@@ -1,0 +1,74 @@
+*
+* File:   {script_name}
+* Date:   {the_date}
+*
+* Compute Person-Problem wide table for all users and course (problem) items;
+* upload back to bigquery.
+*
+* This version: {course_id}
+*
+* TEMPLATE: {template_file}
+
+clear all
+capture log close _all
+pause off
+set more off
+set linesize 200
+set matsize 2048
+
+*****************************************************************************
+* directory and course_id
+
+cd {working_dir}
+
+log using "{log_file}", replace name(mainlog)
+
+*****************************************************************************
+* global macros
+
+global working_dir = "{working_dir}"
+global bin_dir = "{bin_dir}"
+global lib_dir = "{lib_dir}"
+global project_id = "{project_id}"
+global force_recompute = {force_recompute}
+
+*****************************************************************************
+* local macros
+
+local course_id = "{course_id}"
+local output_table = "{output_table}"
+
+local cidns = "{cidns}"			// subinstr("`course_id'", "/", "__", 2)
+local table_prefix =  "{table_prefix}"
+local gsdir = "gs://`project_id'/`cidns'/DIST"
+
+local stitle = "[`course_id']"
+
+*****************************************************************************
+* utility stata programs
+
+run {lib_dir}/stata/edx2bq_util.do
+
+*****************************************************************************
+* get person responses to items (item matrix, wide)
+
+local pitemfn = "DATA/DATA-`cidns'__person_problem_wide.dta"
+di "pitemfn = `pitemfn'"
+capture confirm file "`pitemfn'"
+if ((_rc > 0) | 0 | $force_recompute) {{
+	do $lib_dir/stata/make_person_problem_wide.do `cidns' `table_prefix' `pitemfn'
+}}
+	use "`pitemfn'", replace
+
+*****************************************************************************
+* upload dataset back to bigquery
+
+	local ofn = "DATA/DATA-`cidns'__person_problem_wide.csv"
+	format user_id %12.0g
+	outsheet * using "`ofn'", comma replace
+	upload_data_to_bq "`table_prefix'.`output_table'" `ofn' 0 "{script_name} for {course_id} computed {the_date}"
+
+*****************************************************************************
+* all done
+
+exit, clear
