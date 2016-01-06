@@ -1376,24 +1376,25 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                         (
                           #Certified = false for shadow candidate
                           SELECT
-                            sa.username as username, module_id, sa.time as time, sa.ip as ip, 
+                            sa.a.username as username, a.module_id as module_id, sa.time as time, sa.ip as ip, 
                             pc.ip as CH_modal_ip, pc.latitude as lat2, pc.longitude as lon2,
-                            count(distinct module_id) over (partition by pc.username) as nshow_ans_distinct
+                            nshow_ans_distinct
                           FROM
                           (
                             SELECT 
                               a.time as time,
-                              a.username as username,
+                              a.username,
                               a.course_id as course_id,
-                              a.module_id as module_id,
-                              ip
+                              a.module_id,
+                              ip,
+                              count(distinct a.module_id) over (partition by a.username) as nshow_ans_distinct
                             FROM [{dataset}.show_answer] a
                             JOIN EACH [{problem_check_show_answer_ip_table}] b
                             ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
                             WHERE b.event_type = 'show_answer'
                           ) sa
                           JOIN EACH [{dataset}.person_course] pc
-                          ON sa.username = pc.username
+                          ON sa.a.username = pc.username
                           where {not_certified_filter}
                           and {partition}
                         )sa
