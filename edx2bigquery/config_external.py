@@ -42,4 +42,17 @@ external_commands = {
         'output_table': 'person_problem_wide',
         'depends_on': ['course_item', 'person_problem'],
     },
+    'irt_grm': {
+        'name': "Item reponse theory using graded response model",
+        'description': "Compute item difficulty and discimination parameters, and person abilities, using IRT GRM; upload item and ability data back to BQ",
+        'type': "stata",
+        'template': "{lib}/stata/compute_irt_grm.do.template",
+        'filename_prefix': "compute_irt_grm",
+        'script_cmd': stata,
+        'script_fn': "{filename_prefix}-{cidns}.do",
+        'run_dir': "{working_dir}",
+        'logs_dir': "LOGS",
+        'output_table': 'item_irt_grm',
+        'depends_on': ['course_item', 'person_problem'],
+    },
 }

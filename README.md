@@ -46,7 +46,6 @@ Also, setup the file edx2bigquery_config.py in your current working directory.  
     COURSE_SQL_BASE_DIR = "X-Year-1-data-sql"
     COURSE_SQL_DATE_DIR = '2013-09-08'
     TRACKING_LOGS_DIRECTORY = "TRACKING_LOGS"
-    ORG = 'X-university'
     
     #-----------------------------------------------------------------------------
 

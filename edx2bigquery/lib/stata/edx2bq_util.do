@@ -16,7 +16,8 @@ set obs 1
 gen test = 1
 capture fsum
 if (_rc > 0){
-	net install fsum.pkg
+	* net install fsum.pkg
+	ssc install fsum
 }
 restore
 
