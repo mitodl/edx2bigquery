@@ -43,6 +43,7 @@ else{
 	* now the columns are user_id, problem_nid, pct_score
 	* make wide version
 	rename pct_score y
+	sort problem_nid		// make sure it's sorted by problem numerical ID
 	keep user_id problem_nid y
 	reshape wide y, i(user_id) j(problem_nid)
 
@@ -50,10 +51,15 @@ else{
 
 	* add labels to variables
 	foreach x of varlist y* {
-		local inum = substr("`x'", 2, length("`x'"))
+		local inum = substr("`x'", 2, length("`x'"))	// get item number from yXXX
 		preserve
 		use "`ulfn'", replace
-		local xlabel = subinstr(plabel[`inum'], char(34), "", 100)
+		* local xlabel = subinstr(plabel[`inum'], char(34), "", 100)
+
+		gen long obsn = _n
+		summ obsn if problem_nid==`inum', meanonly	// match item number with problem_nid, get obs index
+		local xlabel = subinstr(plabel[r(min)], char(34), "", 100)	// get problem label for problem_nid
+
 		* di `"`xlabel'"'
 		* local xlabel = plabel[`inum']
 		restore

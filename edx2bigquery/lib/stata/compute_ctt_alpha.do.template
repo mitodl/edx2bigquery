@@ -36,7 +36,6 @@ global force_recompute = {force_recompute}
 
 local course_id = "{course_id}"
 local output_table = "{output_table}"
-local is_harvard = regexm("`course_id'", "HarvardX/.*")
 
 local cidns = "{cidns}"			// subinstr("`course_id'", "/", "__", 2)
 local table_prefix =  "{table_prefix}"

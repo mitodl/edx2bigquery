@@ -37,6 +37,7 @@ SELECT
           end),
       "[^/]+/problem/([^/]+)") as problem_url,
     (CASE when event_type contains "/xblock/i4x:;_" then REGEXP_EXTRACT(event_type, r"xmodule_handler/(.[^/]+)")
+          when event_type contains "type@problem+block" then REGEXP_EXTRACT(event_type, r"xmodule_handler/(.[^/]+)")
           else event_type
           end) as event_type,
    event_struct.attempts as attempts,

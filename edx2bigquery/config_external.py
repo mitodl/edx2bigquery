@@ -28,5 +28,18 @@ external_commands = {
         'logs_dir': "LOGS",
         'output_table': 'item_reliabilities',
         'depends_on': ['course_item', 'person_problem'],
-    }
+    },
+    'ppwide': {
+        'name': "Person-Problem wide table",
+        'description': "Compute wide person-problem table and upload back to BQ",
+        'type': "stata",
+        'template': "{lib}/stata/compute_person_problem_wide.do.template",
+        'filename_prefix': "compute_ppwide",
+        'script_cmd': stata,
+        'script_fn': "{filename_prefix}-{cidns}.do",
+        'run_dir': "{working_dir}",
+        'logs_dir': "LOGS",
+        'output_table': 'person_problem_wide',
+        'depends_on': ['course_item', 'person_problem'],
+    },
 }

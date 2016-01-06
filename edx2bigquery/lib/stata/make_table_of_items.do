@@ -36,5 +36,6 @@ if(1) {
 
 	* make version with problem_url guaranteed unique
 	collapse (min) problem_nid (firstnm) plabel, by(problem_url)
+	sort problem_nid
 	save "`ulfn'", replace
 }
