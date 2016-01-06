@@ -1313,7 +1313,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               "{course_id}" as course_id,
               cameo_candidate,
               shadow_candidate,
-              round(median_max_dt_seconds, 3) as median_max_dt_seconds,
+              median_max_dt_seconds,
               sum(sa_before_pa) / count(*) * 100 as percent_show_ans_before,
               sum(sa_before_pa) as show_ans_before,
               sum(same_ip) as nsame_ip,
@@ -1321,9 +1321,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               sum(case when sa_before_pa and same_ip then 1 else 0 end) / sum(sa_before_pa) * 100 as percent_same_ip_given_sab,
               sum(same_ip) / count(*) * 100 as percent_same_ip,
               count(*) as prob_in_common,
-              round(avg(max_dt), 3) as avg_max_dt_seconds,
-              round(corr(sa.time - min_first_check_time, pa.time - min_first_check_time), 8) as norm_pearson_corr,
-              round(corr(sa.time, pa.time), 8) as unnormalized_pearson_corr,
+              avg(dt) as avg_max_dt_seconds,
+              corr(sa.time - min_first_check_time, ca.time - min_first_check_time)as norm_pearson_corr,
+              corr(sa.time, ca.time) as unnormalized_pearson_corr,
               third_quartile_dt_seconds - first_quartile_dt_seconds as dt_iqr,
               dt_std_dev,
               percentile90_dt_seconds,
@@ -1338,24 +1338,24 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                   MAX(first_quartile_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS first_quartile_dt_seconds,
                   MAX(third_quartile_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS third_quartile_dt_seconds,
                   MAX(percentile90_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS percentile90_dt_seconds,
-                  STDDEV(max_dt) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_std_dev
+                  STDDEV(dt) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_std_dev
                 FROM
                 (
                   SELECT *,
-                  (CASE WHEN max_dt IS NOT NULL THEN true END) AS has_max_dt,
-                  PERCENTILE_CONT(.50) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS median_with_null_rows,
-                  PERCENTILE_CONT(.25) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS first_quartile_with_null_rows,
-                  PERCENTILE_CONT(.75) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS third_quartile_with_null_rows,
-                  PERCENTILE_CONT(.90) OVER (PARTITION BY has_max_dt,shadow_candidate, cameo_candidate ORDER BY max_dt) AS percentile90_with_null_rows
+                  (CASE WHEN dt IS NOT NULL THEN true END) AS has_dt,
+                  PERCENTILE_CONT(.50) OVER (PARTITION BY has_dt,shadow_candidate, cameo_candidate ORDER BY dt) AS median_with_null_rows,
+                  PERCENTILE_CONT(.25) OVER (PARTITION BY has_dt,shadow_candidate, cameo_candidate ORDER BY dt) AS first_quartile_with_null_rows,
+                  PERCENTILE_CONT(.75) OVER (PARTITION BY has_dt,shadow_candidate, cameo_candidate ORDER BY dt) AS third_quartile_with_null_rows,
+                  PERCENTILE_CONT(.90) OVER (PARTITION BY has_dt,shadow_candidate, cameo_candidate ORDER BY dt) AS percentile90_with_null_rows
                   FROM
                   ( 
                     select sa.username as shadow_candidate,
-                    pa.username as cameo_candidate,
-                    sa.time, pa.time, 
-                    sa.time < pa.time as sa_before_pa,
-                    sa.ip, pa.ip,
-                    sa.ip == pa.ip as same_ip,
-                    (case when sa.time < pa.time then (pa.time - sa.time) / 1e6 end) as max_dt,
+                    ca.username as cameo_candidate,
+                    sa.time, ca.time, 
+                    sa.time < ca.time as sa_before_pa,
+                    sa.ip, ca.ip,
+                    sa.ip == ca.ip as same_ip,
+                    (case when sa.time < ca.time then (ca.time - sa.time) / 1e6 end) as dt,
                     USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time,
                     CH_modal_ip, modal_ip,
                     #Haversine: Uses (latitude, longitude) to compute straight-line distance in miles
@@ -1364,16 +1364,22 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                     * POW(SIN((RADIANS(lon2) - RADIANS(lon1))/2),2))) AS mile_dist_between_modal_ips
                     FROM
                     (
-                      #Certified = false for shadow candidate
                       SELECT
-                        sa.username as username, module_id, sa.time as time, sa.ip as ip, 
-                        pc.ip as CH_modal_ip, pc.latitude as lat2, pc.longitude as lon2
+                        *
                       FROM
                       (
-                          SELECT 
-                          username, module_id, MIN(time) as time, FIRST(ip) AS ip, #MIN == FIRST because ordered by time
-                          count(distinct module_id) over (partition by username) as nshow_ans_distinct
-                          FROM 
+                        SELECT
+                          *,
+                          MIN(sa.time) OVER (PARTITION BY sa.username, ca.username, sa.module_id) AS min_sa_time,
+                          MAX(CASE WHEN sa.time < ca.time THEN sa.time ELSE NULL END) OVER (PARTITION BY sa.username, ca.username, sa.module_id) AS nearest_sa_before
+                        FROM
+                        (
+                          #Certified = false for shadow candidate
+                          SELECT
+                            sa.username as username, module_id, sa.time as time, sa.ip as ip, 
+                            pc.ip as CH_modal_ip, pc.latitude as lat2, pc.longitude as lon2,
+                            count(distinct module_id) over (partition by pc.username) as nshow_ans_distinct
+                          FROM
                           (
                             SELECT 
                               a.time as time,
@@ -1385,52 +1391,53 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                             JOIN EACH [{problem_check_show_answer_ip_table}] b
                             ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
                             WHERE b.event_type = 'show_answer'
-                          )
-                          group each by username, module_id
-                          order by time ASC
-                      ) sa
-                      JOIN EACH [{dataset}.person_course] pc
-                      ON sa.username = pc.username
-                      where {not_certified_filter}
-                      and {partition}
-                    )sa
-                    JOIN EACH
-                    (
-                      #certified = true for cameo candidate
-                      SELECT 
-                        pa.username as username, module_id, time, pa.ip as ip,
-                        MIN(TIMESTAMP_TO_USEC(first_check)) over (partition by module_id) as min_first_check_time, 
-                        pc.ip as modal_ip, pc.latitude as lat1, pc.longitude as lon1
-                      FROM
-                      (
-                        SELECT 
-                        username, module_id, MAX(time) as time, MIN(time) as first_check, 
-                        LAST(ip) AS ip, #MAX == LAST because ordered by time
-                        COUNT(time) OVER (PARTITION BY username) as ncorrect
-                        FROM 
+                          ) sa
+                          JOIN EACH [{dataset}.person_course] pc
+                          ON sa.username = pc.username
+                          where {not_certified_filter}
+                          and {partition}
+                        )sa
+                        JOIN EACH
                         (
+                          #certified = true for cameo candidate
                           SELECT 
-                            a.time as time,
-                            a.username as username,
-                            a.course_id as course_id,
-                            a.module_id as module_id,
-                            a.success as success,
-                            ip
-                          FROM [{dataset}.problem_check] a
-                          JOIN EACH [{problem_check_show_answer_ip_table}] b
-                          ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
-                          WHERE b.event_type = 'problem_check'
-                        ) 
-                        where success = 'correct'
-                        group each by username, module_id
-                        ORDER BY time ASC
-                      ) pa
-                      JOIN EACH [{dataset}.person_course] pc
-                      on pa.username = pc.username
-                      where {certified_filter}
-                    ) pa
-                    on sa.module_id = pa.module_id
-                    WHERE sa.username != pa.username
+                            ca.username as username, module_id, time, ca.ip as ip,
+                            MIN(TIMESTAMP_TO_USEC(time)) over (partition by module_id) as min_first_check_time, 
+                            pc.ip as modal_ip, pc.latitude as lat1, pc.longitude as lon1
+                          FROM
+                          (
+                            SELECT 
+                            username, module_id, MIN(time) as time,  #MIN == FIRST because ordered by time
+                            FIRST(ip) AS ip, 
+                            COUNT(time) OVER (PARTITION BY username) as ncorrect
+                            FROM 
+                            (
+                              SELECT 
+                                a.time as time,
+                                a.username as username,
+                                a.course_id as course_id,
+                                a.module_id as module_id,
+                                a.success as success,
+                                ip
+                              FROM [{dataset}.problem_check] a
+                              JOIN EACH [{problem_check_show_answer_ip_table}] b
+                              ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
+                              WHERE b.event_type = 'problem_check'
+                            ) 
+                            where success = 'correct'
+                            group each by username, module_id
+                            ORDER BY time ASC
+                          ) ca
+                          JOIN EACH [{dataset}.person_course] pc
+                          on ca.username = pc.username
+                          where {certified_filter}
+                        ) ca
+                        on sa.module_id = ca.module_id
+                        WHERE sa.username != ca.username
+                      )
+                      WHERE (nearest_sa_before IS NULL AND sa.time = min_sa_time) #if no positive dt, use min show answer time resulting in least negative dt 
+                      OR (nearest_sa_before = sa.time) #otherwise use show answer time resulting in smallest positive dt 
+                    )
                   )
                 )
               )
