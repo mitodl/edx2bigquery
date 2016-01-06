@@ -1403,30 +1403,32 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                           #certified = true for cameo candidate
                           SELECT 
                             ca.username as username, module_id, time, ca.ip as ip,
-                            MIN(TIMESTAMP_TO_USEC(time)) over (partition by module_id) as min_first_check_time, 
-                            pc.ip as modal_ip, pc.latitude as lat1, pc.longitude as lon1
+                            pc.ip as modal_ip, pc.latitude as lat1, pc.longitude as lon1,
+                            min_first_check_time
                           FROM
                           (
                             SELECT 
-                            username, module_id, MIN(time) as time,  #MIN == FIRST because ordered by time
-                            FIRST(ip) AS ip, 
+                            username, a.module_id as module_id,
+                            MIN(a.time) as time,  #MIN == FIRST because ordered by time
+                            FIRST(ip) AS ip, min_first_check_time,
                             COUNT(time) OVER (PARTITION BY username) as ncorrect
                             FROM 
                             (
                               SELECT 
-                                a.time as time,
+                                a.time,
                                 a.username as username,
                                 a.course_id as course_id,
-                                a.module_id as module_id,
+                                a.module_id,
                                 a.success as success,
-                                ip
+                                ip,
+                                MIN(TIMESTAMP_TO_USEC(a.time)) over (partition by a.module_id) as min_first_check_time
                               FROM [{dataset}.problem_check] a
                               JOIN EACH [{problem_check_show_answer_ip_table}] b
                               ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
                               WHERE b.event_type = 'problem_check'
                             ) 
                             where success = 'correct'
-                            group each by username, module_id
+                            group each by username, module_id, min_first_check_time
                             ORDER BY time ASC
                           ) ca
                           JOIN EACH [{dataset}.person_course] pc
