@@ -1316,6 +1316,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               median_max_dt_seconds,
               sum(sa_before_pa) / count(*) * 100 as percent_show_ans_before,
               sum(sa_before_pa) as show_ans_before,
+              ncorrect,
+              sum(sa_before_pa) / ncorrect * 100 as percent_correct_using_show_answer,
               sum(same_ip) as nsame_ip,
               sum(case when sa_before_pa and same_ip then 1 else 0 end) as nsame_ip_given_sab,
               sum(case when sa_before_pa and same_ip then 1 else 0 end) / sum(sa_before_pa) * 100 as percent_same_ip_given_sab,
@@ -1353,7 +1355,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                     ca.username as cameo_candidate,
                     sa.time, ca.time, 
                     sa.time < ca.time as sa_before_pa,
-                    sa.ip, ca.ip,
+                    sa.ip, ca.ip, ncorrect,
                     sa.ip == ca.ip as same_ip,
                     (case when sa.time < ca.time then (ca.time - sa.time) / 1e6 end) as dt,
                     USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time,
@@ -1395,8 +1397,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                           ) sa
                           JOIN EACH [{dataset}.person_course] pc
                           ON sa.a.username = pc.username
-                          where {not_certified_filter}
-                          and {partition}
+                          WHERE {not_certified_filter}
+                          AND {partition}
                         )sa
                         JOIN EACH
                         (
@@ -1404,7 +1406,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                           SELECT 
                             ca.username as username, module_id, time, ca.ip as ip,
                             pc.ip as modal_ip, pc.latitude as lat1, pc.longitude as lon1,
-                            min_first_check_time
+                            min_first_check_time, ncorrect
                           FROM
                           (
                             SELECT 
@@ -1426,9 +1428,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                               JOIN EACH [{problem_check_show_answer_ip_table}] b
                               ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
                               WHERE b.event_type = 'problem_check'
+                              AND success = 'correct'
                             ) 
-                            where success = 'correct'
-                            group each by username, module_id, min_first_check_time
+                            GROUP EACH BY username, module_id, min_first_check_time
                             ORDER BY time ASC
                           ) ca
                           JOIN EACH [{dataset}.person_course] pc
@@ -1446,7 +1448,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               )
               group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds, first_quartile_dt_seconds,
                             third_quartile_dt_seconds, dt_iqr, dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds,
-                            modal_ip, CH_modal_ip, mile_dist_between_modal_ips
+                            modal_ip, CH_modal_ip, mile_dist_between_modal_ips, ncorrect
               #having show_ans_before > 10
               having unnormalized_pearson_corr > -1
               and avg_max_dt_seconds is not null
