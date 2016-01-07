@@ -1448,7 +1448,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                             third_quartile_dt_seconds, dt_iqr, dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds,
                             modal_ip, CH_modal_ip, mile_dist_between_modal_ips
               #having show_ans_before > 10
-              having norm_pearson_corr > -1
+              having unnormalized_pearson_corr > -1
               and avg_max_dt_seconds is not null
               {X_gte_5_if_online}
           """.format(dataset=project_id + ':' + dataset if testing else dataset, 
