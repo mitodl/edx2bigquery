@@ -255,7 +255,7 @@ program define run_irt_grm, rclass
 	egen sumscore = rowtotal(y*)
 	summ sumscore
 	local cutoff = r(max) * `minscore_frac'
-	di "dropping sumscore less than `cutoff' (minscore_frac = `minscore_frac')"
+	di "dropping sumscore less than or equal to `cutoff' (minscore_frac = `minscore_frac')"
 	drop if sumscore <= `cutoff'
 	   
 	* drop any score items which do not vary
