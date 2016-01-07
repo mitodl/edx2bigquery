@@ -408,11 +408,13 @@ if ((_rc > 0) | 0 | $force_recompute) {
 	* output person theta estimates
 	use "`thetafn'", replace
 	local csvfn = "DATA/DATA-`cidns'__person-theta.csv"
+	format user_id %12.0g		// ensure it outputs out with full precision, no 1e+06 stuff
 	outsheet * using "`csvfn'", comma replace
 	upload_data_to_bq "`table_prefix'.person_irtgrm_theta" `csvfn' 0 "{{script_name}} for {{course_id}} computed {{the_date}}"
 
 	* output person (theta & grade) estimates
 	use "`theta_grade_fn'", replace
+	format user_id %12.0g		// ensure it outputs out with full precision, no 1e+06 stuff
 	local csvfn = "DATA/DATA-`cidns'__person-theta-grade.csv"
 	outsheet * using "`csvfn'", comma replace
 	upload_data_to_bq "`table_prefix'.person_irtgrm_theta_grade" `csvfn' 0 "{{script_name}} for {{course_id}} computed {{the_date}}"

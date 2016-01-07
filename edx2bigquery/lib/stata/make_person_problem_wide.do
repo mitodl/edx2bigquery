@@ -46,6 +46,7 @@ else{
 	sort problem_nid		// make sure it's sorted by problem numerical ID
 	keep user_id problem_nid y
 	reshape wide y, i(user_id) j(problem_nid)
+	format user_id %12.0g		// ensure it outputs out with full precision, no 1e+06 stuff
 
 	summarize
 
