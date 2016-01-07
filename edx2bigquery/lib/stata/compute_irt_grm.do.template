@@ -247,10 +247,15 @@ if ((_rc > 0) | 0 | $force_recompute) {
 
 capture program drop run_irt_grm
 program define run_irt_grm, rclass
-	args minscore_frac
+	args minscore_frac items_to_drop
 
-	* start from irt grm estimation results
+	* drop items
+	foreach vname in `items_to_drop' {
+		di "dropping `vname'"
+		drop `vname'
+	}
 
+	* clean up observations
 	capture drop sumscore
 	egen sumscore = rowtotal(y*)
 	summ sumscore
@@ -271,14 +276,24 @@ program define run_irt_grm, rclass
 	fsum, label
 
 	local stage = "Before IRT"
-	irt grm y*       // graded response model!
+	capture noisily irt grm y*       // graded response model!
+	if (_rc > 0){
+		di "IRT failed!"
+		return local stage = "`stage'"
+		exit 90
+	}
 
 	estimates save DATA/DATA-`cidns'-item-irt-grm.ster, replace
 	estat report, sort(b) byparm
 
 	* estimate theta
 	local stage = "Before Predict"
-	predict theta, latent se(thetase)
+	capture noisily predict theta, latent se(thetase)
+	if (_rc > 0){
+		di "Predict failed!"
+		return local stage = "`stage'"
+		exit 91
+	}
 
 	return local stage = "`stage'"
 end
@@ -297,7 +312,7 @@ if ((_rc > 0) | 0 | $force_recompute) {
 	use "`pitemfn'", replace
 
 	capture noisily {
-		run_irt_grm 0	// run IRT, dropping sumscore=0
+		run_irt_grm 0 ""	// run IRT, dropping sumscore=0
 	}
 	if (_rc > 0){
 		* IRT or predict failed; try dropping observations
@@ -308,7 +323,25 @@ if ((_rc > 0) | 0 | $force_recompute) {
 		di "Retrying dropping low sumscore users"
 		di "----------------------------------------"
 
-		capture noisily run_irt_grm 0.15	// run IRT, dropping sumscore < 0.15 * max(sumscore)
+		local items_to_drop = ""
+		if (_rc==91){	// IRT succeeded but Predict failed
+			di "Note: IRT succeeded but Predict failed; dropping items with high error in parameter estimates"
+			local depvars = e(depvar)
+			local n_vars : word count `depvars'
+			// estat report, post						// post processed IRT estimates, temporarily
+			forval i=1/`n_vars' {
+				local vname `: word `i' of `depvars''
+				local irt_disc =  _b[`vname':Theta] 
+				local irt_disc_se = _se[`vname':Theta] 
+				local frac_se = abs(`irt_disc_se' / `irt_disc')
+				if (`frac_se' > 0.5){
+					di "Dropping `vname': discrimination frac_se=`frac_se'"
+					local items_to_drop = "`items_to_drop' `vname'"		// error too high; add to list of items to drop
+				}
+			}
+		}
+
+		capture noisily run_irt_grm 0.15 "`items_to_drop'"	// run IRT, dropping sumscore < 0.15 * max(sumscore)
 		if (_rc > 0){
 			di "*****************************************************************************"
 			di "ERROR in IRT computation - aborting!!!"
