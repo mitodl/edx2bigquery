@@ -236,21 +236,27 @@ if ((_rc > 0) | 0 | $force_recompute) {
 	do $lib_dir/stata/make_person_problem_wide.do `cidns' `table_prefix' `pitemfn'
 }
 
-*****************************************************************************
-* compute IRT GRM
+****************************************
+* program for doing IRT GRM analysis on dataset
+*
+* Usage: 
+*
+*     run_irt_grm <minscore_fraction>
+*
+* drops observations with sumscore less than minscore_fraction * max(sumscore)
 
-local thetafn = "DATA/DATA-`cidns'-person_theta.dta"		// person-theta
-local theta_grade_fn = "DATA/DATA-`cidns'-person_theta.dta"	// person-(theta and grade)
+capture program drop run_irt_grm
+program define run_irt_grm, rclass
+	args minscore_frac
 
-local ofn = "DATA/DATA-`cidns'-item-irt-grm.dta"
-di "ofn = `ofn'"
-capture confirm file "`ofn'"
-if ((_rc > 0) | 0 | $force_recompute) {
+	* start from irt grm estimation results
 
-	use "`pitemfn'", replace
-
+	capture drop sumscore
 	egen sumscore = rowtotal(y*)
-	drop if sumscore==0
+	summ sumscore
+	local cutoff = r(max) * `minscore_frac'
+	di "dropping sumscore less than `cutoff' (minscore_frac = `minscore_frac')"
+	drop if sumscore <= `cutoff'
 	   
 	* drop any score items which do not vary
 	capture ds y*
@@ -264,12 +270,52 @@ if ((_rc > 0) | 0 | $force_recompute) {
 
 	fsum, label
 
+	local stage = "Before IRT"
 	irt grm y*       // graded response model!
 
 	estimates save DATA/DATA-`cidns'-item-irt-grm.ster, replace
 	estat report, sort(b) byparm
+
 	* estimate theta
+	local stage = "Before Predict"
 	predict theta, latent se(thetase)
+
+	return local stage = "`stage'"
+end
+
+*****************************************************************************
+* compute IRT GRM
+
+local thetafn = "DATA/DATA-`cidns'-person_theta.dta"		// person-theta
+local theta_grade_fn = "DATA/DATA-`cidns'-person_theta.dta"	// person-(theta and grade)
+
+local ofn = "DATA/DATA-`cidns'-item-irt-grm.dta"
+di "ofn = `ofn'"
+capture confirm file "`ofn'"
+if ((_rc > 0) | 0 | $force_recompute) {
+
+	use "`pitemfn'", replace
+
+	capture noisily {
+		run_irt_grm 0	// run IRT, dropping sumscore=0
+	}
+	if (_rc > 0){
+		* IRT or predict failed; try dropping observations
+		* specifically, drop observations with too low a sumscore
+
+		di "----------------------------------------"
+		di "WARNING: IRT failed, at stage `r(stage)'"
+		di "Retrying dropping low sumscore users"
+		di "----------------------------------------"
+
+		capture noisily run_irt_grm 0.15	// run IRT, dropping sumscore < 0.15 * max(sumscore)
+		if (_rc > 0){
+			di "*****************************************************************************"
+			di "ERROR in IRT computation - aborting!!!"
+			di "*****************************************************************************"
+			exit
+		}
+	}
 
 	* save person_theta dataset
 	keep user_id theta thetase
