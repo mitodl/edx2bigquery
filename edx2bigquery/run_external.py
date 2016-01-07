@@ -109,7 +109,10 @@ def run_external_script(extcmd, param, ecinfo, course_id):
         else:
             table_date = tinfo['lastModifiedTime']
             for deptab in depends_on:
-                dtab_date = bqutil.get_bq_table_last_modified_datetime(dataset, deptab)
+                try:
+                    dtab_date = bqutil.get_bq_table_last_modified_datetime(dataset, deptab)
+                except Exception as err:
+                    raise Exception("[run_external] missing dependent table %s.%s" % (dataset, deptab))
                 if table_date and dtab_date > table_date:
                     do_compute = True
                     break
@@ -145,3 +148,5 @@ def run_external_script(extcmd, param, ecinfo, course_id):
             dt = end-start
             print "[RUN] DONE WITH %s, success=%s, dt=%s" % (extcmd, success, dt)
             sys.stdout.flush()
+            if param.parallel and not success:
+                raise Exception("[run_external] External command %s failed on %s" % (extcmd, course_id))

@@ -109,7 +109,7 @@ def run_parallel_or_serial(function, param, courses, optargs, parallel=False, na
             ret = {}
         return ret
             
-    pool = mp.Pool(processes=MAXIMUM_PARALLEL_PROCESSES)
+    pool = mp.Pool(processes=param.max_parallel or MAXIMUM_PARALLEL_PROCESSES)
     results = []
     for course_id in courses:
         runname = "%s on %s" % (name, course_id)
@@ -163,6 +163,11 @@ def run_capture_stdout(function, args, stdout=None, name="<run>"):
     print "-"*100
     sys.stdout.flush()
     return ret
+
+#-----------------------------------------------------------------------------
+# run external script
+
+
 
 #-----------------------------------------------------------------------------
 # main functions for performing analysis
@@ -765,6 +770,18 @@ def doall(param, course_id, args, stdout=None):
     sys.stdout.flush()
     return ret
 
+def run_external_single(param, course_id, args=None):
+    '''
+    Run a single external script
+    '''
+    from run_external import run_external_script
+    print "-"*100
+    print "[%s] Running external command script %s" % (course_id, param.extcmd)
+    print "-"*100
+    sys.stdout.flush()
+    run_external_script(param.extcmd, param, param.ecinfo, course_id)
+
+
 def run_nightly_single(param, course_id, args=None):
     try:
         print "-"*100
@@ -1277,6 +1294,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--skiprun", help="for external command, print, and skip running", action="store_true")
     parser.add_argument("--external", help="run specified command as being an external command", action="store_true")
     parser.add_argument("--extparam", type=str, help="configure parameter for external command, e.g. --extparam irt_type=2pl")
+    parser.add_argument("--max-parallel", type=int, help="maximum number of parallel processes to run (overrides config) if --parallel is used")
     parser.add_argument("--skip-geoip", help="skip geoip (and modal IP) processing in person_course", action="store_true")
     parser.add_argument("--skip-if-exists", help="skip processing in person_course if table already exists", action="store_true")
     parser.add_argument("--just-do-nightly", help="for person_course, just update activity stats for new logs", action="store_true")
@@ -1331,6 +1349,7 @@ check_for_duplicates        : check list of courses for duplicates
     param.skiprun = args.skiprun
     param.verbose = args.verbose
     param.project_id = args.output_project_id or getattr(edx2bigquery_config, "PROJECT_ID", None)
+    param.max_parallel = args.max_parallel
 
     # default end date for person_course
     try:
@@ -1347,8 +1366,6 @@ check_for_duplicates        : check list of courses for duplicates
     # external command?
 
     if args.external:
-        from run_external import run_external_script
-
         extcmd = args.command
         try:
             eec = edx2bigquery_config.extra_external_commands	# dict of external commands, with settings
@@ -1361,12 +1378,10 @@ check_for_duplicates        : check list of courses for duplicates
             sys.exit(0)
 
         courses = get_course_ids(args)
-        for course_id in courses:
-            print "-"*100
-            print "[%s] Running external command %s" % (course_id, extcmd)
-            print "-"*100
-            sys.stdout.flush()
-            run_external_script(extcmd, param, ecinfo, course_id)
+        param.extcmd = extcmd
+        param.ecinfo = ecinfo
+        param.parallel = args.parallel
+        run_parallel_or_serial(run_external_single, param, courses, args, parallel=args.parallel)
         sys.exit(0)
 
     #-----------------------------------------------------------------------------            
@@ -1398,7 +1413,7 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='doall'):
         if args.parallel:			# run multiple instances in parallel
             courses = get_course_ids(args)
-            pool = mp.Pool(processes=MAXIMUM_PARALLEL_PROCESSES)
+            pool = mp.Pool(processes=params.max_parallel or MAXIMUM_PARALLEL_PROCESSES)
             stdoutset = {}
             results = []
             for course_id in courses:
