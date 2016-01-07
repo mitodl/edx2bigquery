@@ -16,17 +16,6 @@ local ulfn = "`output_fn'"
 if(1) {
 	get_bq_data_csv "`table_prefix'.course_item"  "`table_prefix'__course_item.csv"  "DATA/DATA-`cidns'__course_item.dta"
 	* get_dataset_gzip_ok DATA/DATA-`cidns'__course_item.dta
-	
-	* make version with weight and problem_id, for use with IRT
-	preserve
-	collapse (sum) pn_weight = item_weight  ///
-		(sum) pn_points_possible = item_points_possible ///
-		(firstnm) problem_id ///
-		(firstnm) problem_short_id chapter_name section_name vertical_name problem_name ///
-		, by(problem_nid)
-	save DATA/DATA-`cidns'__course_problem_weights.dta, replace
-	summ
-	restore
 
 	* table of labels
 	drop if !(item_number==1)
@@ -51,3 +40,5 @@ if(1) {
 	sort problem_nid
 	save "`ulfn'", replace
 }
+
+	

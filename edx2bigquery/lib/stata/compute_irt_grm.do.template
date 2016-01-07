@@ -49,6 +49,31 @@ local stitle = "[`course_id']"
 run {{lib_dir}}/stata/edx2bq_util.do
 
 ****************************************
+* make long table of items, with weights
+
+local cifn = "DATA/DATA-`cidns'__course_item.dta"
+di "cifn = `cifn'"
+capture confirm file "`cifn'"
+if ((_rc > 0) | 0 | $force_recompute) {
+	get_bq_data_csv "`table_prefix'.course_item"  "`table_prefix'__course_item.csv"  "`cifn'"
+}
+else{
+	use "`cifn'", replace
+}
+if (1){
+	* make version with weight and problem_id, for use with IRT
+	preserve
+	collapse (sum) pn_weight = item_weight  ///
+		(sum) pn_points_possible = item_points_possible ///
+		(firstnm) problem_id ///
+		(firstnm) problem_short_id chapter_name section_name vertical_name problem_name ///
+		, by(problem_nid)
+	save DATA/DATA-`cidns'__course_problem_weights.dta, replace
+	summ
+	restore
+}
+
+****************************************
 * program for extracting IRT GRM difficulty and discrimination parameters and adding them as variables to the current dataset
 
 capture program drop extract_irt_grm_parameters
@@ -64,6 +89,16 @@ program define extract_irt_grm_parameters, rclass
 	di "Extracting IRT GRM parameters, with dolong=`dolong', rettype=`rettype', and keepvars=`keepvars'"
 	di "There are `n_vars' dependent variables"	
 	
+	// with "estat report, post", parameters are left in e(b) and e(V)
+	// but grm cut levels are dropped; equation numbers are used, instead, for difficulties.
+	// equations are numbered consecutively, starting with disc, diff1, diff2, disc, diff1, ...
+
+	estimates save DATA/DATA-`cidns'-item-irt-grm-tmp.ster, replace
+	estat report, post						// post processed IRT estimates, temporarily
+	matrix pb = e(b)						// these are the IRT diff and disc parameters
+	matrix pv = e(V)						// the covariance matrix
+	estimates use DATA/DATA-`cidns'-item-irt-grm-tmp.ster		// go back to the raw IRT estimates
+
 	// generate a bunch of temporary variables:
 	//
 	// a_y*      = item discriminations
@@ -85,28 +120,42 @@ program define extract_irt_grm_parameters, rclass
 		clear
 		gen diff = .
 		gen disc = .
+		gen diff_se = .
+		gen disc_se = .
 		gen item = .
 		gen cutnum = .
+		gen cutval = .
 	}
 
+	local eqnum = 0
 	forval i=1/`n_vars' {
 		local ncpp `: word `i' of `ncuts''
 		local vname `: word `i' of `depvars''
 		local nc = `ncpp' - 1
-	    di "Variable `vname' has `nc' cuts"
+	    	di "Variable `vname' has `nc' cuts"
 		matrix cuts = e(cat`i')  		// cut values
 		local irt_disc =  _b[`vname':Theta] 
+		local eqnum = `eqnum' + 1		// increment equation number
+		matrix se_tmp = pv["`vname':Discrim","`vname':Discrim"]
+		local irt_disc_se = sqrt(se_tmp[1,1])	// standard error of the discrimination parameter
 		
 		forval k=1/`nc' {				// loop over cuts: probability of being above cut
 			local irt_diff =  _b[`vname'_cut`k':_cons] / _b[`vname':Theta] 
+			local eqnum = `eqnum' + 1		// increment equation number
+			matrix se_tmp = pv["`vname':`eqnum'.Diff","`vname':`eqnum'.Diff"]
+			local irt_diff_se = sqrt(se_tmp[1,1])	// standard error of the difficulty parameter
 			
 			if ("`rettype'"=="diff"){		// return table of item difficulties (no theta, no scores)
+				local kpp = `k' + 1
 				local nobs = _N + 1
 				quiet set obs `nobs'
 				quiet replace diff = `irt_diff' in `nobs'
 				quiet replace disc = `irt_disc' in `nobs'
+				quiet replace diff_se = `irt_diff_se' in `nobs'
+				quiet replace disc_se = `irt_disc_se' in `nobs'
 				quiet replace cutnum = `k' in `nobs'
 				quiet replace item = `i' in `nobs'
+				quiet replace cutval = cuts[1, `kpp'] in `nobs'		// cuts starts with 0, so index with k+1
 				continue
 			}
 
@@ -150,7 +199,7 @@ program define extract_irt_grm_parameters, rclass
 			rename score_y irt_score
 		}
 		else{
-			di "Transforming from wide to long, keeping variance and scors"
+			di "Transforming from wide to long, keeping variance and scores"
 			preserve
 			keep theta sc_var_y*
 			reshape long sc_var_y, i(theta) j(problem_nid)
@@ -168,6 +217,16 @@ program define extract_irt_grm_parameters, rclass
 end
 
 *****************************************************************************
+* get person_course
+
+local pcfn = "DATA/DATA-`cidns'__person_course_stata.dta"
+di "pcfn = `pcfn'"
+capture confirm file "`pcfn'"
+if ((_rc > 0) | 0 | $force_recompute) {
+	do $lib_dir/stata/make_person_course_stata.do `cidns' `table_prefix' `pcfn'
+}
+
+*****************************************************************************
 * get person responses to items (item matrix, wide)
 
 local pitemfn = "DATA/DATA-`cidns'__person_problem_wide.dta"
@@ -180,30 +239,78 @@ if ((_rc > 0) | 0 | $force_recompute) {
 *****************************************************************************
 * compute IRT GRM
 
+local thetafn = "DATA/DATA-`cidns'-person_theta.dta"		// person-theta
+local theta_grade_fn = "DATA/DATA-`cidns'-person_theta.dta"	// person-(theta and grade)
+
 local ofn = "DATA/DATA-`cidns'-item-irt-grm.dta"
-local thetafn = "DATA/DATA-`cidns'-person_theta.dta"
 di "ofn = `ofn'"
 capture confirm file "`ofn'"
 if ((_rc > 0) | 0 | $force_recompute) {
 
 	use "`pitemfn'", replace
 
+	egen sumscore = rowtotal(y*)
+	drop if sumscore==0
+	   
+	* drop any score items which do not vary
+	capture ds y*
+	foreach cname in `r(varlist)' {
+	    capture summarize `cname'
+		if (r(min)==r(max)){
+		    di "no variation in ", "`cname'", " - dropping variable!"
+		    drop `cname'
+		}
+	}
+
+	fsum, label
+
 	irt grm y*       // graded response model!
 
-	estimates save "`irtfn'", replace
+	estimates save DATA/DATA-`cidns'-item-irt-grm.ster, replace
 	estat report, sort(b) byparm
 	* estimate theta
 	predict theta, latent se(thetase)
 
 	* save person_theta dataset
 	keep user_id theta thetase
-	save using "`thetafn'", replace
+	save "`thetafn'", replace
 	
+	********************
+	* person-(theta and grade)
+
+	* merge with person_course to get grade and certified
+	merge 1:1 user_id using "`pcfn'", keep(match) keepusing(grade certified)
+	drop _merge
+
+	* compute "irt_score" grade based on IRT
+	extract_irt_grm_parameters 1 "score" "theta thetase grade certified user_id"	// returns long table, with user_id, theta, irt_score, problem_nid
+	merge m:1 problem_nid using DATA/DATA-`cidns'__course_problem_weights.dta, keep(master match) keepusing(pn_weight)	// add problem weight
+	rename pn_weight item_weight
+	gen irt_points = irt_score * item_weight / 100
+	drop _merge
+
+	* aggregate over problems, to get just person-(theta and grade)
+	collapse (sum) irt_grade = irt_points ///
+		(sum) total_weight = item_weight ///
+		(firstnm) grade ///
+		(firstnm) certified ///
+		(firstnm) theta ///
+		, by(user_id)
+
+	fsum, label
+
+	save "`theta_grade_fn'", replace
+
+	********************
 	* construct long table with item parameters
-	extract_irt_grm_parameters 0 "diff"	// get just difficulty and discrimination parameters (with item# and cut#)
+
+	extract_irt_grm_parameters 0 "diff"	// get just difficulty and discrimination parameters (with item# and cut#) (this call replaces data)
+	capture recast int cutnum 
 	rename item problem_nid
+	capture recast int problem_nid				// problem_nid should be an integer
 	rename diff irt_diff
 	rename disc irt_disc
+	order problem_nid
 
 	save "`ofn'", replace
 
@@ -211,14 +318,31 @@ if ((_rc > 0) | 0 | $force_recompute) {
 	rename pn_weight item_weight
 	drop _merge
 
+	fsum, label
+
 	save "`ofn'", replace
 }
 
 *****************************************************************************
 * upload datasets back to bigquery
 
+	* output person theta estimates
+	use "`thetafn'", replace
+	local csvfn = "DATA/DATA-`cidns'__person-theta.csv"
+	outsheet * using "`csvfn'", comma replace
+	upload_data_to_bq "`table_prefix'.person_irtgrm_theta" `csvfn' 0 "{{script_name}} for {{course_id}} computed {{the_date}}"
+
+	* output person (theta & grade) estimates
+	use "`theta_grade_fn'", replace
+	local csvfn = "DATA/DATA-`cidns'__person-theta-grade.csv"
+	outsheet * using "`csvfn'", comma replace
+	upload_data_to_bq "`table_prefix'.person_irtgrm_theta_grade" `csvfn' 0 "{{script_name}} for {{course_id}} computed {{the_date}}"
+
+	* output item parameters table
+	use "`ofn'", replace
 	local csvfn = "DATA/DATA-`cidns'__item_irt_grm.csv"
-	upload_data_to_bq "`table_prefix'.`output_table'" `ofn' 0 "{{script_name}} for {{course_id}} computed {{the_date}}"
+	outsheet * using "`csvfn'", comma replace
+	upload_data_to_bq "`table_prefix'.`output_table'" `csvfn' 0 "{{script_name}} for {{course_id}} computed {{the_date}}"
 
 	* format user_id %12.0g
 
