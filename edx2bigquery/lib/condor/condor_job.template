@@ -2,20 +2,22 @@
 # for: {{course_id}}
 
 Universe = vanilla
-Executable = {{executable}}
-Arguments = {{arguments}}
+Executable = CONDOR/run_stata.sh
+Arguments = {{script_name}}
 
 should_transfer_files = ALWAYS
 when_to_transfer_output = ON_EXIT_OR_EVICT
 
+transfer_input_files = {{script_name}}
+
 # transfer_output_files = LOGS/{{filename_prefix_cidns}}_out.$(PROCESS)
 
-request_cpus = 3
+# request_cpus = 3
 #request_memory = 6144
 # request_memory = 8192
 # request_memory = 32768
 # request_memory = 16384
-request_memory = {{MEMORY}}M
+# request_memory = {{MEMORY}}M
 
 # input = 
 # output = JOBS/{{filename_prefix_cidns}}_out.$(Process)

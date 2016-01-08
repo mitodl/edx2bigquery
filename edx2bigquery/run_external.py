@@ -8,6 +8,7 @@ import os
 import datetime
 import bqutil
 import json
+import re
 
 from jinja2 import Template
 from path import path
@@ -147,7 +148,7 @@ def run_external_script(extcmd, param, ecinfo, course_id):
                     raise Exception("[run_external] missing condor_job_template specification for %s" % (extcmd))
                 condor_submit_fn = "CONDOR/{filename_prefix}-{cidns}.submit".format(**context)
                 context.update({ 'MEMORY': 32768,
-                                 'arguments': '-b do {working_dir}/{script_name}'.format(**context),
+                                 'arguments': '{script_name}'.format(**context),
                                  'executable': context['script_cmd'],
                                  'input_file': '',
                                  'filename': condor_submit_fn,

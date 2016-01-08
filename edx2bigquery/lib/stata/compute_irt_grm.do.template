@@ -2,7 +2,7 @@
 * File:   {{script_name}}
 * Date:   {{the_date}}
 *
-* Compute Cronbach's alpha for all course items
+* Compute Item Response Theory analysis using the Graded Response Model for all course items
 *
 * This version: {{course_id}}
 *
