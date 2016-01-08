@@ -167,7 +167,16 @@ def run_capture_stdout(function, args, stdout=None, name="<run>"):
 #-----------------------------------------------------------------------------
 # run external script
 
-
+def run_external_single(param, course_id, args=None):
+    '''
+    Run a single external script
+    '''
+    from run_external import run_external_script
+    print "-"*100
+    print "[%s] Running external command script %s" % (course_id, param.extcmd)
+    print "-"*100
+    sys.stdout.flush()
+    run_external_script(param.extcmd, param, param.ecinfo, course_id)
 
 #-----------------------------------------------------------------------------
 # main functions for performing analysis
@@ -770,17 +779,6 @@ def doall(param, course_id, args, stdout=None):
     sys.stdout.flush()
     return ret
 
-def run_external_single(param, course_id, args=None):
-    '''
-    Run a single external script
-    '''
-    from run_external import run_external_script
-    print "-"*100
-    print "[%s] Running external command script %s" % (course_id, param.extcmd)
-    print "-"*100
-    sys.stdout.flush()
-    run_external_script(param.extcmd, param, param.ecinfo, course_id)
-
 
 def run_nightly_single(param, course_id, args=None):
     try:
@@ -1052,7 +1050,7 @@ nightly <course_id> ...     : Run sequence of commands for common nightly update
 
 --external command <cid>... : Run external command on data from one or more course_id's.  Also uses the --extparam settings.
                               External commands are defined in edx2bigquery_config.  Use --skiprun to create the external script
-                              without running.
+                              without running.  Use --submit-condor to submit command as a condor job.
 
 --- SQL DATA RELATED COMMANDS
 
@@ -1294,6 +1292,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--skiprun", help="for external command, print, and skip running", action="store_true")
     parser.add_argument("--external", help="run specified command as being an external command", action="store_true")
     parser.add_argument("--extparam", type=str, help="configure parameter for external command, e.g. --extparam irt_type=2pl")
+    parser.add_argument("--submit-condor",  help="submit external command as a condor job (must be used with --external)", action="store_true")
     parser.add_argument("--max-parallel", type=int, help="maximum number of parallel processes to run (overrides config) if --parallel is used")
     parser.add_argument("--skip-geoip", help="skip geoip (and modal IP) processing in person_course", action="store_true")
     parser.add_argument("--skip-if-exists", help="skip processing in person_course if table already exists", action="store_true")
@@ -1350,6 +1349,7 @@ check_for_duplicates        : check list of courses for duplicates
     param.verbose = args.verbose
     param.project_id = args.output_project_id or getattr(edx2bigquery_config, "PROJECT_ID", None)
     param.max_parallel = args.max_parallel
+    param.submit_condor = args.submit_condor
 
     # default end date for person_course
     try:

@@ -1,0 +1,32 @@
+# file: {{filename}}
+# for: {{course_id}}
+
+Universe = vanilla
+Executable = {{executable}}
+Arguments = {{arguments}}
+
+should_transfer_files = ALWAYS
+when_to_transfer_output = ON_EXIT_OR_EVICT
+
+# transfer_output_files = LOGS/{{filename_prefix_cidns}}_out.$(PROCESS)
+
+request_cpus = 3
+#request_memory = 6144
+# request_memory = 8192
+# request_memory = 32768
+# request_memory = 16384
+request_memory = {{MEMORY}}M
+
+# input = 
+# output = JOBS/{{filename_prefix_cidns}}_out.$(Process)
+# error = JOBS/{{filename_prefix_cidns}}_error.$(Process)
+# Log = JOBS/{{filename_prefix_cidns}}_log.$(Process)
+
+input = {{input_file}}
+output = JOBS/{{filename_prefix_cidns}}.out
+error = JOBS/{{filename_prefix_cidns}}.error
+
+# Log = JOBS/{{filename_prefix_cidns}}_log
+
+Queue 1
+

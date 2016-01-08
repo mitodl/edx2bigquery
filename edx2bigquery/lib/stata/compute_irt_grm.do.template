@@ -422,6 +422,7 @@ if ((_rc > 0) | 0 | $force_recompute) {
 	* output item parameters table
 	use "`ofn'", replace
 	local csvfn = "DATA/DATA-`cidns'__item_irt_grm.csv"
+	replace vertical_name  = subinstr(vertical_name, char(34), "", 100)
 	outsheet * using "`csvfn'", comma replace
 	upload_data_to_bq "`table_prefix'.`output_table'" `csvfn' 0 "{{script_name}} for {{course_id}} computed {{the_date}}"
 

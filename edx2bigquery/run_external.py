@@ -21,7 +21,11 @@ def run_external_script(extcmd, param, ecinfo, course_id):
     ecinfo = external command info from edx2bigquery_config
     course_id = course_id to run external command on
     """
-    settings = ecinfo.get(extcmd)
+    # use default for base set of parameters
+    ed_name = ecinfo.get('default_parameters', 'DEFAULT')
+    settings = ecinfo.get(ed_name, {})
+    settings.update(ecinfo.get(extcmd))
+    # print "settings: ", json.dumps(settings, indent=4)
     
     print settings['name']
     
@@ -41,7 +45,13 @@ def run_external_script(extcmd, param, ecinfo, course_id):
     lfn = "%s-%s.log" % (fnpre, cidns)
     if settings.get('logs_dir'):
         lfn = path(settings['logs_dir']) / lfn
-    ofn = settings['script_fn'].format(filename_prefix=fnpre, cidns=cidns)
+
+    try:
+        ofn = settings['script_fn'].format(filename_prefix=fnpre, cidns=cidns)
+    except Exception as err:
+        print "oops, errr %s" % str(err)
+        print "settings=", json.dumps(settings, indent=4)
+        raise
     cwd = os.getcwd()
 
     the_date = str(datetime.datetime.now())
@@ -62,6 +72,7 @@ def run_external_script(extcmd, param, ecinfo, course_id):
                'template_file': the_template,
                'log_file': lfn,
                'filename_prefix': fnpre,
+               'filename_prefix_cidns': "%s__%s" % (fnpre, cidns),
                'working_dir': cwd,
                'table_prefix': table_prefix,
                'lib_dir': edx2bigquery_context['lib'],
@@ -83,7 +94,9 @@ def run_external_script(extcmd, param, ecinfo, course_id):
         print "Error %s" % str(err)
         print "context: ", json.dumps(context, indent=4)
         raise
-    codecs.open(ofn, 'w', encoding="utf8").write(script_file)
+    fp = codecs.open(ofn, 'w', encoding="utf8")
+    fp.write(script_file)
+    fp.close()
     print "Generated %s" % ofn
 
     # if depends_on is defined, and force_recompute is not true, then skip
@@ -127,7 +140,41 @@ def run_external_script(extcmd, param, ecinfo, course_id):
         sys.stdout.flush()
         if not param.skiprun:
             start = datetime.datetime.now()
-            os.system(runcmd)
+
+            if param.submit_condor:
+                condor_template_fn = settings.get('condor_job_template', '').format(**edx2bigquery_context)
+                if not condor_template_fn:
+                    raise Exception("[run_external] missing condor_job_template specification for %s" % (extcmd))
+                condor_submit_fn = "CONDOR/{filename_prefix}-{cidns}.submit".format(**context)
+                context.update({ 'MEMORY': 32768,
+                                 'arguments': '-b do {working_dir}/{script_name}'.format(**context),
+                                 'executable': context['script_cmd'],
+                                 'input_file': '',
+                                 'filename': condor_submit_fn,
+                                 })
+                condor_template = Template(open(condor_template_fn).read()).render(**context)
+                dirs = ['CONDOR', 'JOBS']
+                for dir in dirs:
+                    if not os.path.exists(dir):
+                        os.mkdir(dir)
+                fp = open(condor_submit_fn, 'w')
+                fp.write(condor_template)
+                fp.close()
+                cmd = "condor_submit %s" % condor_submit_fn
+                print cmd
+                jobid = None
+                for k in os.popen(cmd):
+                    m = re.search('submitted to cluster ([0-9]+)', k)
+                    if m:
+                        jobid = m.group(1)
+                dt = str(datetime.datetime.now())
+                jobfile = 'condor_jobs.csv'
+                open(jobfile, 'a').write("%s,%s,%s,%s\n" % (course_id, dt, jobid, lfn))
+                print "[%s] Submitted as condor job %s at %s" % (course_id, jobid, dt)
+                # print "[run_external] submitted %s, job=%s" % (extcmd, jobnum)
+                return
+            else:
+                os.system(runcmd)
 
             if settings.get('type')=="stata":
                 # cleanup leftover log file after stata batch run
@@ -146,7 +193,7 @@ def run_external_script(extcmd, param, ecinfo, course_id):
                 pass
             success = has_output
             dt = end-start
-            print "[RUN] DONE WITH %s, success=%s, dt=%s" % (extcmd, success, dt)
+            print "[run_external] DONE WITH %s, success=%s, dt=%s" % (extcmd, success, dt)
             sys.stdout.flush()
             if param.parallel and not success:
                 raise Exception("[run_external] External command %s failed on %s" % (extcmd, course_id))
