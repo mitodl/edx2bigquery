@@ -6,7 +6,7 @@
 #
 # bash script to retrieve data csv from bigquery
 #
-# Usage:   GET_DATA_FROM_BQ project_id full_table_path working_dir
+# Usage:   GET_DATA_FROM_BQ project_id full_table_path working_dir csv_filename
 
 echo "-------------------- setting up environment"
 source ~/.edx2bigquery_init
@@ -14,11 +14,15 @@ source ~/.edx2bigquery_init
 echo "-------------------- extracting and copying"
 
 cd $3
+csvfn=$4
+csvfn_base=`basename $csvfn`
 echo "bq extract --project $1 --compression=GZIP $2 gs://$1/tmp/$4.gz"
 # bq extract --compression=GZIP $1:$2 gs://$1/tmp/$4.gz
-bq extract --project $1 --compression=GZIP $2 gs://$1/tmp/$4.gz
+bq extract --project $1 --compression=GZIP $2 gs://$1/tmp/$csvfn_base.gz
 
-gsutil cp gs://$1/tmp/$4.gz .
-gunzip $4.gz
-gsutil rm gs://$1/tmp/$4.gz
-echo "extracted $4.gz"
+gsutil cp gs://$1/tmp/$csvfn_base.gz .
+gunzip $csvfn_base.gz
+gsutil rm gs://$1/tmp/$csvfn_base.gz
+echo "extracted $csvfn_base.gz"
+mv $csvfn_base $csvfn
+echo "Downloaded $csvfn"

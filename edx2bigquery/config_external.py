@@ -14,14 +14,17 @@ elif platform.system()=='Linux':
 else:
     stata = None
 
+R_cmd = '/usr/bin/Rscript {script_name}'
+
 external_commands = {
     'DEFAULT': {
         'type': "stata",
         'script_cmd': stata,
-        'script_fn': "{filename_prefix}-{cidns}.do",
+        'script_fn': "STATA/{filename_prefix}-{cidns}.do",
         'run_dir': "{working_dir}",
         'logs_dir': "LOGS",
         'condor_job_template': "{lib}/condor/condor_job.template",
+        'condor_cmd': "run_stata.sh",
     },
     'reliability': {
         'name': "Classical test theory (CTT) reliability",
@@ -46,5 +49,17 @@ external_commands = {
         'filename_prefix': "compute_irt_grm",
         'output_table': 'item_irt_grm',
         'depends_on': ['course_item', 'person_problem'],
+    },
+    'R_mirt': {
+        'name': "Item reponse theory using MIRT module in R",
+        'description': "Compute item difficulty and discimination parameters, and person abilities, using R's MIRT; upload item and ability data back to BQ; compare with STATA results",
+        'template': "{lib}/R/compute_irt_grm_from_ppwide.R.template",
+        'filename_prefix': "compute_mirt",
+        'output_table': 'item_irt_grm_R',
+        'depends_on': ['person_problem_wide'],
+        'type': "R",
+        'script_cmd': R_cmd,
+        'script_fn': "R/{filename_prefix}-{cidns}.R",
+        'condor_cmd': "run_R.sh",
     },
 }

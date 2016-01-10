@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+# File:   UPLOAD_FILE_TO_GS
+# Date:   10-Jan-16
+# Author: I. Chuang <ichuang@mit.edu>
+#
+# bash script to upload file to gs
+#
+# Usage:   UPLOAD_FILE_TO_GS project_id local_fn gs_fn
+
+echo "-------------------- setting up environment"
+source ~/.edx2bigquery_init
+
+echo "-------------------- uploading"
+
+gsfn=gs://$1/$3
+gsutil cp $2 $gsfn
+
+echo "uploaded $2 to $gsfn"
+

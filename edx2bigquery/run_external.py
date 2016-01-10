@@ -95,6 +95,10 @@ def run_external_script(extcmd, param, ecinfo, course_id):
         print "Error %s" % str(err)
         print "context: ", json.dumps(context, indent=4)
         raise
+    ofndir = path(ofn).dirname()
+    if not os.path.exists(ofndir):
+        print "[Warning] Directory %s doesn't exist - creating it" % ofndir
+        os.mkdir(ofndir)
     fp = codecs.open(ofn, 'w', encoding="utf8")
     fp.write(script_file)
     fp.close()
@@ -137,7 +141,7 @@ def run_external_script(extcmd, param, ecinfo, course_id):
         os.chdir(rundir)
         print "Working directory: %s" % rundir
         print "Logging to %s" % lfn
-        print runcmd
+        print "Run command: %s" % runcmd
         sys.stdout.flush()
         if not param.skiprun:
             start = datetime.datetime.now()
