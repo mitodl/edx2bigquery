@@ -137,16 +137,6 @@ names(df.stata_pt)[names(df.stata_pt)=="theta"] <- "theta_stata"
 df.both_pt <- merge(df.person_theta,df.stata_pt, by="user_id")
 names(df.both_pt)[names(df.both_pt)=="theta"] <- "theta_R"
 
-if (output_pdf){
-   pdf.fn = plot_name("__irt_R_vs_stata.pdf")
-   pdf(pdf.fn)
-}else{
-	dev.set(2)
-}
-plot(df.both_pt[,"theta_R"], df.both_pt[,"theta_stata"], 
-	 xlab="Theta computed by R using mirt", ylab="Theta computed by STATA using irt grm")
-title(sprintf("[%s] IRT learner thetas: R vs. STATA", course_id))
-
 my_add_line <- function(xdat, ydat){
 	    tfit <- lm(ydat ~ xdat)
 	    t.intercept <- tfit$coefficients[1]
@@ -158,10 +148,49 @@ my_add_line <- function(xdat, ydat){
 	    abline(0,1)
 }
 
+if (output_pdf){
+   pdf.fn = plot_name("__irt_R_vs_stata.pdf")
+   pdf(pdf.fn)
+}else{
+	dev.set(2)
+}
+plot(df.both_pt[,"theta_R"], df.both_pt[,"theta_stata"], 
+	 xlab="Theta computed by R using mirt", ylab="Theta computed by STATA using irt grm")
+title(sprintf("[%s] IRT learner thetas: R vs. STATA", course_id))
 my_add_line(df.both_pt[,"theta_R"], df.both_pt[,"theta_stata"])
 
 #--------------------------------------------------------------------------------------------
 # compare IRT paramters with those from STATA
+
+df.stata_ip = get_bq_data_csv("item_irt_grm", sprintf("DATA/DATA-%s__item_irt_grm.csv", cidns))
+summary(df.stata_ip)
+
+names(df.stata_ip)[names(df.stata_ip)=="irt_diff"] <- "stata_diff"
+names(df.stata_ip)[names(df.stata_ip)=="irt_disc"] <- "stata_disc"
+df.both_ip <- merge(df.irt_params, df.stata_ip[,c("stata_diff", "stata_disc", "problem_nid", "cutnum")], 
+      		     by=c("problem_nid", "cutnum"))
+
+if (!output_pdf){ 
+   if (length(dev.list()) < 2) {	dev.new() }
+   dev.set(3) 
+}
+plot(df.both_ip[,"stata_diff"], df.both_ip[,"irt_diff"],
+	xlab="IRT difficulty computed with R using mirt",
+	ylab="IRT difficulty computed with STATA using irt grm")
+title(sprintf("[%s] IRT item difficulties: R vs. STATA", course_id))			  
+my_add_line(df.both_ip[,"irt_diff"], df.both_ip[,"stata_diff"])
+if (!output_pdf){ 
+   if (length(dev.list()) < 3) {	dev.new() }
+   dev.set(4) 
+}
+plot(df.both_ip[,"stata_disc"], df.both_ip[,"irt_disc"],
+	xlab="IRT discrimination computed with R using mirt",
+	ylab="IRT discrimination computed with STATA using irt grm")
+title(sprintf("[%s] IRT item discriminations: R vs. STATA", course_id))			    
+my_add_line(df.both_ip[,"irt_disc"], df.both_ip[,"stata_disc"])
+if (output_pdf){
+   dev.off()
+}
 
 df.stata_ip = get_bq_data_csv("item_irt_grm", sprintf("DATA/DATA-%s__item_irt_grm.csv", cidns))
 summary(df.stata_ip)
@@ -171,8 +200,8 @@ if (!output_pdf){
    dev.set(3) 
 }
 plot(df.irt_params[,"irt_diff"], df.stata_ip[,"irt_diff"],
-				 xlab="IRT difficulty computed with R using mirt",
-				 ylab="IRT difficulty computed with STATA using irt grm")
+		 xlab="IRT difficulty computed with R using mirt",
+		 ylab="IRT difficulty computed with STATA using irt grm")
 title(sprintf("[%s] IRT item difficulties: R vs. STATA", course_id))	  
 my_add_line(df.irt_params[,"irt_diff"], df.stata_ip[,"irt_diff"])
 if (!output_pdf){ 
@@ -180,8 +209,8 @@ if (!output_pdf){
    dev.set(4) 
 }
 plot(df.irt_params[,"irt_disc"], df.stata_ip[,"irt_disc"],
-				 xlab="IRT discrimination computed with R using mirt",
-				 ylab="IRT discrimination computed with STATA using irt grm")
+		 xlab="IRT discrimination computed with R using mirt",
+		 ylab="IRT discrimination computed with STATA using irt grm")
 title(sprintf("[%s] IRT item discriminations: R vs. STATA", course_id))	
 my_add_line(df.irt_params[,"irt_disc"], df.stata_ip[,"irt_disc"])
 if (output_pdf){
