@@ -2,7 +2,7 @@
 # for: {{course_id}}
 
 Universe = vanilla
-Executable = CONDOR/run_stata.sh
+Executable = CONDOR/{{condor_cmd}}
 Arguments = {{script_name}}
 
 should_transfer_files = ALWAYS

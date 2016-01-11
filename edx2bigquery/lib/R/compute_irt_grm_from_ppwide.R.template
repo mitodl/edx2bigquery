@@ -14,6 +14,8 @@
 
 setwd("{{working_dir}}")
 
+# install.packages(c("readstata13", "mirt", "ltm", "stringr"))
+
 if(1){
 	require("readstata13")
 	require("mirt")
@@ -54,7 +56,16 @@ summary(df)
 # compute IRT
 
 df.items <- df[,2:ncol(df)]
-df.items <- df.items[rowSums(is.na(df.items)) != ncol(df.items),]
+df.items <- df.items[rowSums(is.na(df.items)) != ncol(df.items),]	# drop item if all NA
+
+# remove non-varying items
+for (yvar in colnames(df.items)){
+    mm = summary(df.items[,yvar])
+    if (mm['Min.']==mm['Max.']){
+       print(sprintf("-> %s does not vary, dropping!", yvar))
+       df.items[,yvar] <- NULL
+    }
+}
 
 time.start <- proc.time()
 mres <- mirt(df.items, 1, SE=TRUE, removeEmptyRows=TRUE)
