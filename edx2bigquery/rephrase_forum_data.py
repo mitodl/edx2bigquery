@@ -130,6 +130,9 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
     if 'context' in data:
         data.pop('context')	# 25aug15: remove key
 
+    if 'depth' in data:
+        data.pop('depth')	# 11jan16: remove key
+
     try:
         check_schema(linecnt, data, the_ds=SCHEMA_DICT, coerce=True)
     except Exception as err:
