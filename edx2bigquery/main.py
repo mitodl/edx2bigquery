@@ -1413,7 +1413,7 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='doall'):
         if args.parallel:			# run multiple instances in parallel
             courses = get_course_ids(args)
-            pool = mp.Pool(processes=params.max_parallel or MAXIMUM_PARALLEL_PROCESSES)
+            pool = mp.Pool(processes=args.max_parallel or MAXIMUM_PARALLEL_PROCESSES)
             stdoutset = {}
             results = []
             for course_id in courses:
