@@ -1156,6 +1156,23 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, ov
     tracking_log_dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=False) + '_logs'
     table = "stats_problem_check_show_answer_ip"
 
+    #Find the date that is one month past the start date for cap on tracking logs
+    if testing:
+      ca = bqutil.get_table_data(dataset_id=dataset,table_id='course_axis', project_id=project_id, maxResults=1e9)
+    else:
+      ca = bqutil.get_table_data(dataset_id=dataset,table_id='course_axis', maxResults=1e9)
+
+    try:
+      last = max([datetime.datetime.fromtimestamp(float(x['due'])).date() for x in ca['data'] if x['due'] is not None]) 
+      last += datetime.timedelta(30) #Add a month just to be sure
+    except: #for courses where due date is not specified in course_axis
+      s1 = bqutil.get_table_data(dataset_id='course_report_latest',table_id='broad_stats_by_course', project_id='mitx-data')['data']
+      s2 = bqutil.get_table_data(dataset_id='course_report_latest',table_id='broad_stats_by_course', project_id='harvardx-data')['data']
+      start = [datetime.datetime.fromtimestamp(float(x['min_start_time'])) for x in s1 + s2 if x['course_id'] == course_id][0]
+      last = start + datetime.timedelta(365) #Assume course lasts less than one year
+    
+    cap = str(last.year) + ('0'+str(last.month))[-2:] + ('0'+str(last.day))[-2:] #Formatted as YYYYMMDD
+
     SQL = """
     SELECT
       time,
@@ -1170,7 +1187,7 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, ov
       ip
     from (
       TABLE_QUERY({tracking_log_dataset},
-           "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) <= 30000101" #less than Jan 01, 3000
+           "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) <= {cap}" #Formatted as YYYYMMDD
          )
       )
 
@@ -1178,7 +1195,7 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, ov
       and event_source = "server"
       and time > TIMESTAMP("2010-10-01 01:02:03")
     order by time
-    """.format(tracking_log_dataset=tracking_log_dataset)
+    """.format(tracking_log_dataset=tracking_log_dataset,cap=cap)
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
     sys.stdout.flush()
@@ -1318,8 +1335,11 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               sum(sa_before_pa) as show_ans_before,
               ncorrect,
               sum(sa_before_pa) / ncorrect * 100 as percent_correct_using_show_answer,
-              sa_dt_median, sa_dt_90percentile, ca_dt_median, ca_dt_90percentile,
-              (sa_dt_90percentile - sa_dt_median) - (ca_dt_90percentile - ca_dt_median) AS northcutt_similarity,
+              sa_dt_median, sa_dt_90percentile, ca_dt_median, ca_dt_90percentile, 
+              CORR(show_answer_dt, correct_answer_dt) AS sa_ca_dt_correlation,
+              1 - ABS((ABS(LN(sa_dt_90percentile / ca_dt_90percentile)) + ABS(LN(ca_dt_median / ca_dt_median))) / 2) as northcutt_ratio,
+              #ABS((sa_dt_90percentile - sa_dt_median) - (ca_dt_90percentile - ca_dt_median)) AS l1_northcutt_similarity,
+              #SQRT(POW(sa_dt_90percentile - ca_dt_90percentile, 2) + POW(sa_dt_median - ca_dt_median, 2)) AS l2_northcutt_similarity,
               sum(same_ip) as nsame_ip,
               sum(case when sa_before_pa and same_ip then 1 else 0 end) as nsame_ip_given_sab,
               sum(case when sa_before_pa and same_ip then 1 else 0 end) / sum(sa_before_pa) * 100 as percent_same_ip_given_sab,
@@ -1366,7 +1386,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                   #Find percentiles for each user correct answer dt time differences
                   (ca.time - ca_lag) / 1e6 AS correct_answer_dt,
                   PERCENTILE_CONT(.50) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_median_intermediate,
-                  PERCENTILE_CONT(.90) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_90percentile_intermediate
+                  PERCENTILE_CONT(.90) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_90percentile_intermediate,
+                  
                   FROM
                   ( 
                     SELECT
@@ -1473,7 +1494,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds, first_quartile_dt_seconds,
                             third_quartile_dt_seconds, dt_iqr, dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds,
                             modal_ip, CH_modal_ip, mile_dist_between_modal_ips, ncorrect, 
-                            sa_dt_median, sa_dt_90percentile, ca_dt_median, ca_dt_90percentile, northcutt_similarity
+                            sa_dt_median, sa_dt_90percentile, ca_dt_median, ca_dt_90percentile, northcutt_ratio 
+                            #l1_northcutt_similarity, l2_northcutt_similarity, 
               HAVING unnormalized_pearson_corr > -1
               AND avg_max_dt_seconds is not null
               AND show_ans_before >= 5 #to reduce size
