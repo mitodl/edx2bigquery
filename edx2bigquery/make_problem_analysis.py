@@ -1301,9 +1301,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     else:
         #Twice the paritions if running in a course that hasn't completed (online == True) since we consider more pairs
         if num_persons > 60000:
-            num_partitions = int(num_persons / (1500 if online else 3000))  # because the number of certificate earners is also likely higher
+            num_partitions = int(num_persons / (3000 if online else 6000))  # because the number of certificate earners is also likely higher
         elif num_persons > 10000:
-            num_partitions = int(num_persons / (2500 if online else 5000))
+            num_partitions = int(num_persons / (5000 if online else 10000))
         else:
             num_partitions = 4 if online else 2
     print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
@@ -1336,6 +1336,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               ncorrect,
               sum(sa_before_pa) / ncorrect * 100 as percent_correct_using_show_answer,
               sa_dt_median, sa_dt_90percentile, ca_dt_median, ca_dt_90percentile, 
+              SUM(chi) AS sa_ca_chi_squared,
               CORR(show_answer_dt, correct_answer_dt) AS sa_ca_dt_correlation,
               1 - ABS((ABS(LN(sa_dt_90percentile / ca_dt_90percentile)) + ABS(LN(ca_dt_median / ca_dt_median))) / 2) as northcutt_ratio,
               #ABS((sa_dt_90percentile - sa_dt_median) - (ca_dt_90percentile - ca_dt_median)) AS l1_northcutt_similarity,
@@ -1359,11 +1360,14 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               FROM
               (
                 SELECT *,
+                  POW(correct_answer_dt - show_answer_dt, 2) / correct_answer_dt as chi,
+
                   MAX(median_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS median_max_dt_seconds,
                   MAX(first_quartile_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS first_quartile_dt_seconds,
                   MAX(third_quartile_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS third_quartile_dt_seconds,
                   MAX(percentile90_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS percentile90_dt_seconds,
                   STDDEV(dt) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_std_dev,
+                  
                   MAX(CASE WHEN has_dt THEN sa_dt_median_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_median,
                   MAX(CASE WHEN has_dt THEN sa_dt_90percentile_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_90percentile,
                   MAX(CASE WHEN has_dt THEN ca_dt_median_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_median,
@@ -1494,7 +1498,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds, first_quartile_dt_seconds,
                             third_quartile_dt_seconds, dt_iqr, dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds,
                             modal_ip, CH_modal_ip, mile_dist_between_modal_ips, ncorrect, 
-                            sa_dt_median, sa_dt_90percentile, ca_dt_median, ca_dt_90percentile, northcutt_ratio 
+                            sa_dt_median, sa_dt_90percentile, ca_dt_median, ca_dt_90percentile, northcutt_ratio
                             #l1_northcutt_similarity, l2_northcutt_similarity, 
               HAVING unnormalized_pearson_corr > -1
               AND avg_max_dt_seconds is not null
@@ -1569,15 +1573,17 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                 try:
                     bqutil.create_bq_table(testing_dataset if testing else dataset, dataset + '_' + table if testing else table, sql[i], overwrite=True)
                 except Exception as err:
-                    if (not force_num_partitions) and 'Response too large' in str(err):
+                    if (num_partitions < 300) and 'Response too large' in str(err):
                         print err
-                        print "==> SQL query failed!  Trying again, with 50% more many partitions"
+                        print "==> SQL query failed! Recursively trying again, with 50% more many partitions"
                         return compute_show_ans_before(course_id, force_recompute=force_recompute, 
-                                                       use_dataset_latest=use_dataset_latest, 
-                                                       force_num_partitions=int(num_partitions*1.5),
-                                                       testing = testing, project_id = project_id)
+                                                        use_dataset_latest=use_dataset_latest, force_num_partitions=int(num_partitions*1.5), 
+                                                        testing=testing, testing_dataset= testing_dataset, 
+                                                        project_id = project_id, online = online,
+                                                        problem_check_show_answer_ip_table=problem_check_show_answer_ip_table)
+
                     else:
-                        raise
+                        raise err
             else:
                 bqutil.create_bq_table(testing_dataset if testing else dataset, dataset + '_' + table if testing else table, sql[i], overwrite='append')
 
