@@ -321,6 +321,19 @@ def time_on_task(param, course_id, optargs=None, skip_totals=False, just_do_tota
         if not suppress_errors:
             raise
 
+def logs2gs_single(param, course_id, args):
+    '''
+    transfers tracking logs from filesystem to gs, by calling daily_logs appropriately.  can be used with run_parallel_or_serial.
+    '''
+    return daily_logs(param, args, 'logs2gs', course_id)
+
+def logs2bq_single(param, course_id, args):
+    '''
+    transfers tracking logs from gs to bq, by calling daily_logs appropriately.  can be used with run_parallel_or_serial.
+    '''
+    return daily_logs(param, args, 'logs2bq', course_id)
+
+
 def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
     if steps=='daily_logs':
         # doing daily_logs, so run split once first, then afterwards logs2gs and logs2bq
@@ -1615,10 +1628,14 @@ check_for_duplicates        : check list of courses for duplicates
         print "==> split done at %s" % datetime.datetime.now()
 
     elif (args.command=='logs2gs'):
-        daily_logs(param, args, args.command)
+        # daily_logs(param, args, args.command)
+        courses = get_course_ids(args)
+        run_parallel_or_serial(logs2gs_single, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='logs2bq'):
-        daily_logs(param, args, args.command)
+        # daily_logs(param, args, args.command)
+        courses = get_course_ids(args)
+        run_parallel_or_serial(logs2bq_single, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='course_key_version'):
         course_key_version(param, args, args)
