@@ -35,19 +35,19 @@ if (1) {
 
 * make binary from true/false
 
-	gen b_registered = (registered=="true")
+	gen b_registered = (lower(registered)=="true")
 	drop registered
 	rename b_registered registered
 
-	gen b_viewed = (viewed=="true")
+	gen b_viewed = (lower(viewed)=="true")
 	drop viewed
 	rename b_viewed viewed
 
-	gen b_explored = (explored=="true")
+	gen b_explored = (lower(explored)=="true")
 	drop explored
 	rename b_explored explored
 
-	gen b_certified = (certified=="true")
+	gen b_certified = (lower(certified)=="true")
 	drop certified
 	rename b_certified certified
 
