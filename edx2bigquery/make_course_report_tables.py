@@ -91,6 +91,7 @@ class CourseReport(object):
                 self.all_tott_tables[cd] = table
 
         pc_tables = ',\n'.join(['[%s.person_course]' % x for x in datasets_with_pc])
+        pcday_tables = ',\n'.join(['[%s.person_course_day]' % x for x in datasets_with_pc])
         pcday_ip_counts_tables = ',\n'.join(['[%s.pcday_ip_counts]' % x for x in self.all_pcday_ip_counts_tables])
         uic_tables = ',\n'.join(['[%s.user_info_combo]' % x for x in self.all_uic_tables])
         tott_tables = ',\n'.join(['[%s.time_on_task_totals]' % x for x in self.all_tott_tables])
@@ -108,6 +109,7 @@ class CourseReport(object):
 
         self.parameters = {'dataset': self.dataset,
                            'pc_tables': pc_tables,
+                           'pcday_tables': pcday_tables,
                            'uic_tables': uic_tables,
                            'tott_tables': tott_tables,
                            'pcday_ip_counts_tables': pcday_ip_counts_tables,
@@ -127,6 +129,7 @@ class CourseReport(object):
         if 1:
             self.combine_show_answer_stats_by_course()
             self.make_totals_by_course()
+            self.make_person_course_day_table() 
             self.make_medians_by_course()
             self.make_table_of_email_addresses()
             self.make_global_modal_ip_table()
@@ -159,7 +162,7 @@ class CourseReport(object):
                     return -1
         return 0
 
-    def do_table(self, the_sql, tablename, the_dataset=None, sql_for_description=None, check_skip=True):
+    def do_table(self, the_sql, tablename, the_dataset=None, sql_for_description=None, check_skip=True, allowLargeResults=False):
 
         if check_skip:
             if self.skip_or_do_step(tablename) < 0:
@@ -175,6 +178,7 @@ class CourseReport(object):
                                          overwrite=True,
                                          output_project_id=self.output_project_id,
                                          sql_for_description=sql_for_description or the_sql,
+                                         allowLargeResults=allowLargeResults,
                                      )
         except Exception as err:
             print "ERROR! Failed on SQL="
@@ -469,6 +473,15 @@ order by course_id;
     
             self.do_table(the_sql, pset['table'], sql_for_description=sql_for_description, check_skip=False)
 
+    def make_person_course_day_table(self):
+
+        the_sql = '''
+            SELECT *
+            FROM 
+                {pcday_tables}
+        '''.format(**self.parameters)
+        
+        self.do_table(the_sql, 'person_course_day_allcourses', allowLargeResults=True)
 
     def make_totals_by_course(self):
 

@@ -221,12 +221,19 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                   )
          """.format(dataset=log_dataset, start=min_date, end=max_date)
 
-    the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets, last_date=last_date, hash_limit="")
+    def get_ym(x):
+        return int(x[0:4]), int(x[4:6]), int(x[6:])
+    (mx_year, mx_month, mx_day) = get_ym(max_date)
+    (mn_year, mn_month, mn_day) = get_ym(min_date)
+    max_date_end = "%04d-%02d-%02d" % (mx_year, mx_month, mx_day)
+    min_date_start = "%04d-%02d-%02d" % (mn_year, mn_month, mn_day)
+
+    the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets, last_date=last_date, min_date_start=min_date_start, max_date_end=max_date_end, hash_limit="")
 
     try:
         bqutil.create_bq_table(dataset, table, the_sql, wait=True, overwrite=overwrite, allowLargeResults=True)
     except Exception as err:
-        if ( ('Response too large to return.' in str(err)) and has_hash_limit ):
+        if ( ('Response too large to return.' in str(err) or 'Too many tables for query' in str(err) ) and has_hash_limit ):
             # try using hash limit on username
             # e.g. WHERE ABS(HASH(username)) % 4 = 0
 
@@ -236,7 +243,7 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
                 bqutil.create_bq_table(dataset, table, the_sql, wait=True, overwrite=overwrite, allowLargeResults=True)
                 overwrite = "append"
 
-        elif ('Resources exceeded during query execution' in str(err)):
+        elif ('Resources exceeded during query execution' in str(err) or 'Too many tables for query' in str(err)):
             if True:
                 # figure out time interval in days, and split that in half
                 start_date = datetime.datetime.strptime(min_date, '%Y%m%d')
