@@ -64,6 +64,7 @@ import bqutil
 import gsutil
 import datetime
 import copy
+import numpy as np
 from path import path
 from collections import OrderedDict, defaultdict
 from check_schema_tracking_log import schema2dict, check_schema
@@ -145,12 +146,18 @@ class PersonCourse(object):
             print msg
             sys.stdout.flush()
 
-    def openfile(self, fn, mode='r'):
+    def openfile(self, fn, mode='r', useCourseDir=True):
         if fn.endswith('.gz'):
-            return gzip.GzipFile(self.cdir / fn, mode)
-        return open(self.cdir / fn, mode)
+            if useCourseDir:
+                 return gzip.GzipFile(self.cdir / fn, mode)
+            else:
+                 return gzip.GzipFile( fn, mode )
+        if useCourseDir:
+             return open(self.cdir / fn, mode)
+        else:
+             return open( fn, mode )
     
-    def load_csv(self, fn, key, schema=None, multi=False, fields=None, keymap=None):
+    def load_csv(self, fn, key, schema=None, multi=False, fields=None, keymap=None, useCourseDir=True ):
         '''
         load csv file into memory, storing into dict with specified field (key) as the key.
         if multi, then each dict value is a list, with one or more values per key.
@@ -160,7 +167,7 @@ class PersonCourse(object):
         data = OrderedDict()
         if keymap is None:
             keymap = lambda x: x
-        for line in csv.DictReader(self.openfile(fn)):
+        for line in csv.DictReader(self.openfile(fn, useCourseDir=useCourseDir)):
             try:
                 the_id = keymap(line[key])
             except Exception as err:
@@ -522,12 +529,27 @@ class PersonCourse(object):
         
         gid.load_geoip()
 
+        # Load region data, if it exists to ensure un data is populated
+        try:
+             region_data_exists = False
+             self.log( "---> Looking for UN geographic region data by country..." )
+             assert os.path.exists('geographic_regions_by_country.csv'), "Cannot find UN geographic region by country data file. Visit https://github.com/mitodl/world_geographic_regions to download geographic_regions_by_country.csv"
+             self.log( "---> UN geographic region data by country found" )
+             region_data_fn = "geographic_regions_by_country.csv"
+             region_data = self.load_csv( fn=region_data_fn, useCourseDir=False, key='cc', keymap=str )
+             region_data_exists = True
+        except Exception as err:
+             print str(err)
+             self.log("Cannot find UN geographic region by country data file. Visit https://github.com/mitodl/world_geographic_regions to download geographic_regions_by_country.csv to your working directory")
+             self.log("---> Skipping check for un region data for extra ip's found. Null values may exist for un region fields")
+             pass
+
         def c2pc(field, gdata):
             pcent[field] = gdata[field]
 
         gfields = ['city', 'countryLabel', 'latitude', 'longitude',
                    'region', 'subdivision', 'postalCode', 'continent']
-        # GeoIP Table does not have data for 'un_region', 'econ_group', 'developing_nation', 'special_region1' => These will be blank
+        # GeoIP Table does not have data for 'un_region', 'econ_group', 'developing_nation', 'special_region1' => These will be blank (if region data file doesn't exist)
 
         nnew = 0
         nmissing_geo = 0
@@ -555,8 +577,59 @@ class PersonCourse(object):
             if (nnew%100==0):
                 sys.stdout.write('.')
                 sys.stdout.flush()
+
+
+        # If region data exists, then do final check on location data and populate UN region data when its missing
+        nmissing_un_data = 0
+	if region_data_exists:
+            for key, pcent in self.pctab.iteritems():
+
+                # If country code exists, then make sure un data is populated using data
+	        try:
+                    check_country = None
+		    added_missing_un_data = False
+                    check_country = pcent.get('cc_by_ip', None)
+                    countryLabel = pcent.get('countryLabel', None)
+		    continent = pcent.get('continent', None)
+                    un_major_region = pcent.get('un_major_region', None)
+                    un_economic_group = pcent.get('un_economic_group', None)
+                    un_developing_nation = pcent.get('un_developing_nation', None)
+                    un_special_region = pcent.get('un_special_region', None)
+		    if countryLabel is None and check_country is not None:
+                        pcent['countryLabel'] = region_data[check_country].get('name')
+		        added_missing_un_data = True
+		    if continent is None and check_country is not None:
+		        #print "Adding Continent %s for %s" % (continent, check_country)
+                        pcent['continent'] = region_data[check_country].get('continent')
+		        added_missing_un_data = True
+                    if un_major_region is None and region_data[check_country].get('un_region'):
+		        #print "Adding major region from %s to %s [cc=%s]" % (un_major_region, str(region_data[check_country].get('un_region')), check_country) 
+                        pcent['un_major_region'] = region_data[check_country].get('un_region')
+		        added_missing_un_data = True
+                    if un_economic_group is None and region_data[check_country].get('econ_group'):
+		        #print "Adding un economic group from %s to %s [cc=%s]" % (un_economic_group, str(region_data[check_country].get('econ_group')), check_country)
+                        pcent['un_economic_group'] = region_data[check_country].get('econ_group')
+		        added_missing_un_data = True
+                    if un_developing_nation is None and region_data[check_country].get('developing_nation'):
+		        #print "Adding un developing nation from %s to %s [cc=%s]" % (un_developing_nation, str(region_data[check_country].get('developing_nation')), check_country)
+                        pcent['un_developing_nation'] = region_data[check_country].get('developing_nation')
+		        added_missing_un_data = True
+                    if un_special_region is None and region_data[check_country].get('special_region1'):
+                        pcent['un_special_region'] = region_data[check_country].get('special_region1')
+		        added_missing_un_data = True
+		    if added_missing_un_data:
+                        nmissing_un_data += 1
+		        if (nmissing_un_data%100==0):
+                            sys.stdout.write('.')
+                            sys.stdout.flush()
+
+                except Exception as err:
+                    #print "---> Cannot add UN region data. Missing country code... Skipping"
+                    continue
+
+
         self.log("Done: %d new geoip entries added to person_course for %s" % (nnew, self.course_id))
-        self.log("--> # missing_ip = %d, # missing_geo = %d, # missing_ip_but_have_events = %d" % (nmissing_ip, nmissing_geo, nmissing_ip_but_have_events))
+        self.log("--> # missing_ip = %d, # missing_geo = %d, # missing_ip_but_have_events = %d, # missing undata =%d" % (nmissing_ip, nmissing_geo, nmissing_ip_but_have_events,nmissing_un_data))
         sys.stdout.flush()
         gid.write_geoip_table()
 
