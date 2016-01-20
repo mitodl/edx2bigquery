@@ -248,6 +248,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                              ['event_struct', 'submitted_answer'],
                              ['event_struct', 'num_attempts'],
                              ['event_struct', 'task_id'],	# 05oct15
+                             ['event_struct', 'content'],	# 11jan16
                              ['nonInteraction'], 	# 24aug15
                              ['label'],	 		# 24aug15
                          ])
