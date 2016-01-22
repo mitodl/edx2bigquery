@@ -73,7 +73,11 @@ def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=N
 
             if coerce:
                 if type(val) in [str, unicode] and ptype==float:
-                    data[key] = float(val)
+                    try:
+                        data[key] = float(val)
+                    except Exception as err:
+                        print "Error coercing data for key=%s path=%s, val=%s, err=%s" % (key, path, val, str(err))
+                        data[key] = None
                     continue
                 if type(val) in [str, unicode] and ptype==int:
                     try:
