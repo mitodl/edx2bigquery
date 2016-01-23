@@ -508,6 +508,21 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
     print "=== Processing person_course_day for %s (start %s)"  % (course_id, datetime.datetime.now())
     sys.stdout.flush()
 
+    # Major person_course_day schema revision 19-Jan-2016 adds new fields; if table exists, ensure it 
+    # has new schema, else force recompute.
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, table)
+    except Exception as err:
+        tinfo = None
+    if tinfo:
+        fields = tinfo['schema']['fields']
+        field_names = [x['name'] for x in fields]
+        if not 'nvideos_viewed' in field_names:
+            cdt = tinfo['creationTime']
+            print "    --> person_course_day created %s; missing nvideos_viewed field in schema; forcing recompute - this may take a long time!" % cdt
+            sys.stdout.flush()
+            force_recompute = True
+
     process_tracking_logs.run_query_on_tracking_logs(PCDAY_SQL, table, course_id, force_recompute=force_recompute,
                                                      use_dataset_latest=use_dataset_latest,
                                                      end_date=end_date,
