@@ -23,7 +23,7 @@
 # module_id = edX standard {org}/{course_num}/{category}/{url_name} id for an x-module
 # data      = extra data for element, eg you-tube id's for videos
 # chapter_mid = module_id of the chapter within which this x-module exists (empty if not within a chapter)
-# graded    = boolean specifying if the section (ie sequential) was to be graded or not
+# graded    = string ("true" or "false") specifying if the section (ie sequential) was to be graded or not
 # parent    = url_name of the parent of this item
 # is_split  = boolean specifying if this item is in a split_test
 # 
@@ -451,6 +451,8 @@ def make_axis(dir):
                     logit( "gformat for hw0 = %s" % gformat)
 
                 graded = x.get('graded', policy.get_metadata(x, 'graded', ''))
+                if not (type(graded) in [unicode, str]):
+                    graded = str(graded)
 
                 # compute path
                 # The hierarchy goes: `course > chapter > (problemset | sequential | videosequence)`

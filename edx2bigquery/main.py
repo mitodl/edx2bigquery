@@ -627,7 +627,7 @@ def problem_check(param, courses, args):
             traceback.print_exc()
             sys.stdout.flush()
     
-def axis2bq(param, courses, args):
+def axis2bq(param, courses, args, stop_on_error=True):
     import make_course_axis
 
     try:
@@ -645,7 +645,8 @@ def axis2bq(param, courses, args):
         pin_date = course_axis_pin_dates.get(course_id)
         if pin_date:
             print "--> course_axis for %s being pinned to data from dump date %s" % (course_id, pin_date)
-        make_course_axis.process_course(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose, pin_date)
+        make_course_axis.process_course(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, 
+                                        args.verbose, pin_date, stop_on_error=stop_on_error)
         
     
 def make_grading_policy(param, courses, args):
@@ -669,7 +670,7 @@ def make_grading_policy(param, courses, args):
         make_grading_policy_table.make_gp_table(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose, pin_date)
         
 
-def person_day(param, courses, args, check_dates=True):
+def person_day(param, courses, args, check_dates=True, stop_on_error=True):
     import make_person_course_day
     for course_id in get_course_ids(courses):
         try:
@@ -684,6 +685,8 @@ def person_day(param, courses, args, check_dates=True):
             print err
             traceback.print_exc()
             sys.stdout.flush()
+            if stop_on_error:
+                raise
         
 
 def pcday_ip(param, courses, args):
@@ -768,10 +771,10 @@ def doall(param, course_id, args, stdout=None):
         except Exception as err:
             print "--> Failed in analyze_forum with err=%s" % str(err)
             print "--> continuing with doall anyway"
-        axis2bq(param, course_id, args)
+        axis2bq(param, course_id, args, stop_on_error=False)
         daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
         pcday_ip(param, course_id, args)	# needed for modal IP
-        person_day(param, course_id, args)
+        person_day(param, course_id, args, stop_on_error=False)
         enrollment_day(param, course_id, args)
         person_course(param, course_id, args)
         problem_check(param, course_id, args)
@@ -803,7 +806,7 @@ def run_nightly_single(param, course_id, args=None):
         print "NIGHTLY PROCESSING %s" % course_id
         print "-"*100
         daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
-        person_day(param, course_id, args, check_dates=False)
+        person_day(param, course_id, args, check_dates=False, stop_on_error=False)
         enrollment_day(param, course_id, args)
         pcday_ip(param, course_id, args)	# needed for modal IP
         person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)

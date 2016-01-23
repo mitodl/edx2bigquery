@@ -7,7 +7,7 @@ import edx2course_axis
 import load_course_sql
 import axis2bigquery
 
-def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=False, pin_date=None):
+def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=False, pin_date=None, stop_on_error=True):
     if pin_date:
         datedir = pin_date
     sdir = load_course_sql.find_course_sql_dir(course_id, 
@@ -43,5 +43,6 @@ def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=Fals
     except Exception as err:
         print err
         traceback.print_exc()
-        
+        if stop_on_error:
+            raise
         # raise
