@@ -1730,7 +1730,9 @@ check_for_duplicates        : check list of courses for duplicates
         pcday_ip(param, args, args)
 
     elif (args.command=='person_day'):
-        person_day(param, args, args)
+        # person_day(param, args, args)
+        courses = get_course_ids(args)
+        run_parallel_or_serial(person_day, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='enrollment_day'):
         # enrollment_day(param, args, args)
