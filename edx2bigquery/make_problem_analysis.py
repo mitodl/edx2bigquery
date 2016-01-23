@@ -1301,9 +1301,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     else:
         #Twice the paritions if running in a course that hasn't completed (online == True) since we consider more pairs
         if num_persons > 60000:
-            num_partitions = int(num_persons / (3000 if online else 6000))  # because the number of certificate earners is also likely higher
+            num_partitions = int(num_persons / (3000 if online else 5000))  # because the number of certificate earners is also likely higher
         elif num_persons > 10000:
-            num_partitions = int(num_persons / (5000 if online else 10000))
+            num_partitions = int(num_persons / (5000 if online else 8000))
         else:
             num_partitions = 4 if online else 2
     print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
@@ -1336,7 +1336,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               ncorrect,
               sum(sa_before_pa) / ncorrect * 100 as percent_correct_using_show_answer,
               sa_dt_median, sa_dt_90percentile, ca_dt_median, ca_dt_90percentile, 
-              SUM(chi) AS sa_ca_chi_squared,
+              SUM(chi) AS sa_ca_dt_chi_squared,
               CORR(show_answer_dt, correct_answer_dt) AS sa_ca_dt_correlation,
               1 - ABS((ABS(LN(sa_dt_90percentile / ca_dt_90percentile)) + ABS(LN(ca_dt_median / ca_dt_median))) / 2) as northcutt_ratio,
               #ABS((sa_dt_90percentile - sa_dt_median) - (ca_dt_90percentile - ca_dt_median)) AS l1_northcutt_similarity,
@@ -1356,7 +1356,10 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               modal_ip,
               CH_modal_ip,
               mile_dist_between_modal_ips,
-              sum(sa_before_pa) / median_max_dt_seconds AS cheating_likelihood
+              sum(sa_before_pa) / median_max_dt_seconds AS cheating_likelihood,
+              dt_dt_p05, dt_dt_p10, dt_dt_p15, dt_dt_p20, dt_dt_p25, dt_dt_p30, dt_dt_p35,
+              dt_dt_p40, dt_dt_p45, dt_dt_p50, dt_dt_p55, dt_dt_p60, dt_dt_p65, dt_dt_p70, 
+              dt_dt_p75, dt_dt_p80, dt_dt_p85, dt_dt_p90, dt_dt_p95
               FROM
               (
                 SELECT *,
@@ -1371,9 +1374,30 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                   MAX(CASE WHEN has_dt THEN sa_dt_median_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_median,
                   MAX(CASE WHEN has_dt THEN sa_dt_90percentile_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_90percentile,
                   MAX(CASE WHEN has_dt THEN ca_dt_median_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_median,
-                  MAX(CASE WHEN has_dt THEN ca_dt_90percentile_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_90percentile
+                  MAX(CASE WHEN has_dt THEN ca_dt_90percentile_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_90percentile,
+
+                  MAX(CASE WHEN has_dt THEN dt_dt_p05_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p05,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p10_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p10,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p15_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p15,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p20_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p20,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p25_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p25,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p30_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p30,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p35_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p35,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p40_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p40,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p45_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p45,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p50_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p50,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p55_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p55,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p60_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p60,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p65_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p65,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p70_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p70,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p75_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p75,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p80_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p80,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p85_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p85,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p90_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p90,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p95_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p95
+
                 FROM
-                (
+              (
                   SELECT *,
 
                   #Find percentiles of correct answer - show answer dt time differences
@@ -1391,7 +1415,30 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                   (ca.time - ca_lag) / 1e6 AS correct_answer_dt,
                   PERCENTILE_CONT(.50) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_median_intermediate,
                   PERCENTILE_CONT(.90) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_90percentile_intermediate,
-                  
+
+                  #Find dt of dt percentiles for each pair 
+                  (dt - dt_lag) AS dt_dt,
+                  PERCENTILE_CONT(.05) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p05_intermediate,
+                  PERCENTILE_CONT(.10) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p10_intermediate,
+                  PERCENTILE_CONT(.15) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p15_intermediate,
+                  PERCENTILE_CONT(.20) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p20_intermediate,
+                  PERCENTILE_CONT(.25) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p25_intermediate,
+                  PERCENTILE_CONT(.30) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p30_intermediate,
+                  PERCENTILE_CONT(.35) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p35_intermediate,
+                  PERCENTILE_CONT(.40) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p40_intermediate,
+                  PERCENTILE_CONT(.45) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p45_intermediate,
+                  PERCENTILE_CONT(.50) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p50_intermediate,
+                  PERCENTILE_CONT(.55) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p55_intermediate,
+                  PERCENTILE_CONT(.60) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p60_intermediate,
+                  PERCENTILE_CONT(.65) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p65_intermediate,
+                  PERCENTILE_CONT(.70) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p70_intermediate,
+                  PERCENTILE_CONT(.75) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p75_intermediate,
+                  PERCENTILE_CONT(.80) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p80_intermediate,
+                  PERCENTILE_CONT(.85) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p85_intermediate,
+                  PERCENTILE_CONT(.90) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p90_intermediate,
+                  PERCENTILE_CONT(.95) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p95_intermediate
+
+
                   FROM
                   ( 
                     SELECT
@@ -1412,7 +1459,10 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
 
                       #Compute lags ONLY for show answers that occur before correct answers
                       LAG(sa.time, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY sa.time ASC) AS sa_lag,
-                      LAG(ca.time, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY ca.time ASC) AS ca_lag
+                      LAG(ca.time, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY ca.time ASC) AS ca_lag,
+
+                      #Find inter-time of dt for each pair
+                      LAG(dt, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY dt ASC) AS dt_lag
                     FROM
                     (
                       SELECT
@@ -1498,7 +1548,10 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds, first_quartile_dt_seconds,
                             third_quartile_dt_seconds, dt_iqr, dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds,
                             modal_ip, CH_modal_ip, mile_dist_between_modal_ips, ncorrect, 
-                            sa_dt_median, sa_dt_90percentile, ca_dt_median, ca_dt_90percentile, northcutt_ratio
+                            sa_dt_median, sa_dt_90percentile, ca_dt_median, ca_dt_90percentile, northcutt_ratio,
+                            dt_dt_p05, dt_dt_p10, dt_dt_p15, dt_dt_p20, dt_dt_p25, dt_dt_p30, dt_dt_p35,
+                            dt_dt_p40, dt_dt_p45, dt_dt_p50, dt_dt_p55, dt_dt_p60, dt_dt_p65, dt_dt_p70, 
+                            dt_dt_p75, dt_dt_p80, dt_dt_p85, dt_dt_p90, dt_dt_p95
                             #l1_northcutt_similarity, l2_northcutt_similarity, 
               HAVING unnormalized_pearson_corr > -1
               AND avg_max_dt_seconds is not null
