@@ -1328,7 +1328,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             #Only selects pairs with at least 10 show ans before
             SELECT
               course_id, cameo_candidate, shadow_candidate, median_max_dt_seconds, percent_show_ans_before, 
-              show_ans_before, ncorrect, percent_correct_using_show_answer, 
+              show_ans_before, show_ans_before_lt_30s, show_ans_before_lt_60s, ncorrect, percent_correct_using_show_answer, 
               sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
               sa_ca_dt_chi_sq_ordered, sa_ca_dt_chi_squared, sa_ca_dt_corr_ordered, sa_ca_dt_correlation,
               northcutt_ratio, nsame_ip, nsame_ip_given_sab, percent_same_ip_given_sab, percent_same_ip,
@@ -1355,6 +1355,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               median_max_dt_seconds,
               sum(sa_before_pa) / count(*) * 100 as percent_show_ans_before,
               sum(sa_before_pa) as show_ans_before,
+              sum(sa_before_pa and (dt <= 30)) as show_ans_before_lt_30s,
+              sum(sa_before_pa and (dt <= 60)) as show_ans_before_lt_60s,
               ncorrect,
               sum(sa_before_pa) / ncorrect * 100 as percent_correct_using_show_answer,
               sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
