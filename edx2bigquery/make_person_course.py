@@ -64,7 +64,6 @@ import bqutil
 import gsutil
 import datetime
 import copy
-import numpy as np
 from path import path
 from collections import OrderedDict, defaultdict
 from check_schema_tracking_log import schema2dict, check_schema
