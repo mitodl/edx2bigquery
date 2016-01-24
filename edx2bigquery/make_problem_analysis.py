@@ -1828,7 +1828,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
 
     if force_recompute:
         for i in range(num_partitions): 
-            print "--> Running SQL for partition %d of %d" % (i, num_partitions)
+            print "--> Running SQL for partition %d of %d" % (i + 1, num_partitions)
             sys.stdout.flush()
             if i == 0:
                 try:
