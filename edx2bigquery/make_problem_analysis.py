@@ -1784,7 +1784,6 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                      certified_filter= 'ncorrect >= 10' if online else "certified = true")
         sql.append(item)
 
-
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
     sys.stdout.flush()
 
@@ -1840,11 +1839,13 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             sys.stdout.flush()
             if i == 0:
                 try:
-                    bqutil.create_bq_table(testing_dataset if testing else dataset, dataset + '_' + table if testing else table, sql[i], overwrite=True)
+                    bqutil.create_bq_table(testing_dataset if testing else dataset, 
+                                           dataset + '_' + table if testing else table, 
+                                           sql[i], overwrite=True, allowLargeResults=True, sql_for_description=sql[i])
                 except Exception as err:
-                    if (num_partitions < 300) and 'Response too large' in str(err):
+                    if (num_partitions < 300) and ('Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
                         print err
-                        print "==> SQL query failed! Recursively trying again, with 50% more many partitions"
+                        print "="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80
                         return compute_show_ans_before(course_id, force_recompute=force_recompute, 
                                                         use_dataset_latest=use_dataset_latest, force_num_partitions=int(num_partitions*1.5), 
                                                         testing=testing, testing_dataset= testing_dataset, 
@@ -1854,13 +1855,15 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                     else:
                         raise err
             else:
-                bqutil.create_bq_table(testing_dataset if testing else dataset, dataset + '_' + table if testing else table, sql[i], overwrite='append')
+                bqutil.create_bq_table(testing_dataset if testing else dataset, 
+                                       dataset + '_' + table if testing else table, 
+                                       sql[i], overwrite='append', allowLargeResults=True, sql_for_description=sql[i])
 
         if num_partitions > 5:
             print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
             sys.stdout.flush()
             time.sleep(60)
-
+  
     nfound = bqutil.get_bq_table_size_rows(dataset, table)
     if testing:
         nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset, table_id=table, project_id='mitx-research')
