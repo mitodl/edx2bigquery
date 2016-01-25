@@ -1240,20 +1240,20 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     if problem_check_show_answer_ip_table is None:
         if testing:
             default_table_info = bqutil.get_bq_table_info(dataset,'stats_problem_check_show_answer_ip', project_id=project_id)
-            if default_table_info is not None:
+            if default_table_info is not None and not force_recompute:
                 problem_check_show_answer_ip_table = project_id + ':'+ dataset + '.stats_problem_check_show_answer_ip'
             else:
                 #Default table doesn't exist, Check if testing table exists
                 testing_table_info = bqutil.get_bq_table_info(testing_dataset,
                                      dataset + '_stats_problem_check_show_answer_ip', project_id='mitx-research')
-                if testing_table_info is None:
+                if force_recompute or testing_table_info is None:
                     compute_problem_check_show_answer_ip(course_id, use_dataset_latest, testing=True, 
-                                                         testing_dataset=testing_dataset, project_id=project_id)
+                                                         testing_dataset=testing_dataset, project_id=project_id, overwrite=force_recompute)
                 problem_check_show_answer_ip_table = 'mitx-research:' + testing_dataset + '.' + dataset + '_stats_problem_check_show_answer_ip'
         else:
             default_table_info = bqutil.get_bq_table_info(dataset,'stats_problem_check_show_answer_ip')
-            if default_table_info is None:
-                compute_problem_check_show_answer_ip(course_id, use_dataset_latest)
+            if force_recompute or default_table_info is None:
+                compute_problem_check_show_answer_ip(course_id, use_dataset_latest, overwrite=force_recompute)
             problem_check_show_answer_ip_table = dataset + '.stats_problem_check_show_answer_ip'
 
     #-------------------- partition by nshow_ans_distinct
@@ -1328,7 +1328,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             #Only selects pairs with at least 10 show ans before
             SELECT
               course_id, cameo_candidate, shadow_candidate, median_max_dt_seconds, percent_show_ans_before, 
-              show_ans_before, show_ans_before_lt_30s, show_ans_before_lt_60s, ncorrect, percent_correct_using_show_answer, 
+              show_ans_before, x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, ncorrect, percent_correct_using_show_answer, 
               sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
               sa_ca_dt_chi_sq_ordered, sa_ca_dt_chi_squared, sa_ca_dt_corr_ordered, sa_ca_dt_correlation,
               northcutt_ratio, nsame_ip, nsame_ip_given_sab, percent_same_ip_given_sab, percent_same_ip,
@@ -1355,8 +1355,14 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               median_max_dt_seconds,
               sum(sa_before_pa) / count(*) * 100 as percent_show_ans_before,
               sum(sa_before_pa) as show_ans_before,
-              sum(sa_before_pa and (dt <= 30)) as show_ans_before_lt_30s,
-              sum(sa_before_pa and (dt <= 60)) as show_ans_before_lt_60s,
+              sum(sa_before_pa and (dt <= 15)) as x15s,
+              sum(sa_before_pa and (dt <= 30)) as x30s,
+              sum(sa_before_pa and (dt <= 60)) as x01m,
+              sum(sa_before_pa and (dt <= 60 * 5)) as x05m,
+              sum(sa_before_pa and (dt <= 60 * 10)) as x10m,
+              sum(sa_before_pa and (dt <= 60 * 30)) as x30m,
+              sum(sa_before_pa and (dt <= 60 * 60)) as x01h,
+              sum(sa_before_pa and (dt <= 60 * 60 * 24)) as x01d,
               ncorrect,
               sum(sa_before_pa) / ncorrect * 100 as percent_correct_using_show_answer,
               sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
@@ -1774,7 +1780,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                      partition=the_partition[i],
                      partition_ordered_query=the_partition[i].replace('pc.', ''),
                      problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
-                     not_certified_filter='nshow_ans_distinct >= 5' if online else 'certified = false',
+                     not_certified_filter='nshow_ans_distinct >= 10' if online else 'certified = false',
                      certified_filter= 'ncorrect >= 10' if online else "certified = true")
         sql.append(item)
 
