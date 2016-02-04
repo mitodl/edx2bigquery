@@ -1301,9 +1301,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     else:
         #Twice the paritions if running in a course that hasn't completed (online == True) since we consider more pairs
         if num_persons > 60000:
-            num_partitions = int(num_persons / (3000 if online else 5000))  # because the number of certificate earners is also likely higher
+            num_partitions = int(round(num_persons / (3000 if online else 5000)))  # because the number of certificate earners is also likely higher
         elif num_persons > 10000:
-            num_partitions = int(num_persons / (5000 if online else 8000))
+            num_partitions = int(round(num_persons / (5000 if online else 8000)))
         else:
             num_partitions = 4 if online else 2
     print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
@@ -1848,7 +1848,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                         print err
                         print "="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80
                         return compute_show_ans_before(course_id, force_recompute=force_recompute, 
-                                                        use_dataset_latest=use_dataset_latest, force_num_partitions=int(num_partitions*1.5), 
+                                                        use_dataset_latest=use_dataset_latest, force_num_partitions=int(round(num_partitions*1.5)), 
                                                         testing=testing, testing_dataset= testing_dataset, 
                                                         project_id = project_id, online = online,
                                                         problem_check_show_answer_ip_table=problem_check_show_answer_ip_table)
