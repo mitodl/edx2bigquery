@@ -1133,11 +1133,54 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
     print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
     sys.stdout.flush()
 
+#-----------------------------------------------------------------------------
+
+def compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest = True, testing=False, testing_dataset=None, project_id=None):
+    '''Returns one week past the certification date if certificates have been rewarded.
+    Otherwise, returns one week past the last due date.
+    If no certificates have been rewarded and no due dates are specified, returns one year past the start date.'''
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    SQL = '''
+    SELECT CASE WHEN end_date IS NULL THEN one_year_past_start_date ELSE end_date END AS last
+    FROM
+    (
+      SELECT DATE_ADD(MAX(end_date), 1, "WEEK") as end_date #one week past last date
+      FROM
+      (
+        SELECT MAX(due) as end_date
+        FROM [{dataset}.course_axis] 
+      ),
+      (
+        SELECT MAX(certificate_created_date) as end_date
+        FROM [{dataset}.user_info_combo] 
+      )
+    ) a
+    CROSS JOIN
+    (
+      SELECT DATE_ADD(min_start_time, 1, "YEAR") as one_year_past_start_date
+      FROM [mitx-data:course_report_latest.broad_stats_by_course],
+      [harvardx-data:course_report_latest.broad_stats_by_course]
+      WHERE course_id = "{course_id}"
+    ) b 
+    '''.format(dataset=project_id + ":" + dataset if testing else dataset, course_id=course_id)
+    table_id = 'temp' + str(hash(course_id))
+    bqutil.create_bq_table(dataset_id=testing_dataset, table_id=table_id, sql=SQL, overwrite=True, project_id=project_id)
+
+    data = bqutil.get_table_data(dataset_id=testing_dataset, table_id=table_id)
+    last_date = datetime.datetime.fromtimestamp(float(data['data'][0]['last']))
+
+    #print "--> sleeping for 15 seconds to try avoiding bigquery system error - maybe due to data transfer time"
+    #sys.stdout.flush()
+    #time.sleep(15)
+
+    bqutil.delete_bq_table(dataset_id=testing_dataset, table_id=table_id)
+    return last_date
 
 #-----------------------------------------------------------------------------
 
-def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, overwrite=True,
-                                       testing=False, testing_dataset=None, project_id=None):
+def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, num_partitions = 1, last_date=None,
+                                         overwrite=True, testing=False, testing_dataset=None, project_id=None):
     
     '''
     This table holds all the problem_check and show_answer events extracted from
@@ -1156,61 +1199,72 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, ov
     tracking_log_dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=False) + '_logs'
     table = "stats_problem_check_show_answer_ip"
 
-    #Find the date that is one month past the start date for cap on tracking logs
-    if testing:
-      ca = bqutil.get_table_data(dataset_id=dataset,table_id='course_axis', project_id=project_id, maxResults=1e9)
-    else:
-      ca = bqutil.get_table_data(dataset_id=dataset,table_id='course_axis', maxResults=1e9)
-
-    try:
-      last = max([datetime.datetime.fromtimestamp(float(x['due'])).date() for x in ca['data'] if x['due'] is not None]) 
-      last += datetime.timedelta(30) #Add a month just to be sure
-    except: #for courses where due date is not specified in course_axis
-      s1 = bqutil.get_table_data(dataset_id='course_report_latest',table_id='broad_stats_by_course', project_id='mitx-data')['data']
-      s2 = bqutil.get_table_data(dataset_id='course_report_latest',table_id='broad_stats_by_course', project_id='harvardx-data')['data']
-      start = [datetime.datetime.fromtimestamp(float(x['min_start_time'])) for x in s1 + s2 if x['course_id'] == course_id][0]
-      last = start + datetime.timedelta(365) #Assume course lasts less than one year
+    if last_date is None:
+      last_date = compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest, testing, testing_dataset, project_id)
     
-    cap = str(last.year) + ('0'+str(last.month))[-2:] + ('0'+str(last.day))[-2:] #Formatted as YYYYMMDD
+    print "="*80 + "\nComputing problem check and show answer ip table until end date: " + str(last_date) + "\n" + "="*80 
+    
+    cap = str(last_date.year) + ('0'+str(last_date.month))[-2:] + ('0'+str(last_date.day))[-2:] #Formatted as YYYYMMDD
 
-    SQL = """
-    SELECT
-      time,
-      username,
-      context.user_id as user_id,
-      course_id as course_id,
-      module_id,
-      CASE WHEN event_type = "problem_check" or event_type = "save_problem_check"
-           THEN 'problem_check'
-           ELSE 'show_answer'
-           END AS event_type,
-      ip
-    from (
-      TABLE_QUERY({tracking_log_dataset},
-           "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) <= {cap}" #Formatted as YYYYMMDD
-         )
-      )
+    sql = []
+    for i in range(num_partitions):
+      item = """
+      SELECT
+        time,
+        username,
+        context.user_id as user_id,
+        course_id as course_id,
+        module_id,
+        CASE WHEN event_type = "problem_check" or event_type = "save_problem_check"
+             THEN 'problem_check'
+             ELSE 'show_answer'
+             END AS event_type,
+        ip
+      from (
+        TABLE_QUERY({tracking_log_dataset},
+             "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) <= {cap}" #Formatted as YYYYMMDD
+           )
+        )
 
-    where (event_type = "problem_check" or event_type = "save_problem_check" or event_type = "show_answer" or event_type = "showanswer")
-      and event_source = "server"
-      and time > TIMESTAMP("2010-10-01 01:02:03")
-    order by time
-    """.format(tracking_log_dataset=tracking_log_dataset,cap=cap)
+      where (event_type = "problem_check" or event_type = "save_problem_check" or event_type = "show_answer" or event_type = "showanswer")
+        and event_source = "server"
+        and time > TIMESTAMP("2010-10-01 01:02:03")
+        and HASH(username) % {num_partitions} = {partition}
+      order by time
+      """.format(tracking_log_dataset=tracking_log_dataset,cap=cap,num_partitions=num_partitions, partition = i)
+      sql.append(item)
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
     sys.stdout.flush()
 
-    if testing:
-        bqutil.create_bq_table(testing_dataset,dataset+'_'+table, SQL, overwrite=overwrite,
-                               project_id=project_id,output_project_id='mitx-research', 
-                               allowLargeResults=True, sql_for_description=SQL)
-    else:
-        bqutil.create_bq_table(dataset, table, SQL, overwrite=overwrite, allowLargeResults=True, sql_for_description=SQL)
+    for i in range(num_partitions): 
+      print "--> Running compute_problem_check_show_answer_ip_table SQL for partition %d of %d" % (i + 1, num_partitions)
+      sys.stdout.flush()
 
-    if testing:
-        nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset, table_id=dataset+'_'+table, project_id='mitx-research')
-    else:
-        nfound = bqutil.get_bq_table_size_rows(dataset, table)
+      if i == 0:
+        try:
+          bqutil.create_bq_table(testing_dataset if testing else dataset,dataset+'_'+table if testing else table, 
+                                   sql[i], overwrite=overwrite, project_id=project_id if testing else 'mitx-research', 
+                                   allowLargeResults=True, sql_for_description=sql[i])
+        except Exception as err:
+          if (num_partitions < 20) and ('Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
+            print err
+            print "="*80,"\n==> SQL query failed! Recursively trying compute_problem_check_show_answer_ip_table again, with 50% more many partitions\n", "="*80
+            return compute_problem_check_show_answer_ip(course_id, use_dataset_latest=use_dataset_latest, overwrite=overwrite, 
+                                                        num_partitions=int(round(num_partitions*1.5)), last_date=last_date,
+                                                        testing=testing, testing_dataset=testing_dataset, project_id=project_id)
+          else:
+            raise err
+
+      else:
+        bqutil.create_bq_table(testing_dataset if testing else dataset,dataset+'_'+table if testing else table, 
+                                   sql[i], overwrite='append', project_id=project_id if testing else 'mitx-research', 
+                                   allowLargeResults=True, sql_for_description=sql[i])
+
+    nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset if testing else dataset, 
+                                           table_id=dataset+'_'+table if testing else table,
+                                           project_id='mitx-research')
+
     print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
     sys.stdout.flush()
 
