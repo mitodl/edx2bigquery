@@ -1142,7 +1142,9 @@ def compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest = Tr
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     SQL = '''
-    SELECT CASE WHEN end_date IS NULL THEN one_year_past_start_date ELSE end_date END AS last
+    SELECT 
+      #If due dates are invalid (end_date less than a week after course starts) consider up to a year past the start date
+      CASE WHEN (end_date IS NULL) OR (end_date < DATE_ADD(min_start_time, 1, "WEEK")) THEN one_year_past_start_date ELSE end_date END AS last
     FROM
     (
       SELECT DATE_ADD(MAX(end_date), 1, "WEEK") as end_date #one week past last date
@@ -1158,23 +1160,25 @@ def compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest = Tr
     ) a
     CROSS JOIN
     (
-      SELECT DATE_ADD(min_start_time, 1, "YEAR") as one_year_past_start_date
+      SELECT
+        min_start_time,
+        DATE_ADD(min_start_time, 1, "YEAR") as one_year_past_start_date
       FROM [mitx-data:course_report_latest.broad_stats_by_course],
       [harvardx-data:course_report_latest.broad_stats_by_course]
       WHERE course_id = "{course_id}"
     ) b 
     '''.format(dataset=project_id + ":" + dataset if testing else dataset, course_id=course_id)
     table_id = 'temp' + str(abs(hash(course_id)))
-    bqutil.create_bq_table(dataset_id=testing_dataset, table_id=table_id, sql=SQL, overwrite=True, project_id=project_id)
+    bqutil.create_bq_table(dataset_id=testing_dataset if testing else dataset, table_id=table_id, sql=SQL, overwrite=True, project_id=project_id if testing else 'mitx-research')
 
-    data = bqutil.get_table_data(dataset_id=testing_dataset, table_id=table_id)
+    data = bqutil.get_table_data(dataset_id=testing_dataset if testing else dataset, table_id=table_id)
     last_date = datetime.datetime.fromtimestamp(float(data['data'][0]['last']))
 
     #print "--> sleeping for 15 seconds to try avoiding bigquery system error - maybe due to data transfer time"
     #sys.stdout.flush()
     #time.sleep(15)
 
-    bqutil.delete_bq_table(dataset_id=testing_dataset, table_id=table_id)
+    bqutil.delete_bq_table(dataset_id=testing_dataset if testing else dataset, table_id=table_id)
     return last_date
 
 #-----------------------------------------------------------------------------
