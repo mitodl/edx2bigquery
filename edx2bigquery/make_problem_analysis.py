@@ -1164,7 +1164,7 @@ def compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest = Tr
       WHERE course_id = "{course_id}"
     ) b 
     '''.format(dataset=project_id + ":" + dataset if testing else dataset, course_id=course_id)
-    table_id = 'temp' + str(hash(course_id))
+    table_id = 'temp' + str(abs(hash(course_id)))
     bqutil.create_bq_table(dataset_id=testing_dataset, table_id=table_id, sql=SQL, overwrite=True, project_id=project_id)
 
     data = bqutil.get_table_data(dataset_id=testing_dataset, table_id=table_id)
