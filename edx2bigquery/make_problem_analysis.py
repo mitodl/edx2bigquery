@@ -1359,11 +1359,11 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     else:
         #Twice the paritions if running in a course that hasn't completed (online == True) since we consider more pairs
         if num_persons > 60000:
-            num_partitions = int(round(num_persons / (3000 if online else 5000)))  # because the number of certificate earners is also likely higher
+            num_partitions = min(int(round(num_persons / (3000 if online else 5000))), 5)  # because the number of certificate earners is also likely higher
         elif num_persons > 10000:
-            num_partitions = int(round(num_persons / (5000 if online else 8000)))
+            num_partitions = min(int(round(num_persons / (5000 if online else 8000))), 5)
         else:
-            num_partitions = 4 if online else 2
+            num_partitions = 4 if online else 1
     print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
 
     def make_username_partition(nparts, pnum):
