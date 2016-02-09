@@ -508,9 +508,9 @@ def add_description_to_table(dataset_id, table_id, description, append=False, pr
         old_description = table['description']
         description = old_description + '\n' + description
 
-    if len(description) > 16384:
-        print "[bqutil] oops, cannot add description, length=%s > 16384, truncating description" % len(description)
-        description = description[:16384]
+    if len(description) > 16383:
+        print "[bqutil] oops, cannot add description, length=%s > 16383, truncating description" % len(description)
+        description = description[:16383]
         # return
 
     patch = {'description': description,
