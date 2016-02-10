@@ -376,7 +376,7 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
                     output_project_id=DEFAULT_PROJECT_ID,
                     allowLargeResults=False,
                     sql_for_description=None,
-                    udfs=[]):
+                    udfs=None):
     '''
     Run SQL query to create a new table.
 
@@ -397,7 +397,9 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
 
     udfs_type_error = "[bqutil] create_bq_table parameter udfs is wrong type. Type should be str or list of str."
 
-    if type(udfs) is str:
+    if udfs is None:
+        UDF_list = []
+    elif type(udfs) is str:
         UDF_list = [dict(inlineCode=udfs)]
     elif type(udfs) is list:
         UDF_list = []
