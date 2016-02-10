@@ -375,9 +375,14 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
                     logger=default_logger, project_id=DEFAULT_PROJECT_ID,
                     output_project_id=DEFAULT_PROJECT_ID,
                     allowLargeResults=False,
-                    sql_for_description=None):
+                    sql_for_description=None,
+                    udfs=[]):
     '''
     Run SQL query to create a new table.
+
+    sql: String representation of Google BigQuery SQL expression
+    udfs: String representation of Google BigQuery user-defined function (UDF).
+         If multiple UDFs in a single query, udfs = list of UDF strings.
     '''
 
     project_ref = dict(projectId=project_id)
@@ -390,10 +395,27 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
     else:
         wd = "WRITE_EMPTY"	
 
+    udfs_type_error = "[bqutil] create_bq_table parameter udfs is wrong type. Type should be str or list of str."
+
+    if type(udfs) is str:
+        UDF_list = [dict(inlineCode=udfs)]
+    elif type(udfs) is list:
+        UDF_list = []
+        for i in udfs:
+            if type(i) is str:
+                UDF_list.append(dict(inlineCode=i))
+            else:
+                logger(udfs_type_error)
+                raise TypeError(udfs_type_error)
+    else:
+        logger(udfs_type_error)
+        raise TypeError(udfs_type_error)
+
     config = {'query': { 'query': sql,
                          'destinationTable': table_ref,
                          'writeDisposition': wd,
                          'allowLargeResults': allowLargeResults,
+                         'userDefinedFunctionResources': UDF_list,
                          }
               }
               
