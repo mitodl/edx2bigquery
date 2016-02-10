@@ -1133,11 +1133,58 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
     print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
     sys.stdout.flush()
 
+#-----------------------------------------------------------------------------
+
+def compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest = True, testing=False, testing_dataset=None, project_id=None):
+    '''Returns one week past the certification date if certificates have been rewarded.
+    Otherwise, returns one week past the last due date.
+    If no certificates have been rewarded and no due dates are specified, returns one year past the start date.'''
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    SQL = '''
+    SELECT 
+      #If due dates are invalid (end_date less than a week after course starts) consider up to a year past the start date
+      CASE WHEN (end_date IS NULL) OR (end_date < DATE_ADD(min_start_time, 1, "WEEK")) THEN one_year_past_start_date ELSE end_date END AS last
+    FROM
+    (
+      SELECT DATE_ADD(MAX(end_date), 1, "WEEK") as end_date #one week past last date
+      FROM
+      (
+        SELECT MAX(due) as end_date
+        FROM [{dataset}.course_axis] 
+      ),
+      (
+        SELECT MAX(certificate_created_date) as end_date
+        FROM [{dataset}.user_info_combo] 
+      )
+    ) a
+    CROSS JOIN
+    (
+      SELECT
+        min_start_time,
+        DATE_ADD(min_start_time, 1, "YEAR") as one_year_past_start_date
+      FROM [mitx-data:course_report_latest.broad_stats_by_course],
+      [harvardx-data:course_report_latest.broad_stats_by_course]
+      WHERE course_id = "{course_id}"
+    ) b 
+    '''.format(dataset=project_id + ":" + dataset if testing else dataset, course_id=course_id)
+    table_id = 'temp' + str(abs(hash(course_id)))
+    bqutil.create_bq_table(dataset_id=testing_dataset if testing else dataset, table_id=table_id, sql=SQL, overwrite=True, project_id=project_id if testing else 'mitx-research')
+
+    data = bqutil.get_table_data(dataset_id=testing_dataset if testing else dataset, table_id=table_id)
+    last_date = datetime.datetime.fromtimestamp(float(data['data'][0]['last']))
+
+    #print "--> sleeping for 15 seconds to try avoiding bigquery system error - maybe due to data transfer time"
+    #sys.stdout.flush()
+    #time.sleep(15)
+
+    bqutil.delete_bq_table(dataset_id=testing_dataset if testing else dataset, table_id=table_id)
+    return last_date
 
 #-----------------------------------------------------------------------------
 
-def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, overwrite=True,
-                                       testing=False, testing_dataset=None, project_id=None):
+def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, num_partitions = 1, last_date=None,
+                                         overwrite=True, testing=False, testing_dataset=None, project_id=None):
     
     '''
     This table holds all the problem_check and show_answer events extracted from
@@ -1156,44 +1203,72 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, ov
     tracking_log_dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=False) + '_logs'
     table = "stats_problem_check_show_answer_ip"
 
-    SQL = """
-    SELECT
-      time,
-      username,
-      context.user_id as user_id,
-      course_id as course_id,
-      module_id,
-      CASE WHEN event_type = "problem_check" or event_type = "save_problem_check"
-           THEN 'problem_check'
-           ELSE 'show_answer'
-           END AS event_type,
-      ip
-    from (
-      TABLE_QUERY({tracking_log_dataset},
-           "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) <= 30000101" #less than Jan 01, 3000
-         )
-      )
+    if last_date is None:
+      last_date = compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest, testing, testing_dataset, project_id)
+    
+    print "="*80 + "\nComputing problem check and show answer ip table until end date: " + str(last_date) + "\n" + "="*80 
+    
+    cap = str(last_date.year) + ('0'+str(last_date.month))[-2:] + ('0'+str(last_date.day))[-2:] #Formatted as YYYYMMDD
 
-    where (event_type = "problem_check" or event_type = "save_problem_check" or event_type = "show_answer" or event_type = "showanswer")
-      and event_source = "server"
-      and time > TIMESTAMP("2010-10-01 01:02:03")
-    order by time
-    """.format(tracking_log_dataset=tracking_log_dataset)
+    sql = []
+    for i in range(num_partitions):
+      item = """
+      SELECT
+        time,
+        username,
+        context.user_id as user_id,
+        course_id as course_id,
+        module_id,
+        CASE WHEN event_type = "problem_check" or event_type = "save_problem_check"
+             THEN 'problem_check'
+             ELSE 'show_answer'
+             END AS event_type,
+        ip
+      from (
+        TABLE_QUERY({tracking_log_dataset},
+             "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) <= {cap}" #Formatted as YYYYMMDD
+           )
+        )
+
+      where (event_type = "problem_check" or event_type = "save_problem_check" or event_type = "show_answer" or event_type = "showanswer")
+        and event_source = "server"
+        and time > TIMESTAMP("2010-10-01 01:02:03")
+        and HASH(username) % {num_partitions} = {partition}
+      order by time
+      """.format(tracking_log_dataset=tracking_log_dataset,cap=cap,num_partitions=num_partitions, partition = i)
+      sql.append(item)
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
     sys.stdout.flush()
 
-    if testing:
-        bqutil.create_bq_table(testing_dataset,dataset+'_'+table, SQL, overwrite=overwrite,
-                               project_id=project_id,output_project_id='mitx-research', 
-                               allowLargeResults=True, sql_for_description=SQL)
-    else:
-        bqutil.create_bq_table(dataset, table, SQL, overwrite=overwrite, allowLargeResults=True, sql_for_description=SQL)
+    for i in range(num_partitions): 
+      print "--> Running compute_problem_check_show_answer_ip_table SQL for partition %d of %d" % (i + 1, num_partitions)
+      sys.stdout.flush()
 
-    if testing:
-        nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset, table_id=dataset+'_'+table, project_id='mitx-research')
-    else:
-        nfound = bqutil.get_bq_table_size_rows(dataset, table)
+      if i == 0:
+        try:
+          bqutil.create_bq_table(testing_dataset if testing else dataset,dataset+'_'+table if testing else table, 
+                                   sql[i], overwrite=overwrite, project_id=project_id if testing else 'mitx-research', 
+                                   allowLargeResults=True, sql_for_description=sql[i])
+        except Exception as err:
+          if (num_partitions < 20) and ('Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
+            print err
+            print "="*80,"\n==> SQL query failed! Recursively trying compute_problem_check_show_answer_ip_table again, with 50% more many partitions\n", "="*80
+            return compute_problem_check_show_answer_ip(course_id, use_dataset_latest=use_dataset_latest, overwrite=overwrite, 
+                                                        num_partitions=int(round(num_partitions*1.5)), last_date=last_date,
+                                                        testing=testing, testing_dataset=testing_dataset, project_id=project_id)
+          else:
+            raise err
+
+      else:
+        bqutil.create_bq_table(testing_dataset if testing else dataset,dataset+'_'+table if testing else table, 
+                                   sql[i], overwrite='append', project_id=project_id if testing else 'mitx-research', 
+                                   allowLargeResults=True, sql_for_description=sql[i])
+
+    nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset if testing else dataset, 
+                                           table_id=dataset+'_'+table if testing else table,
+                                           project_id='mitx-research')
+
     print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
     sys.stdout.flush()
 
@@ -1223,20 +1298,20 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     if problem_check_show_answer_ip_table is None:
         if testing:
             default_table_info = bqutil.get_bq_table_info(dataset,'stats_problem_check_show_answer_ip', project_id=project_id)
-            if default_table_info is not None:
+            if default_table_info is not None and not force_recompute:
                 problem_check_show_answer_ip_table = project_id + ':'+ dataset + '.stats_problem_check_show_answer_ip'
             else:
                 #Default table doesn't exist, Check if testing table exists
                 testing_table_info = bqutil.get_bq_table_info(testing_dataset,
                                      dataset + '_stats_problem_check_show_answer_ip', project_id='mitx-research')
-                if testing_table_info is None:
+                if force_recompute or testing_table_info is None:
                     compute_problem_check_show_answer_ip(course_id, use_dataset_latest, testing=True, 
-                                                         testing_dataset=testing_dataset, project_id=project_id)
+                                                         testing_dataset=testing_dataset, project_id=project_id, overwrite=force_recompute)
                 problem_check_show_answer_ip_table = 'mitx-research:' + testing_dataset + '.' + dataset + '_stats_problem_check_show_answer_ip'
         else:
             default_table_info = bqutil.get_bq_table_info(dataset,'stats_problem_check_show_answer_ip')
-            if default_table_info is None:
-                compute_problem_check_show_answer_ip(course_id, use_dataset_latest)
+            if force_recompute or default_table_info is None:
+                compute_problem_check_show_answer_ip(course_id, use_dataset_latest, overwrite=force_recompute)
             problem_check_show_answer_ip_table = dataset + '.stats_problem_check_show_answer_ip'
 
     #-------------------- partition by nshow_ans_distinct
@@ -1284,11 +1359,11 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
     else:
         #Twice the paritions if running in a course that hasn't completed (online == True) since we consider more pairs
         if num_persons > 60000:
-            num_partitions = int(num_persons / (1500 if online else 3000))  # because the number of certificate earners is also likely higher
+            num_partitions = min(int(round(num_persons / (3000 if online else 5000))), 5)  # because the number of certificate earners is also likely higher
         elif num_persons > 10000:
-            num_partitions = int(num_persons / (2500 if online else 5000))
+            num_partitions = min(int(round(num_persons / (5000 if online else 8000))), 5)
         else:
-            num_partitions = 4 if online else 2
+            num_partitions = 4 if online else 1
     print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
 
     def make_username_partition(nparts, pnum):
@@ -1309,6 +1384,28 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             #Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
             #cameo candidate - certified | shadow candidate - uncertified
             #Only selects pairs with at least 10 show ans before
+            SELECT
+              course_id, cameo_candidate, shadow_candidate, median_max_dt_seconds, percent_show_ans_before, 
+              show_ans_before, x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, ncorrect, percent_correct_using_show_answer, 
+              sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
+              sa_ca_dt_chi_sq_ordered, sa_ca_dt_chi_squared, sa_ca_dt_corr_ordered, sa_ca_dt_correlation,
+              northcutt_ratio, nsame_ip, nsame_ip_given_sab, percent_same_ip_given_sab, percent_same_ip,
+              prob_in_common, avg_max_dt_seconds, norm_pearson_corr, unnormalized_pearson_corr, dt_iqr,
+              dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds, modal_ip, CH_modal_ip,
+              mile_dist_between_modal_ips, cheating_likelihood,
+              dt_dt_p05, dt_dt_p10, dt_dt_p15, dt_dt_p20, dt_dt_p25, dt_dt_p30, dt_dt_p35,
+              dt_dt_p40, dt_dt_p45, dt_dt_p50, dt_dt_p55, dt_dt_p60, dt_dt_p65, dt_dt_p70, 
+              dt_dt_p75, dt_dt_p80, dt_dt_p85, dt_dt_p90, dt_dt_p95,
+              sa_dt_p05, sa_dt_p10, sa_dt_p15, sa_dt_p20, sa_dt_p30,
+              sa_dt_p40, sa_dt_p45, sa_dt_p55, sa_dt_p60,  
+              sa_dt_p70, sa_dt_p80, sa_dt_p85, sa_dt_p95, 
+              ca_dt_p05, ca_dt_p10, ca_dt_p15, ca_dt_p20, ca_dt_p30,
+              ca_dt_p40, ca_dt_p45, ca_dt_p55, ca_dt_p60,  
+              ca_dt_p70, ca_dt_p80, ca_dt_p85, ca_dt_p95
+              #Removing some quartiles because BQ can only group by 64 fields
+              #ca_dt_p65, ca_dt_p75, ca_dt_p25, ca_dt_p35, sa_dt_p65, sa_dt_p75, sa_dt_p25, sa_dt_p35, 
+            FROM
+            (
               SELECT
               "{course_id}" as course_id,
               cameo_candidate,
@@ -1316,6 +1413,23 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               median_max_dt_seconds,
               sum(sa_before_pa) / count(*) * 100 as percent_show_ans_before,
               sum(sa_before_pa) as show_ans_before,
+              sum(sa_before_pa and (dt <= 15)) as x15s,
+              sum(sa_before_pa and (dt <= 30)) as x30s,
+              sum(sa_before_pa and (dt <= 60)) as x01m,
+              sum(sa_before_pa and (dt <= 60 * 5)) as x05m,
+              sum(sa_before_pa and (dt <= 60 * 10)) as x10m,
+              sum(sa_before_pa and (dt <= 60 * 30)) as x30m,
+              sum(sa_before_pa and (dt <= 60 * 60)) as x01h,
+              sum(sa_before_pa and (dt <= 60 * 60 * 24)) as x01d,
+              ncorrect,
+              sum(sa_before_pa) / ncorrect * 100 as percent_correct_using_show_answer,
+              sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
+              SUM(chi) AS sa_ca_dt_chi_squared,
+              CORR(show_answer_dt, correct_answer_dt) AS sa_ca_dt_correlation,
+              #1 - ABS((ABS(LN(sa_dt_p90 / ca_dt_p90)) + ABS(LN(sa_dt_p50 / ca_dt_p50))) / 2) as northcutt_ratio,
+              1 - ABS(LN(sa_dt_p90 / ca_dt_p90)) as northcutt_ratio,
+              #ABS((sa_dt_p90 - sa_dt_p50) - (ca_dt_p90 - ca_dt_p50)) AS l1_northcutt_similarity,
+              #SQRT(POW(sa_dt_p90 - ca_dt_p90, 2) + POW(sa_dt_p50 - ca_dt_p50, 2)) AS l2_northcutt_similarity,
               sum(same_ip) as nsame_ip,
               sum(case when sa_before_pa and same_ip then 1 else 0 end) as nsame_ip_given_sab,
               sum(case when sa_before_pa and same_ip then 1 else 0 end) / sum(sa_before_pa) * 100 as percent_same_ip_given_sab,
@@ -1330,38 +1444,190 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               third_quartile_dt_seconds as percentile75_dt_seconds,
               modal_ip,
               CH_modal_ip,
-              mile_dist_between_modal_ips
+              mile_dist_between_modal_ips,
+              sum(sa_before_pa) / median_max_dt_seconds AS cheating_likelihood,
+              dt_dt_p05, dt_dt_p10, dt_dt_p15, dt_dt_p20, dt_dt_p25, dt_dt_p30, dt_dt_p35,
+              dt_dt_p40, dt_dt_p45, dt_dt_p50, dt_dt_p55, dt_dt_p60, dt_dt_p65, dt_dt_p70, 
+              dt_dt_p75, dt_dt_p80, dt_dt_p85, dt_dt_p90, dt_dt_p95,
+              sa_dt_p05, sa_dt_p10, sa_dt_p15, sa_dt_p20, sa_dt_p30,
+              sa_dt_p40, sa_dt_p45, sa_dt_p55, sa_dt_p60,  
+              sa_dt_p70, sa_dt_p80, sa_dt_p85, sa_dt_p95, 
+              ca_dt_p05, ca_dt_p10, ca_dt_p15, ca_dt_p20, ca_dt_p30,
+              ca_dt_p40, ca_dt_p45, ca_dt_p55, ca_dt_p60,  
+              ca_dt_p70, ca_dt_p80, ca_dt_p85, ca_dt_p95
+              #Removing some quartiles because BQ can only group by 64 fields
+              #ca_dt_p65, ca_dt_p75, ca_dt_p25, ca_dt_p35, sa_dt_p65, sa_dt_p75, sa_dt_p25, sa_dt_p35, 
               FROM
               (
                 SELECT *,
+                  POW(correct_answer_dt - show_answer_dt, 2) / correct_answer_dt as chi,
+
                   MAX(median_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS median_max_dt_seconds,
                   MAX(first_quartile_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS first_quartile_dt_seconds,
                   MAX(third_quartile_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS third_quartile_dt_seconds,
                   MAX(percentile90_with_null_rows) OVER (PARTITION BY shadow_candidate, cameo_candidate) AS percentile90_dt_seconds,
-                  STDDEV(dt) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_std_dev
+                  STDDEV(dt) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_std_dev,
+
+                  MAX(CASE WHEN has_dt THEN sa_dt_p05_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p05,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p10_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p10,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p15_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p15,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p20_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p20,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p25_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p25,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p30_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p30,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p35_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p35,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p40_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p40,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p45_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p45,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p50_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p50,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p55_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p55,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p60_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p60,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p65_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p65,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p70_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p70,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p75_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p75,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p80_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p80,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p85_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p85,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p90_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p90,
+                  MAX(CASE WHEN has_dt THEN sa_dt_p95_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as sa_dt_p95,
+
+                  MAX(CASE WHEN has_dt THEN ca_dt_p05_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p05,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p10_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p10,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p15_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p15,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p20_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p20,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p25_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p25,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p30_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p30,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p35_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p35,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p40_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p40,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p45_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p45,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p50_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p50,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p55_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p55,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p60_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p60,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p65_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p65,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p70_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p70,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p75_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p75,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p80_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p80,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p85_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p85,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p90_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p90,
+                  MAX(CASE WHEN has_dt THEN ca_dt_p95_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as ca_dt_p95,
+
+                  MAX(CASE WHEN has_dt THEN dt_dt_p05_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p05,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p10_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p10,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p15_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p15,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p20_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p20,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p25_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p25,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p30_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p30,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p35_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p35,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p40_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p40,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p45_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p45,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p50_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p50,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p55_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p55,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p60_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p60,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p65_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p65,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p70_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p70,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p75_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p75,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p80_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p80,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p85_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p85,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p90_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p90,
+                  MAX(CASE WHEN has_dt THEN dt_dt_p95_intermediate ELSE -1 END) OVER (PARTITION BY shadow_candidate, cameo_candidate) as dt_dt_p95
+
                 FROM
                 (
                   SELECT *,
-                  (CASE WHEN dt IS NOT NULL THEN true END) AS has_dt,
-                  PERCENTILE_CONT(.50) OVER (PARTITION BY has_dt,shadow_candidate, cameo_candidate ORDER BY dt) AS median_with_null_rows,
-                  PERCENTILE_CONT(.25) OVER (PARTITION BY has_dt,shadow_candidate, cameo_candidate ORDER BY dt) AS first_quartile_with_null_rows,
-                  PERCENTILE_CONT(.75) OVER (PARTITION BY has_dt,shadow_candidate, cameo_candidate ORDER BY dt) AS third_quartile_with_null_rows,
-                  PERCENTILE_CONT(.90) OVER (PARTITION BY has_dt,shadow_candidate, cameo_candidate ORDER BY dt) AS percentile90_with_null_rows
+
+                  #Find percentiles of correct answer - show answer dt time differences
+                  PERCENTILE_CONT(.50) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt) AS median_with_null_rows,
+                  PERCENTILE_CONT(.25) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt) AS first_quartile_with_null_rows,
+                  PERCENTILE_CONT(.75) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt) AS third_quartile_with_null_rows,
+                  PERCENTILE_CONT(.90) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt) AS percentile90_with_null_rows, 
+
+                  #Find percentiles for each user show answer dt time differences
+                  (sa.time - sa_lag) / 1e6 AS show_answer_dt, 
+                  PERCENTILE_CONT(.05) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p05_intermediate,
+                  PERCENTILE_CONT(.10) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p10_intermediate,
+                  PERCENTILE_CONT(.15) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p15_intermediate,
+                  PERCENTILE_CONT(.20) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p20_intermediate,
+                  PERCENTILE_CONT(.25) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p25_intermediate,
+                  PERCENTILE_CONT(.30) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p30_intermediate,
+                  PERCENTILE_CONT(.35) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p35_intermediate,
+                  PERCENTILE_CONT(.40) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p40_intermediate,
+                  PERCENTILE_CONT(.45) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p45_intermediate,
+                  PERCENTILE_CONT(.50) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p50_intermediate,
+                  PERCENTILE_CONT(.55) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p55_intermediate,
+                  PERCENTILE_CONT(.60) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p60_intermediate,
+                  PERCENTILE_CONT(.65) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p65_intermediate,
+                  PERCENTILE_CONT(.70) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p70_intermediate,
+                  PERCENTILE_CONT(.75) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p75_intermediate,
+                  PERCENTILE_CONT(.80) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p80_intermediate,
+                  PERCENTILE_CONT(.85) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p85_intermediate,
+                  PERCENTILE_CONT(.90) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p90_intermediate,
+                  PERCENTILE_CONT(.95) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY show_answer_dt) AS sa_dt_p95_intermediate,
+
+                  #Find percentiles for each user correct answer dt time differences
+                  (ca.time - ca_lag) / 1e6 AS correct_answer_dt, 
+                  PERCENTILE_CONT(.05) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p05_intermediate,
+                  PERCENTILE_CONT(.10) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p10_intermediate,
+                  PERCENTILE_CONT(.15) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p15_intermediate,
+                  PERCENTILE_CONT(.20) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p20_intermediate,
+                  PERCENTILE_CONT(.25) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p25_intermediate,
+                  PERCENTILE_CONT(.30) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p30_intermediate,
+                  PERCENTILE_CONT(.35) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p35_intermediate,
+                  PERCENTILE_CONT(.40) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p40_intermediate,
+                  PERCENTILE_CONT(.45) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p45_intermediate,
+                  PERCENTILE_CONT(.50) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p50_intermediate,
+                  PERCENTILE_CONT(.55) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p55_intermediate,
+                  PERCENTILE_CONT(.60) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p60_intermediate,
+                  PERCENTILE_CONT(.65) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p65_intermediate,
+                  PERCENTILE_CONT(.70) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p70_intermediate,
+                  PERCENTILE_CONT(.75) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p75_intermediate,
+                  PERCENTILE_CONT(.80) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p80_intermediate,
+                  PERCENTILE_CONT(.85) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p85_intermediate,
+                  PERCENTILE_CONT(.90) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p90_intermediate,
+                  PERCENTILE_CONT(.95) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY correct_answer_dt) AS ca_dt_p95_intermediate,
+
+                  #Find dt of dt percentiles for each pair 
+                  (dt - dt_lag) AS dt_dt,
+                  PERCENTILE_CONT(.05) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p05_intermediate,
+                  PERCENTILE_CONT(.10) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p10_intermediate,
+                  PERCENTILE_CONT(.15) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p15_intermediate,
+                  PERCENTILE_CONT(.20) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p20_intermediate,
+                  PERCENTILE_CONT(.25) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p25_intermediate,
+                  PERCENTILE_CONT(.30) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p30_intermediate,
+                  PERCENTILE_CONT(.35) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p35_intermediate,
+                  PERCENTILE_CONT(.40) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p40_intermediate,
+                  PERCENTILE_CONT(.45) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p45_intermediate,
+                  PERCENTILE_CONT(.50) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p50_intermediate,
+                  PERCENTILE_CONT(.55) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p55_intermediate,
+                  PERCENTILE_CONT(.60) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p60_intermediate,
+                  PERCENTILE_CONT(.65) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p65_intermediate,
+                  PERCENTILE_CONT(.70) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p70_intermediate,
+                  PERCENTILE_CONT(.75) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p75_intermediate,
+                  PERCENTILE_CONT(.80) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p80_intermediate,
+                  PERCENTILE_CONT(.85) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p85_intermediate,
+                  PERCENTILE_CONT(.90) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p90_intermediate,
+                  PERCENTILE_CONT(.95) OVER (PARTITION BY has_dt, shadow_candidate, cameo_candidate ORDER BY dt_dt) AS dt_dt_p95_intermediate
+
                   FROM
                   ( 
-                    select sa.username as shadow_candidate,
-                    ca.username as cameo_candidate,
-                    sa.time, ca.time, 
-                    sa.time < ca.time as sa_before_pa,
-                    sa.ip, ca.ip,
-                    sa.ip == ca.ip as same_ip,
-                    (case when sa.time < ca.time then (ca.time - sa.time) / 1e6 end) as dt,
-                    USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time,
-                    CH_modal_ip, modal_ip,
-                    #Haversine: Uses (latitude, longitude) to compute straight-line distance in miles
-                    7958.75 * ASIN(SQRT(POW(SIN((RADIANS(lat2) - RADIANS(lat1))/2),2) 
-                    + COS(RADIANS(lat1)) * COS(RADIANS(lat2)) 
-                    * POW(SIN((RADIANS(lon2) - RADIANS(lon1))/2),2))) AS mile_dist_between_modal_ips
+                    SELECT
+                      shadow_candidate, cameo_candidate,
+                      sa.time, ca.time,  
+                      sa.time < ca.time as sa_before_pa,
+                      sa.ip, ca.ip, ncorrect,
+                      sa.ip == ca.ip as same_ip,
+                      (case when sa.time < ca.time then (ca.time - sa.time) / 1e6 end) as dt,
+                      (CASE WHEN sa.time < ca.time THEN true END) AS has_dt,
+                      USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time,
+                      CH_modal_ip, modal_ip,
+
+                      #Haversine: Uses (latitude, longitude) to compute straight-line distance in miles
+                      7958.75 * ASIN(SQRT(POW(SIN((RADIANS(lat2) - RADIANS(lat1))/2),2) 
+                      + COS(RADIANS(lat1)) * COS(RADIANS(lat2)) 
+                      * POW(SIN((RADIANS(lon2) - RADIANS(lon1))/2),2))) AS mile_dist_between_modal_ips,
+
+                      #Compute lags ONLY for show answers that occur before correct answers
+                      LAG(sa.time, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY sa.time ASC) AS sa_lag,
+                      LAG(ca.time, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY ca.time ASC) AS ca_lag,
+
+                      #Find inter-time of dt for each pair
+                      LAG(dt, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY dt ASC) AS dt_lag
                     FROM
                     (
                       SELECT
@@ -1370,71 +1636,73 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                       (
                         SELECT
                           *,
-                          MIN(sa.time) OVER (PARTITION BY sa.username, ca.username, sa.module_id) AS min_sa_time,
-                          MAX(CASE WHEN sa.time < ca.time THEN sa.time ELSE NULL END) OVER (PARTITION BY sa.username, ca.username, sa.module_id) AS nearest_sa_before
+                          MIN(sa.time) OVER (PARTITION BY shadow_candidate, cameo_candidate, sa.module_id) AS min_sa_time,
+                          MAX(CASE WHEN sa.time < ca.time THEN sa.time ELSE NULL END) OVER (PARTITION BY shadow_candidate, cameo_candidate, sa.module_id) AS nearest_sa_before
                         FROM
                         (
-                          #Certified = false for shadow candidate
+                          #HARVESTER
                           SELECT
-                            sa.a.username as username, a.module_id as module_id, sa.time as time, sa.ip as ip, 
+                            sa.a.username as shadow_candidate, a.module_id as module_id, sa.a.time as time, sa.ip as ip, 
                             pc.ip as CH_modal_ip, pc.latitude as lat2, pc.longitude as lon2,
                             nshow_ans_distinct
                           FROM
                           (
                             SELECT 
-                              a.time as time,
+                              a.time,
                               a.username,
-                              a.course_id as course_id,
                               a.module_id,
                               ip,
                               count(distinct a.module_id) over (partition by a.username) as nshow_ans_distinct
                             FROM [{dataset}.show_answer] a
                             JOIN EACH [{problem_check_show_answer_ip_table}] b
-                            ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
+                            ON a.time = b.time AND a.username = b.username AND a.module_id = b.module_id
                             WHERE b.event_type = 'show_answer'
                           ) sa
                           JOIN EACH [{dataset}.person_course] pc
                           ON sa.a.username = pc.username
-                          where {not_certified_filter}
-                          and {partition}
+                          WHERE {not_certified_filter}
+                          AND nshow_ans_distinct >= 5 #to reduce size
+                          AND {partition}
                         )sa
                         JOIN EACH
                         (
-                          #certified = true for cameo candidate
+                          #Certified CAMEO USER
                           SELECT 
-                            ca.username as username, module_id, time, ca.ip as ip,
-                            MIN(TIMESTAMP_TO_USEC(time)) over (partition by module_id) as min_first_check_time, 
-                            pc.ip as modal_ip, pc.latitude as lat1, pc.longitude as lon1
+                            ca.username AS cameo_candidate, module_id, time, ca.ip as ip,
+                            pc.ip as modal_ip, pc.latitude as lat1, pc.longitude as lon1,
+                            min_first_check_time, ncorrect
                           FROM
                           (
                             SELECT 
-                            username, module_id, MIN(time) as time,  #MIN == FIRST because ordered by time
-                            FIRST(ip) AS ip, 
+                            username, a.module_id as module_id,
+                            MIN(a.time) as time,  #MIN == FIRST because ordered by time
+                            FIRST(ip) AS ip, min_first_check_time,
                             COUNT(time) OVER (PARTITION BY username) as ncorrect
                             FROM 
                             (
                               SELECT 
-                                a.time as time,
+                                a.time,
                                 a.username as username,
-                                a.course_id as course_id,
-                                a.module_id as module_id,
+                                a.module_id,
                                 a.success as success,
-                                ip
+                                ip,
+                                MIN(TIMESTAMP_TO_USEC(a.time)) over (partition by a.module_id) as min_first_check_time
                               FROM [{dataset}.problem_check] a
                               JOIN EACH [{problem_check_show_answer_ip_table}] b
                               ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
                               WHERE b.event_type = 'problem_check'
+                              AND success = 'correct'
                             ) 
-                            where success = 'correct'
-                            group each by username, module_id
+                            GROUP EACH BY username, module_id, min_first_check_time
                             ORDER BY time ASC
                           ) ca
                           JOIN EACH [{dataset}.person_course] pc
-                          on ca.username = pc.username
-                          where {certified_filter}
+                          ON ca.username = pc.username
+                          WHERE {certified_filter}
+                          AND ncorrect >= 5 #to reduce size
                         ) ca
-                        on sa.module_id = ca.module_id
-                        WHERE sa.username != ca.username
+                        ON sa.module_id = ca.module_id
+                        WHERE cameo_candidate != shadow_candidate
                       )
                       WHERE (nearest_sa_before IS NULL AND sa.time = min_sa_time) #if no positive dt, use min show answer time resulting in least negative dt 
                       OR (nearest_sa_before = sa.time) #otherwise use show answer time resulting in smallest positive dt 
@@ -1444,20 +1712,136 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               )
               group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds, first_quartile_dt_seconds,
                             third_quartile_dt_seconds, dt_iqr, dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds,
-                            modal_ip, CH_modal_ip, mile_dist_between_modal_ips
-              #having show_ans_before > 10
-              having norm_pearson_corr > -1
-              and avg_max_dt_seconds is not null
-              {X_gte_5_if_online}
+                            modal_ip, CH_modal_ip, mile_dist_between_modal_ips, ncorrect, northcutt_ratio,
+                            sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
+                            dt_dt_p05, dt_dt_p10, dt_dt_p15, dt_dt_p20, dt_dt_p25, dt_dt_p30, dt_dt_p35,
+                            dt_dt_p40, dt_dt_p45, dt_dt_p50, dt_dt_p55, dt_dt_p60, dt_dt_p65, dt_dt_p70, 
+                            dt_dt_p75, dt_dt_p80, dt_dt_p85, dt_dt_p90, dt_dt_p95,
+                            sa_dt_p05, sa_dt_p10, sa_dt_p15, sa_dt_p20, sa_dt_p30,
+                            sa_dt_p40, sa_dt_p45, sa_dt_p55, sa_dt_p60,  
+                            sa_dt_p70, sa_dt_p80, sa_dt_p85, sa_dt_p95, 
+                            ca_dt_p05, ca_dt_p10, ca_dt_p15, ca_dt_p20, ca_dt_p30,
+                            ca_dt_p40, ca_dt_p45, ca_dt_p55, ca_dt_p60,  
+                            ca_dt_p70, ca_dt_p80, ca_dt_p85, ca_dt_p95
+                            #l1_northcutt_similarity, l2_northcutt_similarity, 
+              HAVING unnormalized_pearson_corr > -1
+              AND avg_max_dt_seconds is not null
+              AND show_ans_before >= 10 #to reduce size
+              AND median_max_dt_seconds <= (60 * 60 * 24 * 7) #to reduce size, less than one week
+            ) a
+            OUTER LEFT JOIN EACH          
+            ( #COMPUTE sa_ca_dt_corr_ordered and sa_ca_dt_chi_sq_ordered
+              SELECT 
+                CH, CM,
+                CORR(sa_dt_ordered, ca_dt_ordered) AS sa_ca_dt_corr_ordered,
+                SUM(chi) AS sa_ca_dt_chi_sq_ordered
+              FROM
+              (
+                SELECT 
+                  sao.CH as CH, sao.CM as CM, 
+                  sao.show_answer_dt as sa_dt_ordered, 
+                  cao.correct_answer_dt as ca_dt_ordered,
+                  POW(cao.correct_answer_dt - sao.show_answer_dt, 2) / cao.correct_answer_dt as chi,
+                FROM
+                (
+                  SELECT 
+                    sa.CH, ca.CM, 
+                    (sa.time - sa_lag) / 1e6 AS show_answer_dt, 
+                    ROW_NUMBER() OVER (PARTITION BY sa.CH, ca.CM ORDER BY show_answer_dt) AS sa_dt_order
+                  FROM
+                  (
+                    SELECT
+                      *, 
+                      COUNT(*) OVER (PARTITION BY CH, CM) AS X, #only positive dt rows at this point
+                      #Compute lags ONLY for dt > 0
+                      LAG(sa.time, 1) OVER (PARTITION BY CH, CM ORDER BY sa.time ASC) AS sa_lag
+                    FROM
+                    (
+                      SELECT
+                        *,
+                        MAX(CASE WHEN sa.time < ca.time THEN sa.time ELSE NULL END) OVER (PARTITION BY CH, CM, sa.module_id) AS nearest_sa_before
+                      FROM
+                      ( #HARVESTER
+                        SELECT 
+                          time,
+                          username as CH,
+                          module_id
+                        FROM [{dataset}.show_answer] 
+                        WHERE {partition_ordered_query}
+                      )sa
+                      JOIN EACH
+                      ( #MASTER
+                        SELECT 
+                          time,
+                          username AS CM,
+                          module_id
+                        FROM [{dataset}.problem_check]
+                        WHERE success = 'correct'
+                      ) ca
+                      ON sa.module_id = ca.module_id
+                      WHERE CM != CH
+                    )
+                    WHERE (nearest_sa_before = sa.time) #DROP NEGATIVE DTs and use sa time resulting in smallest positive dt 
+                  )
+                  WHERE X >=10 #For tractability
+                ) sao
+                JOIN EACH
+                (
+                  SELECT 
+                    sa.CH as CH, ca.CM as CM, 
+                    (ca.time - ca_lag) / 1e6 AS correct_answer_dt,
+                    ROW_NUMBER() OVER (PARTITION BY CH, CM ORDER BY correct_answer_dt) ca_dt_order
+                  FROM
+                  (
+                    SELECT
+                      *, 
+                      COUNT(*) OVER (PARTITION BY CH, CM) AS X, #only positive dt rows at this point
+                      #Compute lags ONLY for dt > 0
+                      LAG(ca.time, 1) OVER (PARTITION BY CH, CM ORDER BY ca.time ASC) AS ca_lag
+                    FROM
+                    (
+                      SELECT
+                        *,
+                        MAX(CASE WHEN sa.time < ca.time THEN sa.time ELSE NULL END) OVER (PARTITION BY CH, CM, sa.module_id) AS nearest_sa_before
+                      FROM
+                      ( #HARVESTER
+                        SELECT 
+                          time,
+                          username as CH,
+                          module_id
+                        FROM [{dataset}.show_answer] 
+                        WHERE {partition_ordered_query}
+                      )sa
+                      JOIN EACH
+                      ( #MASTER
+                        SELECT 
+                          time,
+                          username AS CM,
+                          module_id
+                        FROM [{dataset}.problem_check]
+                        WHERE success = 'correct'
+                      ) ca
+                      ON sa.module_id = ca.module_id
+                      WHERE CM != CH
+                    )
+                    WHERE (nearest_sa_before = sa.time) #DROP NEGATIVE DTs and use sa time resulting in smallest positive dt
+                  )
+                  WHERE X >=10 #For tractability
+                ) cao
+                ON sao.CH = cao.CH AND sao.CM = cao.CM AND sao.sa_dt_order = cao.ca_dt_order
+              )
+              GROUP BY CH, CM
+            ) b
+            ON a.cameo_candidate = b.CM AND a.shadow_candidate = b.CH
+            ORDER BY cheating_likelihood DESC
           """.format(dataset=project_id + ':' + dataset if testing else dataset, 
                      course_id = course_id, 
                      partition=the_partition[i],
+                     partition_ordered_query=the_partition[i].replace('pc.', ''),
                      problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
-                     not_certified_filter='nshow_ans_distinct >= 5' if online else 'certified = false',
-                     certified_filter= 'ncorrect >= 10' if online else "certified = true",
-                     X_gte_5_if_online='and show_ans_before >= 5' if online else '')
+                     not_certified_filter='nshow_ans_distinct >= 10' if online else 'certified = false',
+                     certified_filter= 'ncorrect >= 10' if online else "certified = true")
         sql.append(item)
-
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
     sys.stdout.flush()
@@ -1510,29 +1894,35 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
 
     if force_recompute:
         for i in range(num_partitions): 
-            print "--> Running SQL for partition %d of %d" % (i, num_partitions)
+            print "--> Running SQL for partition %d of %d" % (i + 1, num_partitions)
             sys.stdout.flush()
             if i == 0:
                 try:
-                    bqutil.create_bq_table(testing_dataset if testing else dataset, dataset + '_' + table if testing else table, sql[i], overwrite=True)
+                    bqutil.create_bq_table(testing_dataset if testing else dataset, 
+                                           dataset + '_' + table if testing else table, 
+                                           sql[i], overwrite=True, allowLargeResults=True, sql_for_description=sql[i])
                 except Exception as err:
-                    if (not force_num_partitions) and 'Response too large' in str(err):
+                    if (num_partitions < 300) and ('Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
                         print err
-                        print "==> SQL query failed!  Trying again, with 50% more many partitions"
+                        print "="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80
                         return compute_show_ans_before(course_id, force_recompute=force_recompute, 
-                                                       use_dataset_latest=use_dataset_latest, 
-                                                       force_num_partitions=int(num_partitions*1.5),
-                                                       testing = testing, project_id = project_id)
+                                                        use_dataset_latest=use_dataset_latest, force_num_partitions=int(round(num_partitions*1.5)), 
+                                                        testing=testing, testing_dataset= testing_dataset, 
+                                                        project_id = project_id, online = online,
+                                                        problem_check_show_answer_ip_table=problem_check_show_answer_ip_table)
+
                     else:
-                        raise
+                        raise err
             else:
-                bqutil.create_bq_table(testing_dataset if testing else dataset, dataset + '_' + table if testing else table, sql[i], overwrite='append')
+                bqutil.create_bq_table(testing_dataset if testing else dataset, 
+                                       dataset + '_' + table if testing else table, 
+                                       sql[i], overwrite='append', allowLargeResults=True, sql_for_description=sql[i])
 
         if num_partitions > 5:
             print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
             sys.stdout.flush()
             time.sleep(60)
-
+  
     nfound = bqutil.get_bq_table_size_rows(dataset, table)
     if testing:
         nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset, table_id=table, project_id='mitx-research')
