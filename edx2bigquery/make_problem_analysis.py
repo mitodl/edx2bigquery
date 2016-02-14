@@ -1395,9 +1395,14 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
   });
   '''
 
-
   dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
   table = "stats_show_ans_before"
+
+  #Check that course actually contains participants, otherwise this function will recursively keep retrying when it fails.
+  if bqutil.get_bq_table_size_rows(dataset_id=dataset, table_id='person_course',
+                                   project_id=project_id if online else 'mitx-research') <= 10:
+            print "Error! --> Course contains no participants; exiting show_ans_before for course", course_id
+            return False
 
   if problem_check_show_answer_ip_table is None:
       if testing:
