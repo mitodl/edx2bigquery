@@ -1395,6 +1395,16 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
   dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
   table = "stats_show_ans_before"
 
+  #Verify that dependency ip table actually exists
+  if problem_check_show_answer_ip_table is not None:
+    try:
+      [ip_p,ip_d,ip_t] = problem_check_show_answer_ip_table.replace(':',' ').replace('.',' ').split()
+      if bqutil.get_bq_table_size_rows(dataset_id=ip_d, table_id=ip_t, project_id=ip_p) is None:
+        problem_check_show_answer_ip_table = None
+    except:
+      problem_check_show_answer_ip_table = None
+
+
   #Check that course actually contains participants, otherwise this function will recursively keep retrying when it fails.
   if bqutil.get_bq_table_size_rows(dataset_id=dataset, table_id='person_course',
                                    project_id=project_id if testing else 'mitx-research') <= 10:
@@ -1498,7 +1508,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
           #Only selects pairs with at least 10 show ans before
           SELECT
             course_id, cameo_candidate, shadow_candidate, name_similarity, median_max_dt_seconds, percent_show_ans_before, 
-            show_ans_before, x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, ncorrect, percent_correct_using_show_answer, 
+            show_ans_before, percent_attempts_correct, x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, 
+            percent_correct_using_show_answer, ncorrect, 
             sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
             sa_ca_dt_chi_sq_ordered, sa_ca_dt_chi_squared, sa_ca_dt_corr_ordered, sa_ca_dt_correlation,
             northcutt_ratio, nsame_ip, nsame_ip_given_sab, percent_same_ip_given_sab, percent_same_ip,
@@ -1520,7 +1531,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
           FROM
             (
               SELECT
-                course_id, cameo_candidate, shadow_candidate, median_max_dt_seconds, percent_show_ans_before, 
+                course_id, cameo_candidate, shadow_candidate, median_max_dt_seconds, percent_show_ans_before, percent_attempts_correct,
                 show_ans_before, x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, ncorrect, percent_correct_using_show_answer, 
                 sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
                 sa_ca_dt_chi_sq_ordered, sa_ca_dt_chi_squared, sa_ca_dt_corr_ordered, sa_ca_dt_correlation,
@@ -1548,6 +1559,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                 median_max_dt_seconds,
                 sum(sa_before_pa) / count(*) * 100 as percent_show_ans_before,
                 sum(sa_before_pa) as show_ans_before,
+                percent_attempts_correct,
                 sum(sa_before_pa and (dt <= 15)) as x15s,
                 sum(sa_before_pa and (dt <= 30)) as x30s,
                 sum(sa_before_pa and (dt <= 60)) as x01m,
@@ -1556,7 +1568,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                 sum(sa_before_pa and (dt <= 60 * 30)) as x30m,
                 sum(sa_before_pa and (dt <= 60 * 60)) as x01h,
                 sum(sa_before_pa and (dt <= 60 * 60 * 24)) as x01d,
-                ncorrect,
+                ncorrect, #nattempts,
                 sum(sa_before_pa) / ncorrect * 100 as percent_correct_using_show_answer,
                 sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
                 SUM(chi) AS sa_ca_dt_chi_squared,
@@ -1744,11 +1756,12 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                         shadow_candidate, cameo_candidate,
                         sa.time, ca.time,  
                         sa.time < ca.time as sa_before_pa,
-                        sa.ip, ca.ip, ncorrect,
+                        sa.ip, ca.ip, ncorrect, nattempts,
                         sa.ip == ca.ip as same_ip,
                         (case when sa.time < ca.time then (ca.time - sa.time) / 1e6 end) as dt,
                         (CASE WHEN sa.time < ca.time THEN true END) AS has_dt,
                         USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time,
+                        percent_attempts_correct,
                         CH_modal_ip, modal_ip,
 
                         #Haversine: Uses (latitude, longitude) to compute straight-line distance in miles
@@ -1803,36 +1816,38 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                           (
                             #Certified CAMEO USER
                             SELECT 
-                              ca.username AS cameo_candidate, module_id, time, ca.ip as ip,
+                              ca.a.username AS cameo_candidate, module_id, time, ca.ip as ip,
                               pc.ip as modal_ip, pc.latitude as lat1, pc.longitude as lon1,
-                              min_first_check_time, ncorrect
+                              min_first_check_time, ncorrect, nattempts,
+                              100.0 * ncorrect / nattempts AS percent_attempts_correct
                             FROM
                             (
                               SELECT 
-                              username, a.module_id as module_id,
+                              a.username, a.module_id as module_id,
                               MIN(a.time) as time,  #MIN == FIRST because ordered by time
-                              FIRST(ip) AS ip, min_first_check_time,
-                              COUNT(time) OVER (PARTITION BY username) as ncorrect
+                              FIRST(ip) AS ip, min_first_check_time, nattempts,
+                              COUNT(DISTINCT module_id) OVER (PARTITION BY a.username) as ncorrect
                               FROM 
                               (
                                 SELECT 
                                   a.time,
-                                  a.username as username,
+                                  a.username,
                                   a.module_id,
-                                  a.success as success,
+                                  a.success,
                                   ip,
-                                  MIN(TIMESTAMP_TO_USEC(a.time)) over (partition by a.module_id) as min_first_check_time
+                                  MIN(TIMESTAMP_TO_USEC(a.time)) OVER (PARTITION BY a.module_id) as min_first_check_time,
+                                  COUNT(DISTINCT CONCAT(a.module_id, STRING(a.attempts))) OVER (PARTITION BY a.username) AS nattempts #unique
                                 FROM [{dataset}.problem_check] a
                                 JOIN EACH [{problem_check_show_answer_ip_table}] b
                                 ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
                                 WHERE b.event_type = 'problem_check'
-                                AND success = 'correct'
-                              ) 
-                              GROUP EACH BY username, module_id, min_first_check_time
+                              )
+                              WHERE a.success = 'correct' 
+                              GROUP EACH BY a.username, module_id, min_first_check_time, nattempts
                               ORDER BY time ASC
                             ) ca
                             JOIN EACH [{dataset}.person_course] pc
-                            ON ca.username = pc.username
+                            ON ca.a.username = pc.username
                             WHERE {certified_filter}
                             AND ncorrect >= 5 #to reduce size
                           ) ca
@@ -1847,7 +1862,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                 )
                 group EACH by shadow_candidate, cameo_candidate, median_max_dt_seconds, first_quartile_dt_seconds,
                               third_quartile_dt_seconds, dt_iqr, dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds,
-                              modal_ip, CH_modal_ip, mile_dist_between_modal_ips, ncorrect, northcutt_ratio,
+                              modal_ip, CH_modal_ip, mile_dist_between_modal_ips, ncorrect, percent_attempts_correct, northcutt_ratio,
                               sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
                               dt_dt_p05, dt_dt_p10, dt_dt_p15, dt_dt_p20, dt_dt_p25, dt_dt_p30, dt_dt_p35,
                               dt_dt_p40, dt_dt_p45, dt_dt_p50, dt_dt_p55, dt_dt_p60, dt_dt_p65, dt_dt_p70, 
@@ -2077,31 +2092,34 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
 
   if force_recompute:
       for i in range(num_partitions): 
-          print "--> Running SQL for partition %d of %d" % (i + 1, num_partitions)
-          sys.stdout.flush()
-          try:
-              bqutil.create_bq_table(testing_dataset if testing else dataset, 
-                                     dataset + '_' + table if testing else table, 
-                                     sql[i], overwrite=True if i==0 else 'append', allowLargeResults=True, 
-                                     sql_for_description="\nNUM_PARTITIONS="+str(num_partitions)+"\n\n"+sql[i], udfs=[udf])
-          except Exception as err:
-              if (num_partitions < 300) and ('Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
-                  print err
-                  print "="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80
-                  return compute_show_ans_before(course_id, force_recompute=force_recompute, 
-                                                  use_dataset_latest=use_dataset_latest, force_num_partitions=int(round(num_partitions*1.5)), 
-                                                  testing=testing, testing_dataset= testing_dataset, 
-                                                  project_id = project_id, force_online = force_online,
-                                                  problem_check_show_answer_ip_table=problem_check_show_answer_ip_table)
-
-              else:
-                  raise err
-          
+        print "--> Running SQL for partition %d of %d" % (i + 1, num_partitions)
+        sys.stdout.flush()
+        try:
+          bqutil.create_bq_table(testing_dataset if testing else dataset, 
+                                 dataset + '_' + table if testing else table, 
+                                 sql[i], overwrite=True if i==0 else 'append', allowLargeResults=True, 
+                                 sql_for_description="\nNUM_PARTITIONS="+str(num_partitions)+"\n\n"+sql[i], udfs=[udf])
+        except Exception as err:
+          if (num_partitions < 300) and ('internal error' in str(err) or 'Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
+            print err
+            print "="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80
+            if "internal error" in str(err):
+              print "---> Internal Error occurred. Sleeping five minutes and retrying."
+              sys.stdout.flush()
+              time.sleep(300) #5 minutes
+            return compute_show_ans_before(course_id, force_recompute=force_recompute, 
+                                            use_dataset_latest=use_dataset_latest, force_num_partitions=int(round(num_partitions*1.5)), 
+                                            testing=testing, testing_dataset= testing_dataset, 
+                                            project_id = project_id, force_online = force_online,
+                                            problem_check_show_answer_ip_table=problem_check_show_answer_ip_table)
+          else:
+            raise err
+      
 
       if num_partitions > 5:
-          print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
-          sys.stdout.flush()
-          time.sleep(60)
+        print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
+        sys.stdout.flush()
+        time.sleep(60)
 
   nfound = bqutil.get_bq_table_size_rows(dataset, table)
   if testing:
