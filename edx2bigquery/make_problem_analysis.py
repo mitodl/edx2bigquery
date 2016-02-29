@@ -1273,25 +1273,20 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
       print "--> Running compute_problem_check_show_answer_ip_table SQL for partition %d of %d" % (i + 1, num_partitions)
       sys.stdout.flush()
 
-      if i == 0:
-        try:
-          bqutil.create_bq_table(testing_dataset if testing else dataset,dataset+'_'+table if testing else table, 
-                                   sql[i], overwrite=overwrite, project_id=project_id if testing else 'mitx-research', 
-                                   allowLargeResults=True, sql_for_description=sql[i])
-        except Exception as err:
-          if (num_partitions < 20) and ('Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
-            print err
-            print "="*80,"\n==> SQL query failed! Recursively trying compute_problem_check_show_answer_ip_table again, with 50% more many partitions\n", "="*80
-            return compute_problem_check_show_answer_ip(course_id, use_dataset_latest=use_dataset_latest, overwrite=overwrite, 
-                                                        num_partitions=int(round(num_partitions*1.5)), last_date=last_date,
-                                                        testing=testing, testing_dataset=testing_dataset, project_id=project_id)
-          else:
-            raise err
-
-      else:
+      try:
         bqutil.create_bq_table(testing_dataset if testing else dataset,dataset+'_'+table if testing else table, 
-                                   sql[i], overwrite='append', project_id=project_id if testing else 'mitx-research', 
-                                   allowLargeResults=True, sql_for_description=sql[i])
+                               sql[i], overwrite=overwrite if i==0 else 'append', project_id=project_id if testing else 'mitx-research', 
+                               allowLargeResults=True, sql_for_description="\nNUM_PARTITIONS="+str(num_partitions)+"\n\n"+sql[i])
+
+      except Exception as err:
+        if (num_partitions < 20) and ('Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
+          print err
+          print "="*80,"\n==> SQL query failed! Recursively trying compute_problem_check_show_answer_ip_table again, with 50% more many partitions\n", "="*80
+          return compute_problem_check_show_answer_ip(course_id, use_dataset_latest=use_dataset_latest, overwrite=overwrite, 
+                                                      num_partitions=int(round(num_partitions*1.5)), last_date=last_date,
+                                                      testing=testing, testing_dataset=testing_dataset, project_id=project_id)
+        else:
+          raise err
 
     nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset if testing else dataset, 
                                            table_id=dataset+'_'+table if testing else table,
@@ -1299,6 +1294,8 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
 
     print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
     sys.stdout.flush()
+
+    return num_partitions
 
 #-----------------------------------------------------------------------------
 
@@ -1400,7 +1397,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
 
   #Check that course actually contains participants, otherwise this function will recursively keep retrying when it fails.
   if bqutil.get_bq_table_size_rows(dataset_id=dataset, table_id='person_course',
-                                   project_id=project_id if online else 'mitx-research') <= 10:
+                                   project_id=project_id if testing else 'mitx-research') <= 10:
             print "Error! --> Course contains no participants; exiting show_ans_before for course", course_id
             return False
 
@@ -1764,7 +1761,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                         LAG(ca.time, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY ca.time ASC) AS ca_lag,
 
                         #Find inter-time of dt for each pair
-                        LAG(dt, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY dt ASC) AS dt_lag
+                        #LAG(dt, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY dt ASC) AS dt_lag
+                        LAG(dt, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY ca.time ASC) AS dt_lag
                       FROM
                       (
                         SELECT
@@ -2081,27 +2079,24 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
       for i in range(num_partitions): 
           print "--> Running SQL for partition %d of %d" % (i + 1, num_partitions)
           sys.stdout.flush()
-          if i == 0:
-              try:
-                  bqutil.create_bq_table(testing_dataset if testing else dataset, 
-                                         dataset + '_' + table if testing else table, 
-                                         sql[i], overwrite=True, allowLargeResults=True, sql_for_description=sql[i], udfs=[udf])
-              except Exception as err:
-                  if (num_partitions < 300) and ('Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
-                      print err
-                      print "="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80
-                      return compute_show_ans_before(course_id, force_recompute=force_recompute, 
-                                                      use_dataset_latest=use_dataset_latest, force_num_partitions=int(round(num_partitions*1.5)), 
-                                                      testing=testing, testing_dataset= testing_dataset, 
-                                                      project_id = project_id, force_online = force_online,
-                                                      problem_check_show_answer_ip_table=problem_check_show_answer_ip_table)
-
-                  else:
-                      raise err
-          else:
+          try:
               bqutil.create_bq_table(testing_dataset if testing else dataset, 
                                      dataset + '_' + table if testing else table, 
-                                     sql[i], overwrite='append', allowLargeResults=True, sql_for_description=sql[i], udfs=[udf])
+                                     sql[i], overwrite=True if i==0 else 'append', allowLargeResults=True, 
+                                     sql_for_description="\nNUM_PARTITIONS="+str(num_partitions)+"\n\n"+sql[i], udfs=[udf])
+          except Exception as err:
+              if (num_partitions < 300) and ('Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
+                  print err
+                  print "="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80
+                  return compute_show_ans_before(course_id, force_recompute=force_recompute, 
+                                                  use_dataset_latest=use_dataset_latest, force_num_partitions=int(round(num_partitions*1.5)), 
+                                                  testing=testing, testing_dataset= testing_dataset, 
+                                                  project_id = project_id, force_online = force_online,
+                                                  problem_check_show_answer_ip_table=problem_check_show_answer_ip_table)
+
+              else:
+                  raise err
+          
 
       if num_partitions > 5:
           print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
