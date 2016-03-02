@@ -2105,9 +2105,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
           except Exception as err:
             if 'internal error' in str(err) and tries < 10:
               tries += 1
-              print "---> Internal Error occurred. Sleeping five minutes and retrying."
+              print "---> Internal Error occurred. Sleeping 100 seconds and retrying."
               sys.stdout.flush()
-              time.sleep(300) #5 minutes
+              time.sleep(100) #100 seconds
               continue
             elif (num_partitions < 300) and ('internal error' in str(err) or 'Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
               print err
