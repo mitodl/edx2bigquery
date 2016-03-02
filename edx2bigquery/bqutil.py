@@ -104,17 +104,24 @@ def get_list_of_table_ids(dataset_id):
     table_id_list = [ x['tableReference']['tableId'] for x in tables_info ]
     return table_id_list
 
-def convert_data_dict_to_csv(tdata):
+def convert_data_dict_to_csv(tdata, extra_fields=None):
     '''
     Convert dict format data from get_table_data into CSV file content, as a string.
+
+    If extra_fields is not None, then add data from extra_fields to each row.  
+    This can be used, e.g. for adding course_id to a table missing that field.
     '''
     import unicodecsv as csv
     from StringIO import StringIO
 
     sfp = StringIO()
-    dw = csv.DictWriter(sfp, fieldnames=tdata['field_names'])
+    extra_fields = extra_fields or {}
+    fields = extra_fields.keys()
+    fields += tdata['field_names']
+    dw = csv.DictWriter(sfp, fieldnames=fields)
     dw.writeheader()
     for row in tdata['data']:
+        row.update(extra_fields)
         dw.writerow(row)
     return sfp.getvalue()
 
@@ -122,7 +129,8 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
                    project_id=DEFAULT_PROJECT_ID, 
                    return_csv=False,
                    convert_timestamps=False,
-                   startIndex=None, maxResults=1000000):
+                   startIndex=None, maxResults=1000000,
+		   extra_fields=None):
     '''
     Retrieve data from a specific BQ table.  Normally return this as a dict, with
 
@@ -138,6 +146,8 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
     startIndex  = zero-based index of starting row to read; make this negative to return from 
                   end of table
     return_csv  = return data as CSV (as a big string) if True
+    extra_fields = None, or dict giving extra fields which are to be added (e.g. course_id) to the 
+                   output; only used when return_csv = True
     '''
     table = get_bq_table_info(dataset_id, table_id, project_id)
     if not table:
@@ -207,7 +217,7 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
                 ret['data_by_key'][the_key] = values
 
     if return_csv:
-        return convert_data_dict_to_csv(ret)
+        return convert_data_dict_to_csv(ret, extra_fields=extra_fields)
 
     return ret
 
@@ -375,6 +385,7 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
                     logger=default_logger, project_id=DEFAULT_PROJECT_ID,
                     output_project_id=DEFAULT_PROJECT_ID,
                     allowLargeResults=False,
+                    maximumBillingTier=None,
                     sql_for_description=None):
     '''
     Run SQL query to create a new table.
@@ -396,6 +407,8 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
                          'allowLargeResults': allowLargeResults,
                          }
               }
+    if maximumBillingTier:
+        config['query']['maximumBillingTier'] = maximumBillingTier
               
     job_id = 'create_%s_%s_%d' % (dataset_id, table_id, time.time())
     job_ref = {'jobId': job_id,
