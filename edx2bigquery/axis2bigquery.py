@@ -62,7 +62,8 @@ def do_save(cid, caset_in, xbundle, datadir, log_msg, use_dataset_latest=False):
                 ca['data'] = json.loads(data)	# make it native, for mongo
             except Exception as err:
                 print "failed to create json for %s, error=%s" % (data, err)
-        ca['start'] = str(ca['start'])	# datetime to string
+        if ca['start'] is not None:
+            ca['start'] = str(ca['start'])	# datetime to string
         if  ca['due'] is not None:
             ca['due'] = str(ca['due'])	# datetime to string
         if (ca['data'] is None) or (ca['data']==''):
