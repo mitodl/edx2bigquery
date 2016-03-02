@@ -181,7 +181,7 @@ def guess_module_id(doc):
         return mid
 
     if ('problem' in event_type and type(event) in [str, unicode] and event.startswith("input_")):
-        page = doc.get('page', '')
+        page = doc.get('page', '') or ''
         # sys.stderr.write("page=%s\n" % page)
         rr = okre2.search(page)
         if (rr):
@@ -198,7 +198,7 @@ def guess_module_id(doc):
         sys.stderr.write("ok parse failed on %s" % json.dumps(doc, indent=4))
   
     if (event_type=="problem_graded" and type(event)==list and len(event)>0 and event[0].startswith("input_")):
-        page = doc.get('page', '')
+        page = doc.get('page', '') or ''
         # sys.stderr.write("page=%s\n" % page)
         rr = okre2.search(page)
         if (rr):
@@ -247,7 +247,7 @@ def guess_module_id(doc):
             #sys.stderr.write("ok mid = %s\n" % mid)
             return mid
         if event_type=='play_video' and '/' not in eid:
-            rr = okre5.search(doc.get('page', ''))
+            rr = okre5.search(doc.get('page', '') or '')
             if (rr):
                 mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), 'video', eid)
                 return mid
