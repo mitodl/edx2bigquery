@@ -834,7 +834,7 @@ def list_tables_in_course_db(param, courses, args):
 #-----------------------------------------------------------------------------
 # utility commands
 
-def get_data_tables(tables, args):
+def get_data_tables(tables, args, course_id_by_table=None):
     '''
     used by get_course_data and get_data
     arguments provide options for combing outputs, and for loading output back into BigQuery
@@ -897,6 +897,9 @@ def get_data_tables(tables, args):
             if args.gzip:
                 ofn += ".gz"
             print "Retrieving %s as %s" % (table, ofn)
+        if args.add_courseid and course_id_by_table:
+            optargs['extra_fields'] = {'course_id': course_id_by_table[table]}
+            print "--> Adding %s for %s to each row" % (course_id_by_table[table], 'course_id')
         sys.stdout.flush()
 
         if args.just_get_schema:
@@ -1332,6 +1335,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--table", type=str, help="bigquery table to use, specified as dataset_id.table_id or just as table_id (for get_course_data)")
     parser.add_argument("--org", type=str, help="organization ID to use")
     parser.add_argument("--combine-into", type=str, help="combine outputs into the specified file as output (used by get_course_data, get_data)")
+    parser.add_argument("--add-courseid", help="adds course_id as a new field, when combining outputs into a file (used with get_course_data)", action="store_true")
     parser.add_argument("--combine-into-table", type=str, help="combine outputs into specified table (may be project:dataset.table) for get_data, get_course_data")
     parser.add_argument("--skip-missing", help="for get_data, get_course_data, skip course if missing table", action="store_true")
     parser.add_argument("--output-format-json", help="output data in JSON format instead of CSV (the default); used by get_course_data, get_data", action="store_true")
@@ -1593,11 +1597,14 @@ check_for_duplicates        : check list of courses for duplicates
         import bqutil
         tablename = args.table
         tables = []
+        course_id_by_table = {}
         for course_id in get_course_ids(args):
             dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
-            tables.append('%s.%s' % (dataset, tablename))
+            the_table = '%s.%s' % (dataset, tablename)
+            tables.append(the_table)
+            course_id_by_table[the_table] = course_id
 
-        return get_data_tables(tables, args)
+        return get_data_tables(tables, args, course_id_by_table=course_id_by_table)
 
     elif (args.command=='get_data'):
         tables = args.courses			# may specify project as well, with syntax project_id:dataset_id.table_id
