@@ -30,7 +30,16 @@ if(1) {
 
 	if (_rc > 0){
 		* some courses don't use chapter and section names
-		gen plabel = "[" + string(problem_nid) + "] " + problem_short_id + "/" + problem_name
+		capture gen plabel = "[" + string(problem_nid) + "] " + problem_short_id + "/" + problem_name
+
+		if (_rc > 0){
+			* some courses have empty problem_short_id - use assignment_short_id instead
+			capture gen plabel = "[" + string(problem_nid) + "] " + assignment_id + "/" + problem_name
+
+			if (_rc > 0){
+				gen plabel = "[" + string(problem_nid) + "] " + problem_id + "/" + problem_name
+			}
+		}
 	}
 	
 	save DATA/DATA-`cidns'-item-listings.dta, replace

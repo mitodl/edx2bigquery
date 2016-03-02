@@ -131,6 +131,8 @@ def run_external_script(extcmd, param, ecinfo, course_id):
                     dtab_date = bqutil.get_bq_table_last_modified_datetime(dataset, deptab)
                 except Exception as err:
                     raise Exception("[run_external] missing dependent table %s.%s" % (dataset, deptab))
+                if not dtab_date:
+                    raise Exception("[run_external] missing dependent table %s.%s" % (dataset, deptab))
                 if table_date and dtab_date > table_date:
                     do_compute = True
                     break
