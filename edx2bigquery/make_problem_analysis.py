@@ -2094,27 +2094,32 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
       for i in range(num_partitions): 
         print "--> Running SQL for partition %d of %d" % (i + 1, num_partitions)
         sys.stdout.flush()
-        try:
-          bqutil.create_bq_table(testing_dataset if testing else dataset, 
-                                 dataset + '_' + table if testing else table, 
-                                 sql[i], overwrite=True if i==0 else 'append', allowLargeResults=True, 
-                                 sql_for_description="\nNUM_PARTITIONS="+str(num_partitions)+"\n\n"+sql[i], udfs=[udf])
-        except Exception as err:
-          if (num_partitions < 300) and ('internal error' in str(err) or 'Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
-            print err
-            print "="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80
-            if "internal error" in str(err):
+        tries = 0 #Counts number of times "internal error occurs."
+        while(tries < 10):
+          try:
+            bqutil.create_bq_table(testing_dataset if testing else dataset, 
+                                   dataset + '_' + table if testing else table, 
+                                   sql[i], overwrite=True if i==0 else 'append', allowLargeResults=True, 
+                                   sql_for_description="\nNUM_PARTITIONS="+str(num_partitions)+"\n\n"+sql[i], udfs=[udf])
+            break #Success - no need to keep trying - no internal error occurred.
+          except Exception as err:
+            if 'internal error' in str(err) and tries < 10:
+              tries += 1
               print "---> Internal Error occurred. Sleeping five minutes and retrying."
               sys.stdout.flush()
               time.sleep(300) #5 minutes
-            return compute_show_ans_before(course_id, force_recompute=force_recompute, 
-                                            use_dataset_latest=use_dataset_latest, force_num_partitions=int(round(num_partitions*1.5)), 
-                                            testing=testing, testing_dataset= testing_dataset, 
-                                            project_id = project_id, force_online = force_online,
-                                            problem_check_show_answer_ip_table=problem_check_show_answer_ip_table)
-          else:
-            raise err
-      
+              continue
+            elif (num_partitions < 300) and ('internal error' in str(err) or 'Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
+              print err
+              print "="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80
+              return compute_show_ans_before(course_id, force_recompute=force_recompute, 
+                                              use_dataset_latest=use_dataset_latest, force_num_partitions=int(round(num_partitions*1.5)), 
+                                              testing=testing, testing_dataset= testing_dataset, 
+                                              project_id = project_id, force_online = force_online,
+                                              problem_check_show_answer_ip_table=problem_check_show_answer_ip_table)
+            else:
+              raise err
+          
 
       if num_partitions > 5:
         print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
