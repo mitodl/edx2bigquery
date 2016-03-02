@@ -100,7 +100,7 @@ class CourseReport(object):
         sys.stdout.flush()
 
         # find latest combined person_course table
-        cpc_tables = [ x for x in bqutil.get_list_of_table_ids(self.dataset) if x.startswith("person_course_") ]
+        cpc_tables = [ x for x in bqutil.get_list_of_table_ids(self.dataset) if (x.startswith("person_course_") and not x.endswith("allcourses"))]
         if cpc_tables:
             the_cpc_table = "[%s.%s]" % (self.dataset, max(cpc_tables))
         else:
@@ -162,7 +162,8 @@ class CourseReport(object):
                     return -1
         return 0
 
-    def do_table(self, the_sql, tablename, the_dataset=None, sql_for_description=None, check_skip=True, allowLargeResults=False):
+    def do_table(self, the_sql, tablename, the_dataset=None, sql_for_description=None, check_skip=True, 
+                 allowLargeResults=False, maximumBillingTier=None):
 
         if check_skip:
             if self.skip_or_do_step(tablename) < 0:
@@ -179,6 +180,7 @@ class CourseReport(object):
                                          output_project_id=self.output_project_id,
                                          sql_for_description=sql_for_description or the_sql,
                                          allowLargeResults=allowLargeResults,
+                                         maximumBillingTier=maximumBillingTier,
                                      )
         except Exception as err:
             print "ERROR! Failed on SQL="
@@ -471,7 +473,7 @@ order by course_id;
             
             sql_for_description = "outer SQL:\n%s\n\nInner SQL:\n%stt_set=%s" % (outer_sql, sub_sql, self.parameters['tott_tables'])
     
-            self.do_table(the_sql, pset['table'], sql_for_description=sql_for_description, check_skip=False)
+            self.do_table(the_sql, pset['table'], sql_for_description=sql_for_description, check_skip=False, maximumBillingTier=4)
 
     def make_person_course_day_table(self):
 
