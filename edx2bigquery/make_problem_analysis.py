@@ -1149,8 +1149,7 @@ def ncertified(course_id, use_dataset_latest=True,
   table_id = 'ncertified' + str(abs(hash(course_id))) #Unique id to prevent issues when running in parallel
   dataset = "curtis_northcutt" if testing else dataset
   bqutil.create_bq_table(dataset_id=dataset, 
-                         table_id=table_id, sql=SQL, overwrite=True, 
-                         project_id=project_id if testing else 'mitx-research')
+                         table_id=table_id, sql=SQL, overwrite=True)
 
   data = bqutil.get_table_data(dataset_id=dataset, table_id=table_id)
   n = int(data['data'][0]['ncertified'])
@@ -1160,6 +1159,39 @@ def ncertified(course_id, use_dataset_latest=True,
 
 #-----------------------------------------------------------------------------
 
+def course_started_after_switch_to_verified_only(course_id, use_dataset_latest=True,
+               testing=False, project_id=None):
+  '''Returns true if course stated after December 7,l 2015,
+  the date when certificates were switched to verified only
+  '''
+  dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+  SQL = '''
+  SELECT 
+    MAX(min_start_time) >= TIMESTAMP('2015-12-07 00:00:00') as after_switch_to_verified
+  FROM
+  (
+    SELECT MIN(due) AS min_start_time
+    FROM [{dataset}.course_axis] 
+  ),
+  (
+    SELECT TIMESTAMP(min_start_time) AS min_start_time
+    FROM [mitx-data:course_report_latest.broad_stats_by_course],
+    [harvardx-data:course_report_latest.broad_stats_by_course]
+    WHERE course_id = "{course_id}"
+  )
+  '''.format(dataset=project_id + ":" + dataset if testing else dataset, course_id=course_id)
+
+  table_id = 'start_date' + str(abs(hash(course_id))) #Unique id to prevent issues when running in parallel
+  dataset = "curtis_northcutt" if testing else dataset
+  bqutil.create_bq_table(dataset_id=dataset, table_id=table_id, sql=SQL, overwrite=True)
+
+  data = bqutil.get_table_data(dataset_id=dataset, table_id=table_id)
+  result = data['data'][0]['after_switch_to_verified'] in (['true', 'True', 'TRUE'])
+
+  bqutil.delete_bq_table(dataset_id=dataset, table_id=table_id)
+  return result
+
+#-----------------------------------------------------------------------------
 def compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest = True, testing=False, testing_dataset=None, project_id=None):
     '''Returns one week past the certification date if certificates have been rewarded.
     Otherwise, returns one week past the last due date.
@@ -1185,19 +1217,30 @@ def compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest = Tr
     ) a
     CROSS JOIN
     (
-      SELECT
-        min_start_time,
-        DATE_ADD(min_start_time, 1, "YEAR") as one_year_past_start_date
-      FROM [mitx-data:course_report_latest.broad_stats_by_course],
-      [harvardx-data:course_report_latest.broad_stats_by_course]
-      WHERE course_id = "{course_id}"
+      SELECT 
+        MAX(min_start_time) as min_start_time, 
+        MAX(one_year_past_start_date) as one_year_past_start_date
+      FROM
+      (
+        SELECT
+          MIN(due) AS min_start_time,
+          DATE_ADD(MIN(due), 1, "YEAR") as one_year_past_start_date
+        FROM [{dataset}.course_axis] 
+      ),
+      (
+        SELECT
+          TIMESTAMP(min_start_time) AS min_start_time,
+          DATE_ADD(min_start_time, 1, "YEAR") as one_year_past_start_date
+        FROM [mitx-data:course_report_latest.broad_stats_by_course],
+        [harvardx-data:course_report_latest.broad_stats_by_course]
+        WHERE course_id = "{course_id}"
+      )
     ) b 
     '''.format(dataset=project_id + ":" + dataset if testing else dataset, course_id=course_id)
     table_id = 'temp' + str(abs(hash(course_id))) #Unique id to prevent issues when running in parallel
     dataset = "curtis_northcutt" if testing else dataset
     bqutil.create_bq_table(dataset_id=dataset, 
-                           table_id=table_id, sql=SQL, overwrite=True, 
-                           project_id=project_id if testing else 'mitx-research')
+                           table_id=table_id, sql=SQL, overwrite=True)
 
     data = bqutil.get_table_data(dataset_id=dataset, table_id=table_id)
     last_date = datetime.datetime.fromtimestamp(float(data['data'][0]['last']))
@@ -1228,7 +1271,7 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
     '''
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
-    tracking_log_dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=False) + '_logs'
+    tracking_log_dataset = project_id + ":" + bqutil.course_id2dataset(course_id, use_dataset_latest=False) + '_logs'
     table = "stats_problem_check_show_answer_ip"
 
     if last_date is None:
@@ -1253,7 +1296,7 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
              END AS event_type,
         ip
       from (
-        TABLE_QUERY({tracking_log_dataset},
+        TABLE_QUERY([{tracking_log_dataset}],
              "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) <= {cap}" #Formatted as YYYYMMDD
            )
         )
@@ -1272,21 +1315,29 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
     for i in range(num_partitions): 
       print "--> Running compute_problem_check_show_answer_ip_table SQL for partition %d of %d" % (i + 1, num_partitions)
       sys.stdout.flush()
-
-      try:
-        bqutil.create_bq_table(testing_dataset if testing else dataset,dataset+'_'+table if testing else table, 
-                               sql[i], overwrite=overwrite if i==0 else 'append', project_id=project_id if testing else 'mitx-research', 
-                               allowLargeResults=True, sql_for_description="\nNUM_PARTITIONS="+str(num_partitions)+"\n\n"+sql[i])
-
-      except Exception as err:
-        if (num_partitions < 20) and ('Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
-          print err
-          print "="*80,"\n==> SQL query failed! Recursively trying compute_problem_check_show_answer_ip_table again, with 50% more many partitions\n", "="*80
-          return compute_problem_check_show_answer_ip(course_id, use_dataset_latest=use_dataset_latest, overwrite=overwrite, 
-                                                      num_partitions=int(round(num_partitions*1.5)), last_date=last_date,
-                                                      testing=testing, testing_dataset=testing_dataset, project_id=project_id)
-        else:
-          raise err
+      tries = 0 #Counts number of times "internal error occurs."
+      while(tries < 10):
+        try:
+          bqutil.create_bq_table(testing_dataset if testing else dataset,
+                                 dataset+'_'+table if testing else table, 
+                                 sql[i], overwrite=overwrite if i==0 else 'append', allowLargeResults=True,
+                                 sql_for_description="\nNUM_PARTITIONS="+str(num_partitions)+"\n\n"+sql[i])
+          break #Success - no need to keep trying - no internal error occurred.
+        except Exception as err:
+          if 'internal error' in str(err) and tries < 10:
+            tries += 1
+            print "---> Internal Error occurred. Sleeping 100 seconds and retrying."
+            sys.stdout.flush()
+            time.sleep(100) #100 seconds
+            continue
+          elif (num_partitions < 20) and ('internal error' in str(err) or 'Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
+            print err
+            print "="*80,"\n==> SQL query failed! Recursively trying compute_problem_check_show_answer_ip_table again, with 50% more many partitions\n", "="*80
+            return compute_problem_check_show_answer_ip(course_id, use_dataset_latest=use_dataset_latest, overwrite=overwrite, 
+                                                        num_partitions=int(round(num_partitions*1.5)), last_date=last_date,
+                                                        testing=testing, testing_dataset=testing_dataset, project_id=project_id)
+          else:
+            raise err
 
     nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset if testing else dataset, 
                                            table_id=dataset+'_'+table if testing else table,
@@ -1412,28 +1463,33 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             return False
 
   if problem_check_show_answer_ip_table is None:
+      ip_table_id = 'stats_problem_check_show_answer_ip'
       if testing:
-          default_table_info = bqutil.get_bq_table_info(dataset,'stats_problem_check_show_answer_ip', project_id=project_id)
+          default_table_info = bqutil.get_bq_table_info(dataset, ip_table_id, project_id=project_id)
           if default_table_info is not None and not force_recompute:
-              problem_check_show_answer_ip_table = project_id + ':'+ dataset + '.stats_problem_check_show_answer_ip'
+              problem_check_show_answer_ip_table = project_id + ':'+ dataset + '.' + ip_table_id
           else:
               #Default table doesn't exist, Check if testing table exists
               testing_table_info = bqutil.get_bq_table_info(testing_dataset,
-                                   dataset + '_stats_problem_check_show_answer_ip', project_id='mitx-research')
+                                   dataset + '_' + ip_table_id, project_id='mitx-research')
               if force_recompute or testing_table_info is None:
                   compute_problem_check_show_answer_ip(course_id, use_dataset_latest, testing=True, 
-                                                       testing_dataset=testing_dataset, project_id=project_id, overwrite=force_recompute)
-              problem_check_show_answer_ip_table = 'mitx-research:' + testing_dataset + '.' + dataset + '_stats_problem_check_show_answer_ip'
+                                                       testing_dataset=testing_dataset, project_id=project_id,
+                                                       overwrite=force_recompute)
+              problem_check_show_answer_ip_table = 'mitx-research:' + testing_dataset + '.' + dataset + '_' + ip_table_id
       else:
-          default_table_info = bqutil.get_bq_table_info(dataset,'stats_problem_check_show_answer_ip')
+          default_table_info = bqutil.get_bq_table_info(dataset,ip_table_id)
           if force_recompute or default_table_info is None:
               compute_problem_check_show_answer_ip(course_id, use_dataset_latest, overwrite=force_recompute)
-          problem_check_show_answer_ip_table = dataset + '.stats_problem_check_show_answer_ip'
+          problem_check_show_answer_ip_table = dataset + '.' + ip_table_id
 
   if force_online is False:
     #Force show_ans_before to run online if there are no certifications
     n = ncertified(course_id, use_dataset_latest=use_dataset_latest, testing=testing, project_id=project_id)
-    force_online = n <= 5
+    force_online = n <= 5 or course_started_after_switch_to_verified_only(course_id,
+                                                                          use_dataset_latest=use_dataset_latest, 
+                                                                          testing=testing, 
+                                                                          project_id=project_id)
     print "\n", '-' * 80 ,"\n", course_id, "has", str(n), "certified users. Online status for show_ans_before:", force_online, "\n", '-' * 80 ,"\n"
 
   #-------------------- partition by nshow_ans_distinct
@@ -2126,7 +2182,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
         sys.stdout.flush()
         time.sleep(60)
 
-  nfound = bqutil.get_bq_table_size_rows(dataset, table)
+  nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset if testing else dataset, 
+                                           table_id=dataset+'_'+table if testing else table,
+                                           project_id='mitx-research')
   if testing:
       nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset, table_id=table, project_id='mitx-research')
   print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
