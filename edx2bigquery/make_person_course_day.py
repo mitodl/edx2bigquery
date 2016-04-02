@@ -374,7 +374,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
 				         video_id,
 				         position,
 				  FROM [{dataset}.video_stats_day]
-				  WHERE TIMESTAMP(date)>= TIMESTAMP("{min_date_start}") and TIMESTAMP(date) < TIMESTAMP("{max_date_end}")
+				  WHERE TIMESTAMP(date)>= TIMESTAMP("{min_date_start}") and TIMESTAMP(date) <= TIMESTAMP("{max_date_end}")
 
 			  )
                       """
@@ -394,7 +394,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
 				   WHERE (forum_action == "reply" or forum_action == "comment_reply"
 					  or forum_action == "created_thread" or forum_action == "created_response" or forum_action == "created_comment"
 					  or forum_action == "read" or forum_action == "read_inline")
-				          and ( time >= TIMESTAMP("{min_date_start}") and time < TIMESTAMP("{max_date_end}") )
+				          and ( time >= TIMESTAMP("{min_date_start}") and time <= TIMESTAMP("{max_date_end}") )
 			  )
                       """
     PCDAY_SQL_ADD = PCDAY_SQL_ADD + PCDAY_SQL_FORUM if forumTableExists else PCDAY_SQL_ADD
@@ -480,7 +480,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
 							      FROM [{dataset}.person_course] 
 					) AS pc
 					ON pc.user_id = pp.user_id
-				        WHERE time >= TIMESTAMP("{min_date_start}") and time < TIMESTAMP("{max_date_end}")
+				        WHERE time >= TIMESTAMP("{min_date_start}") and time <= TIMESTAMP("{max_date_end}")
 			  )
  
                         """

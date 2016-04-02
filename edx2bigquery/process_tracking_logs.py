@@ -225,8 +225,8 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
         return int(x[0:4]), int(x[4:6]), int(x[6:])
     (mx_year, mx_month, mx_day) = get_ym(max_date)
     (mn_year, mn_month, mn_day) = get_ym(min_date)
-    max_date_end = "%04d-%02d-%02d" % (mx_year, mx_month, mx_day)
-    min_date_start = "%04d-%02d-%02d" % (mn_year, mn_month, mn_day)
+    max_date_end = "%04d-%02d-%02d 23:59:59" % (mx_year, mx_month, mx_day)
+    min_date_start = "%04d-%02d-%02d 00:00:00" % (mn_year, mn_month, mn_day)
 
     the_sql = SQL.format(course_id=course_id, DATASETS=from_datasets, last_date=last_date, min_date_start=min_date_start, max_date_end=max_date_end, hash_limit="")
 
