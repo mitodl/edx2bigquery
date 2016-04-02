@@ -69,7 +69,7 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
     #-----------------------------------------------------------------------------
 
 def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute=False,
-                          use_dataset_latest=False):
+                          use_dataset_latest=False, raise_exception_on_parsing_error=False):
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     basedir = path(basedir or '')
@@ -174,16 +174,20 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
                      'user_id': line['student_id'],
                      'problem_url_name': url_name,
                      'item': items,
-                     'attempts': int(state['attempts']),
+                     'attempts': int(state.get('attempts', 0)),
                      'done': state['done'],
-                     'grade': float(line['grade']),
-                     'max_grade': float(line['max_grade']),
+                     'grade': float(line.get('grade', 0)),
+                     'max_grade': float(line.get('max_grade', 0)),
                      'created': line['created'],
                      }
         except Exception as err:
             print "---> [%d] Oops, error in transcribing entry, err=%s" % (cnt, str(err))
             print "     state = %s" % state
-            raise
+            print "     line = %s" % line
+            if raise_exception_on_parsing_error:
+                raise
+            else:
+                print "    skipping line!"
 
         check_schema(cnt, entry, the_ds=the_dict_schema, coerce=True)
         data.append(entry)
