@@ -231,6 +231,16 @@
             "description": "one of 'downloadable', 'notpassing', or 'unavailable', where downloadable & unavailable should = earned"
         },
         {
+            "type": "TIMESTAMP",
+            "name": "verified_enroll_time",
+            "description": "time when user initially had their first id-verified enrollment event"
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "verified_unenroll_time",
+            "description": "time when user had their last id-verified unenrollment event, if any. Null if there were no unenrollment events"
+        },
+        {
             "type": "STRING",
             "name": "profile_country",
             "description": "two-letter country code as specified by user in their profile (only available after ~mid-2014)"

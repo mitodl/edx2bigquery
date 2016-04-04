@@ -26,6 +26,13 @@ import process_tracking_logs
 from path import path
 from gsutil import get_gs_file_list
 
+
+#-----------------------------------------------------------------------------
+# CONSTANTS
+#-----------------------------------------------------------------------------
+TABLE_ENROLLMENT_EVENTS = "enrollment_events"
+TABLE_PERSON_ENROLLMENT_VERIFIED = "person_enrollment_verified"
+
 #-----------------------------------------------------------------------------
 
 def old_process_course(course_id, force_recompute=False):
@@ -231,3 +238,30 @@ def make_enrollment_events(course_id, force_recompute=False, use_dataset_latest=
                                                      end_date=end_date,
                                                      get_date_function=gdf,
                                                      days_delta=0)
+
+def make_enrollment_verified_events_per_user(course_id, force_recompute=False, use_dataset_latest=False, end_date=None):
+
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    table = TABLE_PERSON_ENROLLMENT_VERIFIED
+    
+    SQL = """
+
+		SELECT "{course_id}" as course_id, 
+                       user_id,
+		       min(TIMESTAMP(time)) as verified_enroll_time,
+		       case when max(TIMESTAMP_TO_SEC(time)) == min(TIMESTAMP_TO_SEC(time)) then null else max(TIMESTAMP(time)) end as verified_unenroll_time,
+		FROM [{dataset}.{enrollment_events}]
+		WHERE ((mode = 'verified' and deactivated) or # Unenrolled
+		       (mode='verified' and not activated and mode_changed) # Enrolled
+		      )
+		GROUP BY course_id, user_id
+		ORDER BY verified_enroll_time asc
+
+         """.format( dataset=dataset, course_id=course_id, enrollment_events=TABLE_ENROLLMENT_EVENTS )
+
+    bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
+                                depends_on=["%s.%s" % (dataset, TABLE_ENROLLMENT_EVENTS )],
+                               )
+
+
