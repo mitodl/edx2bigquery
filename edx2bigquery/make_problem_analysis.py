@@ -1157,39 +1157,280 @@ def ncertified(course_id, use_dataset_latest=True,
   bqutil.delete_bq_table(dataset_id=dataset, table_id=table_id)
   return n
 
+
+
+
+SQL = '''
+SELECT
+  shadow_candidate, cameo_candidate,
+  sa.time, ca.time,  
+  sa.time < ca.time as sa_before_pa,
+  sa.ip, ca.ip, ncorrect, nattempts,
+  sa.ip == ca.ip as same_ip,
+  (case when sa.time < ca.time then (ca.time - sa.time) / 1e6 end) as dt,
+  (CASE WHEN sa.time < ca.time THEN true END) AS has_dt,
+  USEC_TO_TIMESTAMP(min_first_check_time) as min_first_check_time,
+  percent_attempts_correct,
+  CH_modal_ip, modal_ip,
+
+  #Haversine: Uses (latitude, longitude) to compute straight-line distance in miles
+  7958.75 * ASIN(SQRT(POW(SIN((RADIANS(lat2) - RADIANS(lat1))/2),2) 
+  + COS(RADIANS(lat1)) * COS(RADIANS(lat2)) 
+  * POW(SIN((RADIANS(lon2) - RADIANS(lon1))/2),2))) AS mile_dist_between_modal_ips,
+
+  #Compute lags ONLY for show answers that occur before correct answers
+  LAG(sa.time, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY sa.time ASC) AS sa_lag,
+  LAG(ca.time, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY ca.time ASC) AS ca_lag,
+
+  #Find inter-time of dt for each pair
+  #LAG(dt, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY dt ASC) AS dt_lag
+  LAG(dt, 1) OVER (PARTITION BY shadow_candidate, cameo_candidate, has_dt ORDER BY ca.time ASC) AS dt_lag
+FROM
+(
+  SELECT
+    *
+  FROM
+  (
+    SELECT
+      *,
+      MIN(sa.time) OVER (PARTITION BY shadow_candidate, cameo_candidate, sa.module_id) AS min_sa_time,
+      MAX(CASE WHEN sa.time < ca.time THEN sa.time ELSE NULL END) OVER (PARTITION BY shadow_candidate, cameo_candidate, sa.module_id) AS nearest_sa_before
+    FROM
+    (
+      #HARVESTER
+      SELECT
+        sa.a.username as shadow_candidate, a.module_id as module_id, sa.a.time as time, sa.ip as ip, 
+        pc.ip as CH_modal_ip, pc.latitude as lat2, pc.longitude as lon2,
+        nshow_ans_distinct
+      FROM
+      (
+        SELECT 
+          a.time,
+          a.username,
+          a.module_id,
+          ip,
+          count(distinct a.module_id) over (partition by a.username) as nshow_ans_distinct
+        FROM [{dataset}.show_answer] a
+        JOIN EACH [{problem_check_show_answer_ip_table}] b
+        ON a.time = b.time AND a.username = b.username AND a.module_id = b.module_id
+        WHERE b.event_type = 'show_answer'
+      ) sa
+      JOIN EACH [{dataset}.person_course] pc
+      ON sa.a.username = pc.username
+      WHERE {not_certified_filter}
+      AND nshow_ans_distinct >= 5 #to reduce size
+      AND {partition}
+    )sa
+    JOIN EACH
+    (
+      #Certified CAMEO USER
+      SELECT 
+        ca.a.username AS cameo_candidate, module_id, time, ca.ip as ip,
+        pc.ip as modal_ip, pc.latitude as lat1, pc.longitude as lon1,
+        min_first_check_time, ncorrect, nattempts,
+        100.0 * ncorrect / nattempts AS percent_attempts_correct
+      FROM
+      (
+        SELECT 
+        a.username, a.module_id as module_id,
+        MIN(a.time) as time,  #MIN == FIRST because ordered by time
+        FIRST(ip) AS ip, min_first_check_time, nattempts,
+        COUNT(DISTINCT module_id) OVER (PARTITION BY a.username) as ncorrect
+        FROM 
+        (
+          SELECT 
+            a.time,
+            a.username,
+            a.module_id,
+            a.success,
+            ip,
+            MIN(TIMESTAMP_TO_USEC(a.time)) OVER (PARTITION BY a.module_id) as min_first_check_time,
+            COUNT(DISTINCT CONCAT(a.module_id, STRING(a.attempts))) OVER (PARTITION BY a.username) AS nattempts #unique
+          FROM [{dataset}.problem_check] a
+          JOIN EACH [{problem_check_show_answer_ip_table}] b
+          ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
+          WHERE b.event_type = 'problem_check'
+        )
+        WHERE a.success = 'correct' 
+        GROUP EACH BY a.username, module_id, min_first_check_time, nattempts
+        ORDER BY time ASC
+      ) ca
+      JOIN EACH [{dataset}.person_course] pc
+      ON ca.a.username = pc.username
+      WHERE {certified_filter}
+      AND ncorrect >= 5 #to reduce size
+    ) ca
+    ON sa.module_id = ca.module_id
+    WHERE cameo_candidate != shadow_candidate
+  )
+  WHERE (nearest_sa_before IS NULL AND sa.time = min_sa_time) #if no positive dt, use min show answer time resulting in least negative dt 
+  OR (nearest_sa_before = sa.time) #otherwise use show answer time resulting in smallest positive dt 
+)'''
+                    
+
+#-----------------------------------------------------------------------------
+
+def compute_stats_problems_cameod(course_id, use_dataset_latest=True, cameo_users_table=None,
+                                  testing=False, testing_dataset=None, project_id=None, 
+                                  problem_check_show_answer_ip_table=None, overwrite=True):
+    '''Computes all problems for which the CAMEO users in cameo_users_table
+    likely used the CAMEO strategy to obtain correct answers.
+    '''
+    table = "stats_problems_cameod"
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    [c_p,c_d,c_t] = cameo_users_table.replace(':',' ').replace('.',' ').split()
+
+    if testing and testing_dataset is None:
+      testing_dataset = c_d #Generate this table in same dataset as cameo_users_table
+
+    if problem_check_show_answer_ip_table is None:
+        ip_table_id = 'stats_problem_check_show_answer_ip'
+        if testing:
+            default_table_info = bqutil.get_bq_table_info(dataset, ip_table_id, project_id=project_id)
+            if default_table_info is None:
+                #Default table doesn't exist, Check if testing table exists
+                testing_table_info = bqutil.get_bq_table_info(testing_dataset,
+                                     dataset + '_' + ip_table_id, project_id='mitx-research')
+                if testing_table_info is None:
+                    compute_problem_check_show_answer_ip(course_id, use_dataset_latest, testing=True, 
+                                                         testing_dataset=testing_dataset, project_id=project_id)
+                problem_check_show_answer_ip_table = 'mitx-research:' + testing_dataset + '.' + dataset + '_' + ip_table_id
+            else:
+                problem_check_show_answer_ip_table = project_id + ':'+ dataset + '.' + ip_table_id            
+        else:
+            default_table_info = bqutil.get_bq_table_info(dataset,ip_table_id)
+            if default_table_info is None:
+                compute_problem_check_show_answer_ip(course_id, use_dataset_latest)
+            problem_check_show_answer_ip_table = dataset + '.' + ip_table_id
+
+    SQL = '''
+    SELECT
+      cameo_master, cameo_harvester, 
+      ca.module_id as module_id,
+      ca.time, sa.time,
+      ca.ip, sa.ip,
+      sa.ip == ca.ip as same_ip,
+      (case when sa.time < ca.time then (ca.time - sa.time) / 1e6 end) as dt
+    FROM
+    (
+      SELECT
+        *
+      FROM
+      (
+        SELECT
+          *, CONCAT(cameo_master, cameo_harvester) AS grp,
+          MIN(sa.time) OVER (PARTITION BY cameo_harvester, cameo_master, sa.module_id) AS min_sa_time,
+          MAX(CASE WHEN sa.time < ca.time THEN sa.time ELSE NULL END) OVER (PARTITION BY cameo_harvester, cameo_master, sa.module_id) AS nearest_sa_before
+        FROM
+        (
+          #HARVESTER
+          SELECT 
+            a.time as time,
+            a.username as cameo_harvester,
+            a.module_id as module_id,
+            ip
+          FROM [{dataset}.show_answer] a
+          JOIN EACH [{problem_check_show_answer_ip_table}] b
+          ON a.time = b.time AND a.username = b.username AND a.module_id = b.module_id
+          WHERE b.event_type = 'show_answer'
+          AND a.username in 
+          (
+            SELECT CH
+            FROM [{cameo_users_table}]
+            WHERE course_id = "{course_id}"
+          )
+        ) sa
+        JOIN EACH
+        (
+          #Certified CAMEO USER
+          SELECT 
+            MIN(a.time) as time,  #First correct answer
+            a.username as cameo_master,
+            a.module_id as module_id,
+            FIRST(ip) AS ip #Associated first ip (because order by time)
+          FROM [{dataset}.problem_check] a
+          JOIN EACH [{problem_check_show_answer_ip_table}] b
+          ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
+          WHERE b.event_type = 'problem_check'
+          AND a.success = 'correct'
+          AND a.username in
+          (
+            SELECT username
+            FROM [{cameo_users_table}]
+            WHERE course_id = "{course_id}"
+          )
+          GROUP EACH BY cameo_master, module_id
+          ORDER BY time ASC
+        ) ca
+        ON sa.module_id = ca.module_id
+        HAVING grp in #Only select CAMEO pairs
+        (
+          SELECT CONCAT(username, CH)
+          FROM [{cameo_users_table}]
+          WHERE course_id = "{course_id}"
+        )
+      )
+      WHERE ((nearest_sa_before IS NULL AND sa.time = min_sa_time) #if no positive dt, use min show answer time resulting in least negative dt 
+      OR (nearest_sa_before = sa.time)) #otherwise use show answer time resulting in smallest positive dt 
+    )
+    WHERE sa.time < ca.time # Show answer occurs before correct answer
+    ORDER BY cameo_master, cameo_harvester, ca.time'''.format(dataset=project_id + ":" + dataset if testing else dataset, 
+                course_id=course_id, 
+                problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
+                cameo_users_table=cameo_users_table)
+
+    print "[compute_stats_problems_cameod] Creating %s.%s table for %s" % (dataset, table, course_id)
+    sys.stdout.flush()
+
+    bqutil.create_bq_table(testing_dataset if testing else dataset,
+                           dataset+'_'+table if testing else table, 
+                           SQL, overwrite=overwrite, allowLargeResults=True,
+                           sql_for_description="\nCreated by Curtis G. Northcutt\n\n"+SQL)
+
+    nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset if testing else dataset, 
+                                           table_id=dataset+'_'+table if testing else table)
+
+    print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
+    sys.stdout.flush()
+
+    return ("mitx_research:"+testing_dataset+"."+dataset+'_'+table) if testing else (dataset+"."+table)
+
+
 #-----------------------------------------------------------------------------
 
 def course_started_after_switch_to_verified_only(course_id, use_dataset_latest=True,
-               testing=False, project_id=None):
-  '''Returns true if course stated after December 7,l 2015,
-  the date when certificates were switched to verified only
-  '''
-  dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
-  SQL = '''
-  SELECT 
-    MAX(min_start_time) >= TIMESTAMP('2015-12-07 00:00:00') as after_switch_to_verified
-  FROM
-  (
-    SELECT MIN(due) AS min_start_time
-    FROM [{dataset}.course_axis] 
-  ),
-  (
-    SELECT TIMESTAMP(min_start_time) AS min_start_time
-    FROM [mitx-data:course_report_latest.broad_stats_by_course],
-    [harvardx-data:course_report_latest.broad_stats_by_course]
-    WHERE course_id = "{course_id}"
-  )
-  '''.format(dataset=project_id + ":" + dataset if testing else dataset, course_id=course_id)
+                 testing=False, project_id=None):
+    '''Returns true if course started after December 7,l 2015,
+    the date when certificates were switched to verified only
+    '''
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    SQL = '''
+    SELECT 
+      MAX(min_start_time) >= TIMESTAMP('2015-12-07 00:00:00') as after_switch_to_verified
+    FROM
+    (
+      SELECT MIN(due) AS min_start_time
+      FROM [{dataset}.course_axis] 
+    ),
+    (
+      SELECT TIMESTAMP(min_start_time) AS min_start_time
+      FROM [mitx-data:course_report_latest.broad_stats_by_course],
+      [harvardx-data:course_report_latest.broad_stats_by_course]
+      WHERE course_id = "{course_id}"
+    )
+    '''.format(dataset=project_id + ":" + dataset if testing else dataset, course_id=course_id)
 
-  table_id = 'start_date' + str(abs(hash(course_id))) #Unique id to prevent issues when running in parallel
-  dataset = "curtis_northcutt" if testing else dataset
-  bqutil.create_bq_table(dataset_id=dataset, table_id=table_id, sql=SQL, overwrite=True)
+    table_id = 'start_date' + str(abs(hash(course_id))) #Unique id to prevent issues when running in parallel
+    dataset = "curtis_northcutt" if testing else dataset
+    bqutil.create_bq_table(dataset_id=dataset, table_id=table_id, sql=SQL, overwrite=True)
 
-  data = bqutil.get_table_data(dataset_id=dataset, table_id=table_id)
-  result = data['data'][0]['after_switch_to_verified'] in (['true', 'True', 'TRUE'])
+    data = bqutil.get_table_data(dataset_id=dataset, table_id=table_id)
+    result = data['data'][0]['after_switch_to_verified'] in (['true', 'True', 'TRUE'])
 
-  bqutil.delete_bq_table(dataset_id=dataset, table_id=table_id)
-  return result
+    bqutil.delete_bq_table(dataset_id=dataset, table_id=table_id)
+    if result:
+      print "\n", '-' * 80 ,"\n", course_id, "started after December 7,l 2015 when certificates switched to verified only.\n", '-' * 80 ,"\n"
+    return result
 
 #-----------------------------------------------------------------------------
 def compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest = True, testing=False, testing_dataset=None, project_id=None):
