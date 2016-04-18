@@ -1786,11 +1786,11 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
       elif num_persons > 20000:
           num_partitions = min(int(round(num_persons / (10000 if force_online else 15000))), 5)
       else:
-          num_partitions = 4 if force_online else 1
+          num_partitions = 1
   print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
 
   def make_username_partition(nparts, pnum):
-      psql = """\n    ABS(HASH(pc.username)) %% %d = %d\n""" % (nparts, pnum)
+      psql = """ABS(HASH(a.username)) %% %d = %d\n""" % (nparts, pnum)
       return psql
 
   the_partition = []
@@ -2220,11 +2220,10 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                   ON sa.a.username = pc.username
                                   WHERE {not_certified_filter}
                                   AND nshow_ans_distinct >= 5 #to reduce size
-                                  AND {partition}
                                 )sa
                                 JOIN EACH
                                 (
-                                  #Certified CAMEO USER
+                                  #MASTER
                                   SELECT 
                                     ca.a.username AS master_candidate, module_id, time, ca.ip as ip,
                                     pc.ip as modal_ip, pc.latitude as lat1, pc.longitude as lon1,
@@ -2251,6 +2250,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                       JOIN EACH [{problem_check_show_answer_ip_table}] b
                                       ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
                                       WHERE b.event_type = 'problem_check'
+                                      AND {partition} #PARTITION
                                     )
                                     WHERE a.success = 'correct' 
                                     GROUP EACH BY a.username, module_id, min_first_check_time, nattempts
@@ -2374,7 +2374,6 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                   username as CH,
                                   module_id
                                 FROM [{dataset}.show_answer] 
-                                WHERE {partition_without_prefix}
                               )sa
                               JOIN EACH
                               ( #MASTER
@@ -2384,6 +2383,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                   module_id
                                 FROM [{dataset}.problem_check]
                                 WHERE success = 'correct'
+                                AND {partition_without_prefix} #PARTITION
                               ) ca
                               ON sa.module_id = ca.module_id
                               WHERE CM != CH
@@ -2420,8 +2420,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                             time,
                             username as CH,
                             module_id
-                          FROM [{dataset}.show_answer] 
-                          WHERE {partition_without_prefix}
+                          FROM [{dataset}.show_answer]
                         )sa
                         JOIN EACH
                         ( #MASTER
@@ -2431,6 +2430,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                             module_id
                           FROM [{dataset}.problem_check]
                           WHERE success = 'correct'
+                          AND {partition_without_prefix} #PARTITION
                         ) ca
                         ON sa.module_id = ca.module_id
                         WHERE CM != CH
@@ -2561,7 +2561,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             """.format(dataset=project_id + ':' + dataset if testing else dataset, 
                        course_id = course_id, 
                        partition=the_partition[i],
-                       partition_without_prefix=the_partition[i].replace('pc.', ''),
+                       partition_without_prefix=the_partition[i].replace('a.', ''),
                        problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
                        not_certified_filter='nshow_ans_distinct >= 10' if force_online else 'certified = false',
                        certified_filter= 'ncorrect >= 10' if force_online else "certified = true",
