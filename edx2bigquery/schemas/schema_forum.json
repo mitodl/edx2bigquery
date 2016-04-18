@@ -71,6 +71,10 @@
             "name": "abuse_flaggers"
         }, 
         {
+            "type": "INTEGER", 
+            "name": "child_count"
+        }, 
+        {
             "type": "BOOLEAN", 
             "name": "visible"
         }, 
