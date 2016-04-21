@@ -580,6 +580,12 @@ def enrollment_events_table(param, course_id, args=None):
                                                    force_recompute=param.force_recompute,
                                                    use_dataset_latest=param.use_dataset_latest,
                                                    )
+
+        make_enrollment_day.make_enrollment_verified_events_per_user(course_id, 
+                                                   force_recompute=param.force_recompute,
+                                                   use_dataset_latest=param.use_dataset_latest,
+                                                   )
+
     except Exception as err:
         print err
         traceback.print_exc()
@@ -776,6 +782,7 @@ def doall(param, course_id, args, stdout=None):
         pcday_ip(param, course_id, args)	# needed for modal IP
         person_day(param, course_id, args, stop_on_error=False)
         enrollment_day(param, course_id, args)
+	enrollment_events_table(param, course_id, args)
         person_course(param, course_id, args)
         problem_check(param, course_id, args)
         show_answer_table(param, course_id, args)
@@ -808,6 +815,7 @@ def run_nightly_single(param, course_id, args=None):
         daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
         person_day(param, course_id, args, check_dates=False, stop_on_error=False)
         enrollment_day(param, course_id, args)
+	enrollment_events_table(param, course_id, args)
         pcday_ip(param, course_id, args)	# needed for modal IP
         person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
         problem_check(param, course_id, args)
@@ -1478,6 +1486,7 @@ check_for_duplicates        : check list of courses for duplicates
                 daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
                 person_day(param, course_id, args, check_dates=False)
                 enrollment_day(param, course_id, args)
+                enrollment_events_table(param, course_id, args)
                 pcday_ip(param, course_id, args)	# needed for modal IP
                 person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
                 problem_check(param, course_id, args)

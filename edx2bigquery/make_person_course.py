@@ -673,6 +673,50 @@ class PersonCourse(object):
             self.log("--> Err! missing roles information for uid=%s" % missing_uids)
         self.log("  Added roles information for %d users; missing roles for %d" % (nroles, nmissing))
 
+    def compute_seventh_phase(self):
+	'''
+	Load up id-verified enrollment/unenrollment data
+	'''
+
+	self.load_enrollment_verified()
+
+        pcd_fields = ['verified_enroll_time', 'verified_unenroll_time']
+
+	verified_enroll_count = 0
+	verified_unenroll_count = 0
+        for key, pcent in self.pctab.iteritems():
+
+            uid = str(pcent['user_id'])
+	    try:
+		
+                enroll_verified = self.person_enrollment_verified['data_by_key'][uid].get('verified_enroll_time', None)
+                unenroll_verified = self.person_enrollment_verified['data_by_key'][uid].get('verified_unenroll_time', None)
+
+	    	# First check enrollment verified time
+	        if enroll_verified is not None and enroll_verified:
+	            try:
+		        enroll_verified = str(datetime.datetime.utcfromtimestamp(float(enroll_verified)))
+		        pcent['verified_enroll_time'] = enroll_verified
+		        verified_enroll_count += 1
+      		    except Exception as err:
+		        self.log('oops, enroll verified time cannot be turned into a time; enroll_verified=%s, user_id=%s' % (enroll_verified, uid ) )
+
+
+	        # Next, check unenrollment verified time
+	        if unenroll_verified is not None and unenroll_verified:
+	            try:
+		        unenroll_verified = str(datetime.datetime.utcfromtimestamp(float(unenroll_verified)))
+		        pcent['verified_unenroll_time'] = unenroll_verified
+		        verified_unenroll_count += 1
+  		    except Exception as err:
+		        self.log('oops, enroll verified time cannot be turned into a time; unenroll_verified=%s, user_id=%s' % (unenroll_verified, uid ) )
+
+	    except Exception as err:
+		continue
+
+        self.log("  Added verified enrollment and unenrollment times: %d verified enrollments; %d verified unenrollments" % (verified_enroll_count, verified_unenroll_count))
+
+
     def output_table(self):
         '''
         output person_course table 
@@ -775,6 +819,21 @@ class PersonCourse(object):
                                                 depends_on=[ '%s.studentmodule' % self.dataset ],
                                                 force_query=self.force_recompute_from_logs, logger=self.log)
 
+    def load_enrollment_verified(self):
+        '''
+        Load ID-Verified Enrollment and Unrollment data
+        '''
+	tables = bqutil.get_list_of_table_ids(self.dataset)
+	tablename = 'person_enrollment_verified'
+	if not tablename in tables:
+		self.log( "===> WARNING: Missing table %s for %s" % ( tablename, self.course_id ) )
+		setattr(self, tablename, {'data': [], 'data_by_key': {}})
+		return
+
+        self.log( "Loading %s from BigQuery" % tablename )
+        self.person_enrollment_verified = bqutil.get_bq_table( self.dataset, tablename, sql=None, key={'name': 'user_id'},
+                                                       depends_on=[ '%s.person_enrollment_verified' % self.dataset ],
+                                                       force_query=self.force_recompute_from_logs, logger=self.log)
 
     def load_pc_day_totals(self):
         '''
@@ -1223,6 +1282,7 @@ class PersonCourse(object):
             self.compute_fourth_phase,
             self.compute_fifth_phase,
             self.compute_sixth_phase,	# roles
+            self.compute_seventh_phase, # verified events
             ]
         if self.nskip==0:
             for step in steps:
