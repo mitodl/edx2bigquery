@@ -227,7 +227,8 @@ def attempts_correct(course_id, force_recompute=False, use_dataset_latest=False)
     '''
     SQL = """# problem attempt correctness percentage, including whether user was certified
              SELECT *, 
-               round(nproblems / total_problems, 4) as frac_complete,
+               # round(nproblems / total_problems, 4) as frac_complete,
+               (nproblems / total_problems) as frac_complete,
              FROM
              (
                SELECT *,
