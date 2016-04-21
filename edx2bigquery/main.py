@@ -778,7 +778,10 @@ def doall(param, course_id, args, stdout=None):
             print "--> Failed in analyze_forum with err=%s" % str(err)
             print "--> continuing with doall anyway"
         axis2bq(param, course_id, args, stop_on_error=False)
-        daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
+        if param.skip_log_loading:
+            print "--> Skipping loading of any new tracking logs"
+        else:
+            daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
         pcday_ip(param, course_id, args)	# needed for modal IP
         person_day(param, course_id, args, stop_on_error=False)
         enrollment_day(param, course_id, args)
@@ -1327,6 +1330,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--max-parallel", type=int, help="maximum number of parallel processes to run (overrides config) if --parallel is used")
     parser.add_argument("--skip-geoip", help="skip geoip (and modal IP) processing in person_course", action="store_true")
     parser.add_argument("--skip-if-exists", help="skip processing in person_course if table already exists", action="store_true")
+    parser.add_argument("--skip-log-loading", help="when processing a 'doall' command, skip loading of tracking logs", action="store_true")
     parser.add_argument("--just-do-nightly", help="for person_course, just update activity stats for new logs", action="store_true")
     parser.add_argument("--just-do-geoip", help="for person_course, just update geoip using local db", action="store_true")
     parser.add_argument("--just-do-totals", help="for time_task, just compute total sums", action="store_true")
@@ -1382,6 +1386,7 @@ check_for_duplicates        : check list of courses for duplicates
     param.project_id = args.output_project_id or getattr(edx2bigquery_config, "PROJECT_ID", None)
     param.max_parallel = args.max_parallel
     param.submit_condor = args.submit_condor
+    param.skip_log_loading = args.skip_log_loading
 
     # default end date for person_course
     try:
