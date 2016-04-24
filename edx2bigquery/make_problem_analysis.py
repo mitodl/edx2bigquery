@@ -1815,8 +1815,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             show_ans_before, percent_attempts_correct, 
             CASE WHEN ncameo IS NULL THEN INTEGER(0) ELSE INTEGER(ncameo) END AS ncameo, 
             CASE WHEN ncameo_both IS NULL THEN INTEGER(0) ELSE INTEGER(ncameo_both) END AS ncameo_both,
-            x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, 
-            x15s_same_ip, x30s_same_ip, x01m_same_ip, x05m_same_ip, x10m_same_ip, x30m_same_ip, x01h_same_ip, x01d_same_ip,
+            x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, x03d, x05d,
+            x15s_same_ip, x30s_same_ip, x01m_same_ip, x05m_same_ip, x10m_same_ip, x30m_same_ip, 
+            x01h_same_ip, x01d_same_ip, x03d_same_ip, x05d_same_ip,
             percent_correct_using_show_answer, ncorrect, 
             sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
             sa_ca_dt_chi_sq_ordered, sa_ca_dt_chi_squared, sa_ca_dt_corr_ordered, sa_ca_dt_correlation,
@@ -1850,15 +1851,15 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               SELECT
                 *,
                 (1.0 + name_similarity) *
-                (1.0 + percent_same_ip) * 
-                (1.00001 + norm_pearson_corr) *
+                (1.0 + percent_same_ip) *  
+                (1.00001 + CASE WHEN norm_pearson_corr IS NULL THEN INTEGER(0) ELSE INTEGER(norm_pearson_corr) END) *
                 (1.0 + nsame_ip_given_sab) *
                 (1.0 + x10m) *
                 (1.0 + percent_same_ip_given_sab) * 
                 (1.0 + x01h_same_ip) *
                 (1.0 + x05m_same_ip) *
-                percent_show_ans_before *
-                (1.000001 + sa_ca_dt_corr_ordered) *
+                percent_show_ans_before * 
+                (1.00001 + CASE WHEN sa_ca_dt_corr_ordered IS NULL THEN INTEGER(0) ELSE INTEGER(sa_ca_dt_corr_ordered) END) *
                 (1.0 + CASE WHEN CH_mcfr_cnt IS NULL THEN INTEGER(0) ELSE INTEGER(CH_mcfr_cnt) END) *
                 (1.0 + CASE WHEN CH_nblank_fr_submissions IS NULL THEN INTEGER(0) ELSE INTEGER(CH_nblank_fr_submissions) END) *
                 (1.0 + CASE WHEN CH_mcfr_percent_of_users_free_responses IS NULL THEN 0.0 ELSE CH_mcfr_percent_of_users_free_responses END) /
@@ -1886,8 +1887,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                   master_candidate AS master_candidate, 
                   harvester_candidate AS harvester_candidate, 
                   name_similarity, median_max_dt_seconds, percent_show_ans_before, 
-                  show_ans_before, percent_attempts_correct, x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, 
-                  x15s_same_ip, x30s_same_ip, x01m_same_ip, x05m_same_ip, x10m_same_ip, x30m_same_ip, x01h_same_ip, x01d_same_ip,
+                  show_ans_before, percent_attempts_correct, x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, x03d, x05d,
+                  x15s_same_ip, x30s_same_ip, x01m_same_ip, x05m_same_ip, x10m_same_ip, x30m_same_ip, 
+                  x01h_same_ip, x01d_same_ip, x03d_same_ip, x05d_same_ip,
                   percent_correct_using_show_answer, ncorrect, 
                   sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
                   sa_ca_dt_chi_sq_ordered, sa_ca_dt_chi_squared, sa_ca_dt_corr_ordered, sa_ca_dt_correlation,
@@ -1913,8 +1915,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                 (
                   SELECT
                     course_id, master_candidate, harvester_candidate, name_similarity, median_max_dt_seconds, percent_show_ans_before, 
-                    show_ans_before, percent_attempts_correct, x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, 
-                    x15s_same_ip, x30s_same_ip, x01m_same_ip, x05m_same_ip, x10m_same_ip, x30m_same_ip, x01h_same_ip, x01d_same_ip,
+                    show_ans_before, percent_attempts_correct, x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, x03d, x05d,
+                    x15s_same_ip, x30s_same_ip, x01m_same_ip, x05m_same_ip, x10m_same_ip, x30m_same_ip, 
+                    x01h_same_ip, x01d_same_ip, x03d_same_ip, x05d_same_ip,
                     percent_correct_using_show_answer, ncorrect, 
                     sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
                     sa_ca_dt_chi_sq_ordered, sa_ca_dt_chi_squared, sa_ca_dt_corr_ordered, sa_ca_dt_correlation,
@@ -1937,8 +1940,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                     (
                       SELECT
                         course_id, master_candidate, harvester_candidate, median_max_dt_seconds, percent_show_ans_before, percent_attempts_correct,
-                        show_ans_before, x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d,
-                        x15s_same_ip, x30s_same_ip, x01m_same_ip, x05m_same_ip, x10m_same_ip, x30m_same_ip, x01h_same_ip, x01d_same_ip,
+                        show_ans_before, x15s, x30s, x01m, x05m, x10m, x30m, x01h, x01d, x03d, x05d,
+                        x15s_same_ip, x30s_same_ip, x01m_same_ip, x05m_same_ip, x10m_same_ip, x30m_same_ip, 
+                        x01h_same_ip, x01d_same_ip, x03d_same_ip, x05d_same_ip,
                         ncorrect, percent_correct_using_show_answer, 
                         sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
                         sa_ca_dt_chi_sq_ordered, sa_ca_dt_chi_squared, sa_ca_dt_corr_ordered, sa_ca_dt_correlation,
@@ -1974,7 +1978,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                         sum(sa_before_pa and (dt <= 60 * 10)) as x10m,
                         sum(sa_before_pa and (dt <= 60 * 30)) as x30m,
                         sum(sa_before_pa and (dt <= 60 * 60)) as x01h,
-                        sum(sa_before_pa and (dt <= 60 * 60 * 24)) as x01d,
+                        sum(sa_before_pa and (dt <= 60 * 60 * 24 * 1)) as x01d,
+                        sum(sa_before_pa and (dt <= 60 * 60 * 24 * 3)) as x03d,
+                        sum(sa_before_pa and (dt <= 60 * 60 * 24 * 5)) as x05d,
                         sum(sa_before_pa and (dt <= 15) and same_ip) as x15s_same_ip,
                         sum(sa_before_pa and (dt <= 30) and same_ip) as x30s_same_ip,
                         sum(sa_before_pa and (dt <= 60) and same_ip) as x01m_same_ip,
@@ -1982,7 +1988,9 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                         sum(sa_before_pa and (dt <= 60 * 10) and same_ip) as x10m_same_ip,
                         sum(sa_before_pa and (dt <= 60 * 30) and same_ip) as x30m_same_ip,
                         sum(sa_before_pa and (dt <= 60 * 60) and same_ip) as x01h_same_ip,
-                        sum(sa_before_pa and (dt <= 60 * 60 * 24) and same_ip) as x01d_same_ip,
+                        sum(sa_before_pa and (dt <= 60 * 60 * 24 * 1) and same_ip) as x01d_same_ip,
+                        sum(sa_before_pa and (dt <= 60 * 60 * 24 * 3) and same_ip) as x03d_same_ip,
+                        sum(sa_before_pa and (dt <= 60 * 60 * 24 * 5) and same_ip) as x05d_same_ip,
                         ncorrect, #nattempts,
                         sum(sa_before_pa) / ncorrect * 100 as percent_correct_using_show_answer,
                         sa_dt_p50, sa_dt_p90, ca_dt_p50, ca_dt_p90, 
@@ -2232,7 +2240,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                         JOIN EACH [{dataset}.person_course] pc
                                         ON sa.a.username = pc.username
                                         WHERE {not_certified_filter}
-                                        AND nshow_ans_distinct >= 5 #to reduce size
+                                        AND nshow_ans_distinct >= 10 #to reduce size
                                       )sa
                                       JOIN EACH
                                       (
@@ -2272,7 +2280,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                         JOIN EACH [{dataset}.person_course] pc
                                         ON ca.a.username = pc.username
                                         WHERE {certified_filter}
-                                        AND ncorrect >= 5 #to reduce size
+                                        AND ncorrect >= 10 #to reduce size
                                       ) ca
                                       ON sa.module_id = ca.module_id
                                       WHERE master_candidate != harvester_candidate
@@ -2298,9 +2306,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                       ca_dt_p05, ca_dt_p10, ca_dt_p15, ca_dt_p20, ca_dt_p30,
                                       ca_dt_p40, ca_dt_p45, ca_dt_p55, ca_dt_p60,  
                                       ca_dt_p70, ca_dt_p80, ca_dt_p85, ca_dt_p95
-                        HAVING unnormalized_pearson_corr > -1
-                        AND avg_max_dt_seconds is not null
-                        AND show_ans_before >= 10 #to reduce size
+                        HAVING show_ans_before >= 10 #to reduce size
                         AND median_max_dt_seconds <= (60 * 60 * 24 * 7) #to reduce size, less than one week
                       ) a
                       LEFT OUTER JOIN EACH  
