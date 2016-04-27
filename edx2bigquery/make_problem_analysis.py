@@ -2176,7 +2176,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                 *,
                                 (sa.time - sa_lag) / 1e6 AS show_answer_dt, 
                                 (ca.time - ca_lag) / 1e6 AS correct_answer_dt, 
-                                (dt - dt_lag) AS dt_dt
+                                ABS(dt - dt_lag) AS dt_dt #only consider magnitude of difference
                               FROM
                               ( 
                                 SELECT 
