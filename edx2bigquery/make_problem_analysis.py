@@ -1270,7 +1270,8 @@ FROM
 
 #-----------------------------------------------------------------------------
 
-def compute_stats_problems_cameod(course_id, use_dataset_latest=True, cameo_users_table=None,
+def compute_stats_problems_cameod(course_id, use_dataset_latest=True, 
+                                  cameo_users_table="mitx-research:core.cameo_master",
                                   testing=False, testing_dataset=None, project_id=None, 
                                   problem_check_show_answer_ip_table=None, overwrite=True):
     '''Computes all problems for which the CAMEO users in cameo_users_table
@@ -1278,10 +1279,11 @@ def compute_stats_problems_cameod(course_id, use_dataset_latest=True, cameo_user
     '''
     table = "stats_problems_cameod"
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
-    [c_p,c_d,c_t] = cameo_users_table.replace(':',' ').replace('.',' ').split()
+    #[c_p,c_d,c_t] = cameo_users_table.replace(':',' ').replace('.',' ').split()
 
     if testing and testing_dataset is None:
-      testing_dataset = c_d #Generate this table in same dataset as cameo_users_table
+      print "If testing == true, valid testing_dataset must be provided."
+      
 
     if problem_check_show_answer_ip_table is None:
         ip_table_id = 'stats_problem_check_show_answer_ip'
