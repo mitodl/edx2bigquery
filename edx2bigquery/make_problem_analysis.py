@@ -1283,8 +1283,8 @@ def compute_stats_problems_cameod(course_id, use_dataset_latest=True,
 
     if testing and testing_dataset is None:
       print "If testing == true, valid testing_dataset must be provided."
+      raise ValueError("When testing == true, valid testing_dataset must be provided.")
       
-
     if problem_check_show_answer_ip_table is None:
         ip_table_id = 'stats_problem_check_show_answer_ip'
         if testing:
