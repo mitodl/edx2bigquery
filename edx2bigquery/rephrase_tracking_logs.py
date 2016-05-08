@@ -251,6 +251,10 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                              ['event_struct', 'content'],	# 11jan16
                              ['nonInteraction'], 	# 24aug15
                              ['label'],	 		# 24aug15
+                             ['event_struct', 'widget_placement'],	# 08may16
+                             ['event_struct', 'tab_count'],	# 08may16
+                             ['event_struct', 'current_tab'],	# 08may16
+                             ['event_struct', 'target_tab'],	# 08may16
                          ])
 
     #----------------------------------------
