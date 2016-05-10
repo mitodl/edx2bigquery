@@ -68,13 +68,22 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
         print "%s already exists, not downloading" % ofn
     else:
         first = 1
+        header = None
         for zfn in ofnset:
             if first:
                 cmd = "zcat %s > %s" % (zfn, ofn)
+                header = os.popen("zcat %s | head -1" % zfn).read().strip()
+                firstfn = zfn
             else:
                 cmd = "zcat %s | tail -n +2 >> %s" % (zfn, ofn)	# first row is header; don't keep when concatenating
             print cmd
             first = 0
+            new_header = os.popen("zcat %s | head -1" % zfn).read().strip()
+            if not header == new_header:
+                print "==> Warning!  header mismatch for %s vs %s" % (zfn, firstfn)
+                print "    %s has: %s" % (firstfn, header)
+                print "    but %s has: %s" % (zfn, new_header)
+            sys.stdout.flush()
             os.system(cmd)
 
     gb = gsutil.gs_path_from_course_id('course_report_%s' % org, gsbucket=output_bucket)
