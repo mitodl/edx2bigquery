@@ -62,30 +62,30 @@ if (1) {
 * Female (not male, other missing)
 
 	gen female = .
-	replace female = 1 if gender == "f"
-	replace female = 0 if gender == "m"
+	capture replace female = 1 if gender == "f"
+	capture replace female = 0 if gender == "m"
 
 * Bachelor's Plus (Education)
 
 	gen bachplus = .
-	replace bachplus = 1 if loe=="b" | loe=="m" | loe=="p" | loe=="p_oth" | loe=="p_se"
-	replace bachplus = 0 if loe=="a" | loe=="el" | loe=="hs" | loe=="jhs" | loe=="none"
+	capture replace bachplus = 1 if loe=="b" | loe=="m" | loe=="p" | loe=="p_oth" | loe=="p_se"
+	capture replace bachplus = 0 if loe=="a" | loe=="el" | loe=="hs" | loe=="jhs" | loe=="none"
 
 * Age
 	replace yob = . if yob==513 | yob==3116
 	gen age2015 = 2015-yob
 	
 * USA
-	gen usa = cc_by_ip == "US" if cc_by_ip != ""
+	capture gen usa = cc_by_ip == "US" if cc_by_ip != ""
 
 * Verified
-	gen verified = mode=="verified"	
+	capture gen verified = mode=="verified"	
 
 * Nonzero counts of
-	gen played_video = nplay_video > 0 & nplay_video < .
-	gen posted = nforum_posts > 0 & nforum_posts < .
-	gen right_answer = grade > 0 & grade < .
-	gen checked_problem = nproblem_check > 0 & nproblem_check < .
+	capture gen played_video = nplay_video > 0 & nplay_video < .
+	capture gen posted = nforum_posts > 0 & nforum_posts < .
+	capture gen right_answer = grade > 0 & grade < .
+	capture gen checked_problem = nproblem_check > 0 & nproblem_check < .
 
 * some helpful labels
 
@@ -93,7 +93,7 @@ if (1) {
 	label var posted "posted in forum at least once"
 	label var right_answer "submitted at least one right answer"
 	label var checked_problem "checked at least one problem"
-	label var usa "located in USA"
+	capture label var usa "located in USA"
 	label var mode "certificate mode, e.g. honor or verified"
 	label var sum_dt "estimate of total time spent on edx (probably in seconds)"
 	label var n_dt "number of distinct time segments spent on edx"
