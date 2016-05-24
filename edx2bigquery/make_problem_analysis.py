@@ -33,6 +33,7 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
                      do_show_answer=True,
                      do_problem_analysis=True,
                      only_step=None,
+                     use_latest_sql_dir=False,
                      ):
     '''
     1. Construct the problem_grades table, generated from the studentmodule table.
@@ -64,17 +65,20 @@ def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=Fals
 
     if do_problem_analysis and ('analysis' in only_step):
         make_problem_analysis(course_id, basedir, datedir, force_recompute=force_recompute, 
-                              use_dataset_latest=use_dataset_latest)
-
+                              use_dataset_latest=use_dataset_latest,
+                              use_latest_sql_dir=use_latest_sql_dir,
+                          )
+        
     #-----------------------------------------------------------------------------
 
 def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute=False,
-                          use_dataset_latest=False, raise_exception_on_parsing_error=False):
+                          use_dataset_latest=False, raise_exception_on_parsing_error=False,
+                          use_latest_sql_dir=False):
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     basedir = path(basedir or '')
     course_dir = course_id.replace('/','__')
-    lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest)
+    lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest or use_latest_sql_dir)
     
     mypath = os.path.dirname(os.path.realpath(__file__))
     SCHEMA_FILE = '%s/schemas/schema_problem_analysis.json' % mypath

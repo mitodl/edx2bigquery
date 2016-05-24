@@ -415,6 +415,7 @@ def analyze_problems(param, courses, args, do_show_answer=True, do_problem_analy
                                                    do_show_answer=do_show_answer, 
                                                    do_problem_analysis=do_problem_analysis,
                                                    only_step=param.only_step,
+                                                   use_latest_sql_dir=param.latest_sql_dir,
                                                    )
         except Exception as err:
             print err
@@ -433,6 +434,7 @@ def analyze_videos(param, courses, args):
                                                datedir=param.the_datedir,
                                                force_recompute=args.force_recompute,
                                                use_dataset_latest=param.use_dataset_latest,
+                                               use_latest_sql_dir=param.latest_sql_dir,
                                                )
 
         except (AssertionError, Exception) as err:
@@ -739,6 +741,7 @@ def person_course(param, courses, args, just_do_nightly=False, force_recompute=F
                                                   use_dataset_latest=param.use_dataset_latest,
                                                   just_do_nightly=just_do_nightly or args.just_do_nightly,
                                                   just_do_geoip=args.just_do_geoip,
+                                                  use_latest_sql_dir=args.latest_sql_dir,
                                                   )
         except Exception as err:
             print err
@@ -1323,6 +1326,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--clist", type=str, help="specify name of list of courses to iterate command over")
     parser.add_argument("--force-recompute", help="force recomputation", action="store_true")
     parser.add_argument("--dataset-latest", help="use the *_latest SQL dataset", action="store_true")
+    parser.add_argument("--latest-sql-dir", help="use the most recent SQL data directory (for person_course)", action="store_true")
     parser.add_argument("--skiprun", help="for external command, print, and skip running", action="store_true")
     parser.add_argument("--external", help="run specified command as being an external command", action="store_true")
     parser.add_argument("--extparam", type=str, help="configure parameter for external command, e.g. --extparam irt_type=2pl")
@@ -1371,6 +1375,7 @@ check_for_duplicates        : check list of courses for duplicates
     param.the_basedir = args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None)
     param.the_datedir = args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None)
     param.use_dataset_latest = args.dataset_latest
+    param.latest_sql_dir = args.latest_sql_dir
     param.listings = args.listings
     param.force_recompute = args.force_recompute
     param.end_date = args.end_date
