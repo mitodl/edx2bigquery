@@ -15,6 +15,7 @@ import multiprocessing as mp
 from path import path
 
 from argparse import RawTextHelpFormatter
+from collections import OrderedDict
 
 CURDIR = path(os.path.abspath(os.curdir))
 if os.path.exists(CURDIR / 'edx2bigquery_config.py'):
@@ -848,9 +849,9 @@ def list_tables_in_course_db(param, courses, args):
 #-----------------------------------------------------------------------------
 # utility commands
 
-def get_data_tables(tables, args, course_id_by_table=None):
+def get_data_tables(tables, args, course_id_by_table=None, just_status=False):
     '''
-    used by get_course_data and get_data
+    used by get_course_data, get_course_table_status, and get_data
     arguments provide options for combing outputs, and for loading output back into BigQuery
     '''
     import bqutil
@@ -895,6 +896,8 @@ def get_data_tables(tables, args, course_id_by_table=None):
         output_table = args.combine_into_table
         gspath = "%s/%s" % (args.output_bucket, cofn)
 
+    first_table = True
+
     for table in tables:
         has_project_id = False
         dataset, tablename = table.split('.', 1)
@@ -902,6 +905,28 @@ def get_data_tables(tables, args, course_id_by_table=None):
             project_id, dataset = dataset.split(':')
             optargs['project_id'] = project_id
             has_project_id = True
+
+        if just_status:
+            # get table creation date, modification date, and size
+            tinfo = bqutil.get_bq_table_info(dataset, tablename, **optargs) or {}
+            datum = OrderedDict([ ('modified',  tinfo.get('lastModifiedTime')),
+                                  ('course_id', course_id_by_table[table]),
+                                  ('created', tinfo.get('creationTime')),
+                                  ('n_rows', int(tinfo.get('numRows', 0))),
+                                  ('size_bytes', int(tinfo.get('numBytes', 0))),
+                                  ('dataset', dataset),
+                                  ('tablename', tablename),
+                              ])
+            if first_table and out_fmt=='csv':
+                print ','.join(datum.keys())
+            if out_fmt=='csv':
+                print ','.join(map(str, datum.values()))
+            else:
+                print json.dumps(datum)
+            sys.stdout.flush()
+            first_table = False
+            continue
+
         if args.combine_into:
             print "Retrieving %s.%s for %s" % (dataset, tablename, cofn)
         else:
@@ -1297,6 +1322,9 @@ get_table_data <dataset>    : dump table data as JSON text to stdout
 get_course_data <course_id> : retrieve course-specific table data as CSV file, saved as CID__tablename.csv, with CID being the course_id with slashes
        --table <table_id>     replaced by double underscore ("__").  May specify --project-id and --gzip and --combine-into <output_filename>
 
+get_course_table_status     : retrieve date created, date modified, and size of specified table, for each course_id.  Outputs CSV by default.
+    <cid> --table <table_id>  use --output-format-json to output json instead.
+
 get_data p_id:d_id.t_id ... : retrieve project:dataset.table data as CSV file, saved as project__dataset__tablename.csv
                               May specify --gzip and --combine-into <output_filename>
 
@@ -1624,6 +1652,19 @@ check_for_duplicates        : check list of courses for duplicates
             course_id_by_table[the_table] = course_id
 
         return get_data_tables(tables, args, course_id_by_table=course_id_by_table)
+
+    elif (args.command=='get_course_table_status'):
+        import bqutil
+        tablename = args.table
+        tables = []
+        course_id_by_table = {}
+        for course_id in get_course_ids(args):
+            dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
+            the_table = '%s.%s' % (dataset, tablename)
+            tables.append(the_table)
+            course_id_by_table[the_table] = course_id
+
+        return get_data_tables(tables, args, course_id_by_table=course_id_by_table, just_status=True)
 
     elif (args.command=='get_data'):
         tables = args.courses			# may specify project as well, with syntax project_id:dataset_id.table_id
