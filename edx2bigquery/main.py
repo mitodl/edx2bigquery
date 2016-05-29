@@ -929,6 +929,8 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
 
     first_table = True
     ret_data = []
+    nfound = 0
+    nmissing = 0
 
     for table in tables:
         has_project_id = False
@@ -949,6 +951,10 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
                                   ('dataset', dataset),
                                   ('tablename', tablename),
                               ])
+            if datum['modified']:
+                nfound += 1
+            else:
+                nmissing += 1
             if first_table and out_fmt=='csv':
                 print ','.join(datum.keys())
             if out_fmt=='csv':
@@ -1079,6 +1085,11 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
             optargs['skiprows'] = 1
         bqutil.load_data_to_table(out_dataset, out_table, gspath, schema, **optargs)
 
+    if just_status:
+        print "-"*40
+        print "Number of tables WITH data found: %d" % nfound
+        print "Number of MISSING tables: %d" % nmissing
+        sys.stdout.flush()
     return ret_data
 
 
