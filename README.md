@@ -10,10 +10,14 @@ To get started, install the Google Cloud SDK first:
 
 Then generate authentication tokens using "gcloud auth login". Make sure
 that "bq" and "gsutil" work properly.
-  
+
+Before install it on Ubuntu Server 14.04:
+
+    $ apt-get install python-dev build-essential libxml2-dev libxslt1-dev libssl-dev libffi-dev zlib1g-dev
+
 To install:
 
-  python setup.py develop
+    $ python setup.py develop
   
 Also, setup the file edx2bigquery_config.py in your current working directory.  Example:
 
