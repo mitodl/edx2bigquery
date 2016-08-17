@@ -239,6 +239,35 @@ def delete_bq_table(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
     table_ref = dict(datasetId=dataset_id, projectId=project_id, tableId=table_id)
     tables.delete(**table_ref).execute()    
 
+def copy_bq_table(dataset_id, table_id, destination_table_id, project_id=DEFAULT_PROJECT_ID):
+    '''
+    Copy specified BQ table, to a new table_id (in the same dataset and project).
+    Destination is created if needed, and overwritten if already exists.
+    This is asynchronous; no waiting for completion is done.
+    '''
+    jobData = {
+      "projectId": project_id,
+      "configuration": {
+          "copy": {
+              "sourceTable": {
+                  "projectId": project_id,
+                  "datasetId": dataset_id,
+                  "tableId": table_id,
+              },
+              "destinationTable": {
+                  "projectId": project_id,
+                  "datasetId": dataset_id,
+                  "tableId": destination_table_id,
+              },
+          "createDisposition": "CREATE_IF_NEEDED",
+          "writeDisposition": "WRITE_TRUNCATE"
+          }
+        }
+      }
+
+    insertResponse = jobs.insert(projectId=project_id, body=jobData).execute()
+    return insertResponse
+
 def get_bq_table_size_rows(dataset_id, table_id, project_id=DEFAULT_PROJECT_ID):
     '''
     Retrieve number of rows of specified BQ table
