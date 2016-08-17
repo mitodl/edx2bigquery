@@ -12,6 +12,7 @@ import gsutil
 import datetime
 import json
 from collections import OrderedDict
+from collections import defaultdict
 
 class CourseReport(object):
     def __init__(self, course_id_set, output_project_id=None, nskip=0, 
@@ -132,6 +133,7 @@ class CourseReport(object):
             self.make_person_course_day_table() 
             self.make_medians_by_course()
             self.make_table_of_email_addresses()
+            self.make_table_of_email_addresses_by_institution()
             self.make_global_modal_ip_table()
             self.make_enrollment_by_day()
             self.make_time_on_task_stats_by_course()
@@ -658,6 +660,27 @@ order by course_id;
         '''.format(**self.parameters)
         
         self.do_table(the_sql, 'email_addresses')
+    
+    def make_table_of_email_addresses_by_institution(self):
+        '''
+        Make separate tables of email addresses by institution (for cases when usernames are in separate name spaces)
+        '''
+        uic_by_inst = defaultdict(list)
+        for cid in self.all_uic_tables:
+            inst = cid.split("__", 1)[0]
+            uic_by_inst[inst].append('[%s.user_info_combo]' % cid)
+
+        for inst, uicset in uic_by_inst.items():
+            the_sql = '''
+                SELECT username, email, count (*) as ncourses
+                FROM 
+                    {uic_tables}
+                WHERE username is not null
+                group by username, email
+                order by username;
+            '''.format(uic_tables=',\n'.join(uicset))
+        
+            self.do_table(the_sql, 'email_addresses_%s' % inst)
 
     def make_geographic_distributions(self):
         the_sql = '''
