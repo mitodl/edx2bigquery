@@ -10,7 +10,20 @@ import bqutil
 def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
                output_project_id=None, output_dataset_id=None, output_bucket=None,
                use_dataset_latest=False,
+               extract_subset_tables=True,
                ):
+    '''
+    Combine individual person_course tables (from the set of specified course_id's) to create one single large
+    person_course table.  Do this by downloading each file, checking to make sure they all have the same
+    fields, concatenating, and uploading back to bigquery.  This is cheaper than doing a select *, and also
+    uncovers person_course files which have the wrong schema (and it works around BQ's limitation on large
+    result sizes).  The result is stored in the course_report_latest dataset (if use_dataset_latest), else 
+    in course_report_ORG, where ORG is the configured organization name.
+
+    If extract_subset_tables is True, then the subset of those who viewed (ie "participants"), and the subset
+    of those who enrolled for IDV, are extracted and saved as person_course_viewed, and person_course_idv.
+    (those are created using a select *, for efficiency, despite the cost).
+    '''
 
     print "="*77
     print "Concatenating person course datasets from the following courses:"
@@ -122,5 +135,48 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
 
     bqutil.add_description_to_table(dataset, table, msg, append=True, project_id=output_project_id)
     
+    # copy the new table (which has a specific date in its name) to a generically named "person_course_latest"
+    # so that future SQL queries can simply use this as the latest person course table
+    print "-> Copying %s to %s.person_course_latest" % (table, dataset)
+    bqutil.copy_bq_table(dataset, table, "person_course_latest")
+
+    if extract_subset_tables:
+        do_extract_subset_person_course_tables(dataset, table)
+
     print "Done"
     sys.stdout.flush()
+
+
+def do_extract_subset_person_course_tables(the_dataset, pc_table):
+    '''
+    Extract (from the latest person_course table, specified by dataset and table), rows for which
+    viewed = True (as person_course_viewed), and verified_enroll_time is not Null (for person_course_idv).
+    '''
+    the_sql = "SELECT * from [%s.%s] where viewed" % (the_dataset, pc_table)
+    tablename = "person_course_verified"
+
+    try:
+        ret = bqutil.create_bq_table(the_dataset, tablename, the_sql, 
+                                     overwrite=True,
+                                     allowLargeResults=True,
+        )
+    except Exception as err:
+        print "ERROR! Failed on SQL="
+        print the_sql
+        raise
+    print "  --> created %s" % tablename
+
+    the_sql = "SELECT * from [%s.%s] where verified_enroll_time is not NULL" % (the_dataset, pc_table)
+    tablename = "person_course_idv"
+
+    try:
+        ret = bqutil.create_bq_table(the_dataset, tablename, the_sql, 
+                                     overwrite=True,
+                                     allowLargeResults=True,
+        )
+    except Exception as err:
+        print "ERROR! Failed on SQL="
+        print the_sql
+        raise
+    
+    print "  --> created %s" % tablename
