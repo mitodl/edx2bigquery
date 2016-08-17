@@ -153,7 +153,7 @@ def do_extract_subset_person_course_tables(the_dataset, pc_table):
     viewed = True (as person_course_viewed), and verified_enroll_time is not Null (for person_course_idv).
     '''
     the_sql = "SELECT * from [%s.%s] where viewed" % (the_dataset, pc_table)
-    tablename = "person_course_verified"
+    tablename = "person_course_viewed"
 
     try:
         ret = bqutil.create_bq_table(the_dataset, tablename, the_sql, 
