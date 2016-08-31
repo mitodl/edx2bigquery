@@ -2859,29 +2859,28 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
 
 def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=True, force_num_partitions=None, 
                             testing=False, testing_dataset= None, project_id = None, force_online=True,
-                            problem_check_show_answer_ip_table=None, cameo_master_table="mitx-research:core.cameo_master"):
+                            problem_check_show_answer_ip_table=None, 
+                            cameo_master_table="mitx-research:core.cameo_master",
+                            only_graded_problems=True):
   '''
-  TO DO: COUNT NUMBER OF TIMES GRADE WAS BETTER THAN HARVESTER'S GRADE - MORE USEFUL THAN LOOKING FOR JUST CORRECT
+  The goal of "answer coupling analysis" is to measure how tightly coupled
+    one learner's answers are to another learner. If students are working
+    together to "effectively boost" their number of attempts, this would
+    produce a strong signal among a set of features used in the analysis.
 
+  For the sake of time, I haven't changed the variable names from 
+    compute_show_ans_before, so read show_ans_before as "number of
+    attempts by the harvester before the master on the same problem"
+    and similarly for other features. 
 
-  Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
-  cameo candidate - certified | harvester candidate - uncertified
+  The only restriction which defines answer coupling analysis currently
+    is that master account grade >= harvester account grade for any pair of
+    answers considered. If it is smaller, then there is no reason to think
+    the master benefitted from the harvester.
 
-  This function's default functionality has changed. By default force_online = True now. This means
-  that all pairs are considered irrespective of certification. This changes follows the shift from
-  Honor certificates to strictly ID verified certification (and much lower certification rates.)
+  For more information about what each compute feature does, see
+    compute_show_ans_before
 
-  An ancillary table for sybils which computes the percent of candidate shadow show answers 
-  that occur before the corresponding candidate cameo accounts correct answer submission.
-  
-  This table also computes median_max_dt_seconds which is the median time between the shadow's
-  show_answer and the certified accounts' correct answer. This table also computes the normalized
-  pearson correlation.
-
-  This table chooses the FIRST show_answer and the LAST correct submission, to ensure catching
-  cases, even if the user tried to figure it out without gaming first.
-
-  Uses a user-defined function (a modified version of Levenshtein) to compute name similarity.
   '''
 
   udf ='''
@@ -3067,6 +3066,24 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
       the_partition.append(make_username_partition(num_partitions, k))
 
   #-------------------- build sql, one for each partition
+
+  # Remove non-graded problems from problem_check if only_graded_problems.
+  problem_check_table = \
+  '''
+                                            (
+                                              # Remove non-graded problems from problem_check
+                                              SELECT 
+                                                a.time as time,
+                                                a.username, as username,
+                                                a.module_id as module_id,
+                                                a.grade as grade,
+                                                a.attempts as attempts
+                                              FROM [{dataset}.problem_check] a
+                                              JOIN [{dataset}.course_axis] b
+                                              ON a.module_id = b.module_id
+                                              WHERE b.graded = 'true' 
+                                            )'''.format(dataset=dataset) \
+    if only_graded_problems else "[{dataset}.problem_check]".format(dataset=dataset)
 
   sql = []
   for i in range(num_partitions):
@@ -3503,7 +3520,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                                             a.grade,
                                             ip,
                                             count(distinct a.module_id) over (partition by a.username) as nshow_ans_distinct
-                                          FROM [{dataset}.problem_check] a
+                                          {problem_check_table} a
                                           JOIN EACH [{problem_check_show_answer_ip_table}] b
                                           ON a.time = b.time AND a.username = b.username AND a.module_id = b.module_id
                                           WHERE b.event_type = 'problem_check'
@@ -3538,15 +3555,13 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                                               MAX(a.time) OVER (PARTITION BY a.username, a.module_id) as last_time, 
                                               MIN(TIMESTAMP_TO_USEC(a.time)) OVER (PARTITION BY a.module_id) as min_first_check_time,
                                               COUNT(DISTINCT CONCAT(a.module_id, STRING(a.attempts))) OVER (PARTITION BY a.username) AS nattempts #unique
-                                            FROM [{dataset}.problem_check] a
+                                            FROM {problem_check_table} a
                                             JOIN EACH [{problem_check_show_answer_ip_table}] b
                                             ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
                                             WHERE b.event_type = 'problem_check'
                                             AND {partition} #PARTITION
                                           )
                                           #####WHERE a.success = 'correct' 
-                                          #####GROUP EACH BY a.username, a.module_id, min_first_check_time, nattempts
-                                          #####ORDER BY time ASC
                                           WHERE a.time = last_time
                                         ) ma
                                         JOIN EACH [{dataset}.person_course] pc
@@ -3560,6 +3575,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                                     WHERE (nearest_ha_before IS NULL AND ha.time = min_ha_time) #if no positive dt, use min show answer time resulting in least negative dt 
                                     OR (nearest_ha_before = ha.time) #otherwise use show answer time resulting in smallest positive dt 
                                   )
+                                  # Masters's grade should be no smaller than harvester's grade, or no benefit occurred
                                   WHERE ma.grade >= ha.grade
                                 )
                               )
@@ -3624,21 +3640,25 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                                   SELECT 
                                     time,
                                     username as CH,
-                                    module_id
-                                  FROM [{dataset}.problem_check] 
+                                    module_id,
+                                    grade
+                                  FROM {problem_check_table}
                                 ) ha
                                 JOIN EACH
                                 ( #MASTER
                                   SELECT 
                                     time,
                                     username AS CM,
-                                    module_id
-                                  FROM [{dataset}.problem_check]
-                                  WHERE success = 'correct'
-                                  AND {partition_without_prefix}
+                                    module_id,
+                                    grade
+                                  FROM {problem_check_table}
+                                  #####WHERE success = 'correct'
+                                  WHERE {partition_without_prefix}
                                 ) ma
                                 ON ha.module_id = ma.module_id
                                 WHERE CM != CH
+                                # Masters's grade should be no smaller than harvester's grade, or no benefit occurred
+                                AND ma.grade >= ha.grade
                               )
                               WHERE (nearest_ha_before = ha.time) #DROP NEGATIVE DTs and use sa time resulting in smallest positive dt 
                             )
@@ -3667,21 +3687,26 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                                   SELECT 
                                     time,
                                     username as CH,
-                                    module_id
-                                  FROM [{dataset}.problem_check]
+                                    module_id,
+                                    grade
+                                  FROM {problem_check_table}
+
                                 ) ha
                                 JOIN EACH
                                 ( #MASTER
                                   SELECT 
                                     time,
                                     username AS CM,
-                                    module_id
-                                  FROM [{dataset}.problem_check]
-                                  WHERE success = 'correct'
-                                  AND {partition_without_prefix} #PARTITION
+                                    module_id,
+                                    grade
+                                  FROM {problem_check_table}
+                                  #####WHERE success = 'correct'
+                                  WHERE {partition_without_prefix} #PARTITION
                                 ) ma
                                 ON ha.module_id = ma.module_id
                                 WHERE CM != CH
+                                # Masters's grade should be no smaller than harvester's grade, or no benefit occurred
+                                AND ma.grade >= ha.grade
                               )
                               WHERE (nearest_ha_before = ha.time) #DROP NEGATIVE DTs and use sa time resulting in smallest positive dt
                             )
@@ -3714,21 +3739,25 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                             SELECT 
                               time,
                               username as CH,
-                              module_id
-                            FROM [{dataset}.problem_check]
+                              module_id,
+                              grade
+                            FROM {problem_check_table}
                           ) ha
                           JOIN EACH
                           ( #MASTER
                             SELECT 
                               time,
                               username AS CM,
-                              module_id
-                            FROM [{dataset}.problem_check]
-                            WHERE success = 'correct'
-                            AND {partition_without_prefix} #PARTITION
+                              module_id,
+                              grade
+                            FROM {problem_check_table}
+                            #####WHERE success = 'correct'
+                            WHERE {partition_without_prefix} #PARTITION
                           ) ma
                           ON ha.module_id = ma.module_id
                           WHERE CM != CH
+                          # Masters's grade should be no smaller than harvester's grade, or no benefit occurred
+                          AND ma.grade >= ha.grade
                         )
                         WHERE nearest_ha_before = ha.time #DROP NEGATIVE DTs and use sa time resulting in smallest positive dt 
                         GROUP BY a, b
