@@ -3520,7 +3520,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                                             a.grade,
                                             ip,
                                             count(distinct a.module_id) over (partition by a.username) as nshow_ans_distinct
-                                          {problem_check_table} a
+                                          FROM {problem_check_table} a
                                           JOIN EACH [{problem_check_show_answer_ip_table}] b
                                           ON a.time = b.time AND a.username = b.username AND a.module_id = b.module_id
                                           WHERE b.event_type = 'problem_check'
@@ -3690,7 +3690,6 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                                     module_id,
                                     grade
                                   FROM {problem_check_table}
-
                                 ) ha
                                 JOIN EACH
                                 ( #MASTER
@@ -3893,7 +3892,8 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                        problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
                        not_certified_filter='nshow_ans_distinct >= 10' if force_online else 'certified = false',
                        certified_filter= 'ncorrect >= 10' if force_online else "certified = true",
-                       cameo_master_table=cameo_master_table)
+                       cameo_master_table=cameo_master_table,
+                       problem_check_table=problem_check_table)
       sql.append(item)
 
   print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
