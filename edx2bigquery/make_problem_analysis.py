@@ -3073,6 +3073,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                                             (
                                               # Remove non-graded problems from problem_check
                                               SELECT 
+                                                a.course_id as course_id,
                                                 a.time as time,
                                                 a.username as username,
                                                 a.module_id as module_id,
