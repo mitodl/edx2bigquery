@@ -3082,7 +3082,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                                               JOIN [{dataset}.course_axis] b
                                               ON a.module_id = b.module_id
                                               WHERE b.graded = 'true' 
-                                            )'''.format(dataset=dataset) \
+                                            )'''.format(dataset=project_id + ':' + dataset if testing else dataset) \
     if only_graded_problems else "[{dataset}.problem_check]".format(dataset=project_id + ':' + dataset if testing else dataset)
 
   sql = []
