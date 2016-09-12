@@ -57,6 +57,7 @@ cidre10 = re.compile('/courses/(?P<org>[^/]+)/(?P<course>[^/]+)/(?P<semester>[^+
 
 # "page": "https://courses.edx.org/courses/MITx/6.00.1x_5/1T2015/courseware/d5d822451677476fbfb0a0f9a14e0501/bbc2f0aa5bc54bf8ba2f6c36391202fb/",
 # "event": "input_i4x-MITx-6_00_1x_5-problem-5bada2f1e64249f996ee1a37df8db810_2_1=..."
+
 cidre11 = re.compile('/courses/(?P<org>[^/]+)/(?P<course>[^/]+)/(?P<semester>[^+]+)/courseware/(?P<chapter>[^/]+)/(?P<sequential>[^/]+)/')
 cidre11a = re.compile('input_i4x-(?P<org>[^-]+?)-(?P<course>[^-]+?)-(?P<mtype>[^-]+?)-(?P<id>.+?)_[0-9]+_[^=]+=.*')
 
@@ -118,7 +119,7 @@ okre1 = re.compile('/courses/course-v1:(?P<org>[^+]+)\+(?P<course>[^+]+)\+(?P<se
 # "event": "\"input_Blocks_on_Ramp_randxyzBILNKOA0_2_1=choice_3\""
 # "event_type": "problem_check"
 
-okre2 = re.compile('/courses/course-v1:(?P<org>[^+]+)\+(?P<course>[^+]+)\+(?P<semester>[^+]+)/courseware')
+okre2 = re.compile('/courses/course-v1:(?P<org>[^+]+)\+(?P<course>[^+]+)\+(?P<semester>[^+]+)/[bc]')
 okre2a = re.compile('input_(?P<id>[^=]+)_[0-9]+_[^=]+=')
 
 # "event_type": "/courses/course-v1:MITx+CTL.SC1x_1+2T2015/xblock/block-v1:MITx+CTL.SC1x_1+2T2015+type@sequential+block@5aff08b86e0e431e8ef29b0fbe52ecb
