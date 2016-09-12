@@ -62,12 +62,14 @@ DATE_DEFAULT_END_NEW = datetime.datetime.today().strftime("%Y-%m-%d")
 
 def analyze_videos(course_id, api_key=None, basedir=None, 
                    datedir=None, force_recompute=False,
-                   use_dataset_latest=False):
+                   use_dataset_latest=False,
+                   use_latest_sql_dir=False,
+               ):
 
-    make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_dataset_latest)
+    make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_dataset_latest, use_latest_sql_dir)
     pass # Add new video stat methods here
 
-def make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_dataset_latest):
+def make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_dataset_latest, use_latest_sql_dir):
     '''
     Create Video stats for Videos Viewed and Videos Watched.
     First create a video axis, based on course axis. Then use tracking logs to count up videos viewed and videos watched
@@ -78,7 +80,7 @@ def make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_
     # Get Course Dir path
     basedir = path(basedir or '')
     course_dir = course_id.replace('/','__')
-    lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest)
+    lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest or use_latest_sql_dir)
     
     # get schema
     mypath = os.path.dirname(os.path.realpath(__file__))

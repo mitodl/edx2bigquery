@@ -81,10 +81,11 @@ class PersonCourse(object):
                  nskip = 0,
                  use_dataset_latest=False,
                  skip_geoip = False,
+                 use_latest_sql_dir=False,
                  ):
 
         self.course_id = course_id
-        self.course_dir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest)
+        self.course_dir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
         self.cdir = path(self.course_dir)
         self.logmsg = []
         self.nskip = nskip
@@ -1340,6 +1341,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                        skip_if_table_exists=False,
                        just_do_nightly=False,
                        just_do_geoip=False,
+                       use_latest_sql_dir=False,
                        ):
     '''
     make one person course dataset
@@ -1358,6 +1360,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
                       nskip=nskip,
                       skip_geoip=skip_geoip,
                       use_dataset_latest=use_dataset_latest,
+                      use_latest_sql_dir=use_latest_sql_dir,
                       )
 
     if skip_if_table_exists:

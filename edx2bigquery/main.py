@@ -15,6 +15,7 @@ import multiprocessing as mp
 from path import path
 
 from argparse import RawTextHelpFormatter
+from collections import OrderedDict
 
 CURDIR = path(os.path.abspath(os.curdir))
 if os.path.exists(CURDIR / 'edx2bigquery_config.py'):
@@ -38,22 +39,53 @@ def get_course_ids(args, do_check=True):
                     print "  BAD --> %s " % cid
             sys.exit(-1)
     return courses
+        
+def get_course_ids_from_course_list(args):
+    '''Look up course list specified by args.clist in edx2bigquery_config.courses'''
+    course_dicts = getattr(edx2bigquery_config, 'courses', None)
+    if course_dicts is None:
+        print "The --courses argument requires that the 'courses' dict be defined within the edx2bigquery_config.py configuraiton file"
+        sys.exit(-1)
+    if args.clist not in course_dicts:
+        print "The --courses argument specified a course list of name '%s', but that does not exist in the courses dict in the config file" % args.clist
+        print "The courses dict only has these lists defined: %s" % course_dicts.keys()
+        sys.exit(-1)
+    return course_dicts[args.clist]
+
+def get_course_ids_from_subset_missing_table(args):
+    '''Take subset of courses from specifid course list (--clist) which are missing the table specified by --clist-from-missing-table'''
+    import bqutil
+    tablename = args.clist_from_missing_table
+        
+    print "Constructing list of course_id's from %s using subset of those missing the table %s" % (args.clist, tablename)
+    print "="*60
+    course_id_by_table = {}
+    tables = []
+    for course_id in get_course_ids_from_course_list(args):
+        dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=args.dataset_latest)
+        the_table = '%s.%s' % (dataset, tablename)
+        tables.append(the_table)
+        course_id_by_table[the_table] = course_id
+
+    ctabinfo = get_data_tables(tables, args, course_id_by_table=course_id_by_table, just_status=True, return_json=True)
+    courses = [x['course_id'] for x in ctabinfo if x['modified']==None]
+    print
+    print "="*60
+    print "==> Courses to process: "
+    for course_id in courses:
+        print "    %s" % course_id
+    sys.stdout.flush()
+    return courses
 
 def get_course_ids_no_check(args):
     if type(args)==str:		# special case: a single course, already specified
         return [ args ]
     if type(args)==list:
         return args
+    if args.clist_from_missing_table:
+        return get_course_ids_from_subset_missing_table(args)
     if args.clist:
-        course_dicts = getattr(edx2bigquery_config, 'courses', None)
-        if course_dicts is None:
-            print "The --courses argument requires that the 'courses' dict be defined within the edx2bigquery_config.py configuraiton file"
-            sys.exit(-1)
-        if args.clist not in course_dicts:
-            print "The --courses argument specified a course list of name '%s', but that does not exist in the courses dict in the config file" % args.clist
-            print "The courses dict only has these lists defined: %s" % course_dicts.keys()
-            sys.exit(-1)
-        return course_dicts[args.clist]
+        return get_course_ids_from_course_list(args)
     if args.year2:
         return edx2bigquery_config.course_id_list
     return args.courses
@@ -415,6 +447,7 @@ def analyze_problems(param, courses, args, do_show_answer=True, do_problem_analy
                                                    do_show_answer=do_show_answer, 
                                                    do_problem_analysis=do_problem_analysis,
                                                    only_step=param.only_step,
+                                                   use_latest_sql_dir=param.latest_sql_dir,
                                                    )
         except Exception as err:
             print err
@@ -433,6 +466,7 @@ def analyze_videos(param, courses, args):
                                                datedir=param.the_datedir,
                                                force_recompute=args.force_recompute,
                                                use_dataset_latest=param.use_dataset_latest,
+                                               use_latest_sql_dir=param.latest_sql_dir,
                                                )
 
         except (AssertionError, Exception) as err:
@@ -739,6 +773,7 @@ def person_course(param, courses, args, just_do_nightly=False, force_recompute=F
                                                   use_dataset_latest=param.use_dataset_latest,
                                                   just_do_nightly=just_do_nightly or args.just_do_nightly,
                                                   just_do_geoip=args.just_do_geoip,
+                                                  use_latest_sql_dir=args.latest_sql_dir,
                                                   )
         except Exception as err:
             print err
@@ -845,9 +880,9 @@ def list_tables_in_course_db(param, courses, args):
 #-----------------------------------------------------------------------------
 # utility commands
 
-def get_data_tables(tables, args, course_id_by_table=None):
+def get_data_tables(tables, args, course_id_by_table=None, just_status=False, return_json=False):
     '''
-    used by get_course_data and get_data
+    used by get_course_data, get_course_table_status, and get_data
     arguments provide options for combing outputs, and for loading output back into BigQuery
     '''
     import bqutil
@@ -892,6 +927,11 @@ def get_data_tables(tables, args, course_id_by_table=None):
         output_table = args.combine_into_table
         gspath = "%s/%s" % (args.output_bucket, cofn)
 
+    first_table = True
+    ret_data = []
+    nfound = 0
+    nmissing = 0
+
     for table in tables:
         has_project_id = False
         dataset, tablename = table.split('.', 1)
@@ -899,6 +939,34 @@ def get_data_tables(tables, args, course_id_by_table=None):
             project_id, dataset = dataset.split(':')
             optargs['project_id'] = project_id
             has_project_id = True
+
+        if just_status:
+            # get table creation date, modification date, and size
+            tinfo = bqutil.get_bq_table_info(dataset, tablename, **optargs) or {}
+            datum = OrderedDict([ ('modified',  tinfo.get('lastModifiedTime')),
+                                  ('course_id', course_id_by_table[table]),
+                                  ('created', tinfo.get('creationTime')),
+                                  ('n_rows', int(tinfo.get('numRows', 0))),
+                                  ('size_bytes', int(tinfo.get('numBytes', 0))),
+                                  ('dataset', dataset),
+                                  ('tablename', tablename),
+                              ])
+            if datum['modified']:
+                nfound += 1
+            else:
+                nmissing += 1
+            if first_table and out_fmt=='csv':
+                print ','.join(datum.keys())
+            if out_fmt=='csv':
+                print ','.join(map(str, datum.values()))
+            else:
+                print json.dumps(datum)
+            sys.stdout.flush()
+            if return_json:
+                ret_data.append(datum)
+            first_table = False
+            continue
+
         if args.combine_into:
             print "Retrieving %s.%s for %s" % (dataset, tablename, cofn)
         else:
@@ -1016,6 +1084,14 @@ def get_data_tables(tables, args, course_id_by_table=None):
             optargs['format'] = 'csv'
             optargs['skiprows'] = 1
         bqutil.load_data_to_table(out_dataset, out_table, gspath, schema, **optargs)
+
+    if just_status:
+        print "-"*40
+        print "Number of tables WITH data found: %d" % nfound
+        print "Number of MISSING tables: %d" % nmissing
+        sys.stdout.flush()
+    return ret_data
+
 
 #-----------------------------------------------------------------------------
 # command line processing
@@ -1294,6 +1370,9 @@ get_table_data <dataset>    : dump table data as JSON text to stdout
 get_course_data <course_id> : retrieve course-specific table data as CSV file, saved as CID__tablename.csv, with CID being the course_id with slashes
        --table <table_id>     replaced by double underscore ("__").  May specify --project-id and --gzip and --combine-into <output_filename>
 
+get_course_table_status     : retrieve date created, date modified, and size of specified table, for each course_id.  Outputs CSV by default.
+    <cid> --table <table_id>  use --output-format-json to output json instead.
+
 get_data p_id:d_id.t_id ... : retrieve project:dataset.table data as CSV file, saved as project__dataset__tablename.csv
                               May specify --gzip and --combine-into <output_filename>
 
@@ -1311,7 +1390,6 @@ check_for_duplicates        : check list of courses for duplicates
 """
 
     parser.add_argument("command", help=cmd_help)
-    # parser.add_argument("-C", "--course_id", type=str, help="course ID in org/number/semester format, e.g. MITx/6.SFMx/1T2014")
     parser.add_argument("--course-base-dir", type=str, help="base directory where course SQL is stored, e.g. 'HarvardX-Year-2-data-sql'")
     parser.add_argument("--course-date-dir", type=str, help="date sub directory where course SQL is stored, e.g. '2014-09-21'")
     parser.add_argument("--start-date", type=str, help="start date for person-course dataset generated, e.g. '2012-09-01'")
@@ -1321,8 +1399,10 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--parallel", help="run separate course_id's in parallel", action="store_true")
     parser.add_argument("--year2", help="increase output verbosity", action="store_true")
     parser.add_argument("--clist", type=str, help="specify name of list of courses to iterate command over")
+    parser.add_argument("--clist-from-missing-table", type=str, help="iterate command over list of course_id's missing specified table")
     parser.add_argument("--force-recompute", help="force recomputation", action="store_true")
     parser.add_argument("--dataset-latest", help="use the *_latest SQL dataset", action="store_true")
+    parser.add_argument("--latest-sql-dir", help="use the most recent SQL data directory (for person_course)", action="store_true")
     parser.add_argument("--skiprun", help="for external command, print, and skip running", action="store_true")
     parser.add_argument("--external", help="run specified command as being an external command", action="store_true")
     parser.add_argument("--extparam", type=str, help="configure parameter for external command, e.g. --extparam irt_type=2pl")
@@ -1371,6 +1451,7 @@ check_for_duplicates        : check list of courses for duplicates
     param.the_basedir = args.course_base_dir or getattr(edx2bigquery_config, "COURSE_SQL_BASE_DIR", None)
     param.the_datedir = args.course_date_dir or getattr(edx2bigquery_config, "COURSE_SQL_DATE_DIR", None)
     param.use_dataset_latest = args.dataset_latest
+    param.latest_sql_dir = args.latest_sql_dir
     param.listings = args.listings
     param.force_recompute = args.force_recompute
     param.end_date = args.end_date
@@ -1619,6 +1700,19 @@ check_for_duplicates        : check list of courses for duplicates
             course_id_by_table[the_table] = course_id
 
         return get_data_tables(tables, args, course_id_by_table=course_id_by_table)
+
+    elif (args.command=='get_course_table_status'):
+        import bqutil
+        tablename = args.table
+        tables = []
+        course_id_by_table = {}
+        for course_id in get_course_ids(args):
+            dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
+            the_table = '%s.%s' % (dataset, tablename)
+            tables.append(the_table)
+            course_id_by_table[the_table] = course_id
+
+        return get_data_tables(tables, args, course_id_by_table=course_id_by_table, just_status=True)
 
     elif (args.command=='get_data'):
         tables = args.courses			# may specify project as well, with syntax project_id:dataset_id.table_id

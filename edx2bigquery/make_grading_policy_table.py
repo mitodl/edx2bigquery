@@ -155,10 +155,13 @@ def load_grading_policy(gpstr, verbose=False, gpfn=None):
     schema = []
     for field in fields:
         field = field.replace('.','_').replace(' ', '_')
+        field = field.replace('+', '_').replace('-', '__')	# for very old, circa 2012 course grading policies
         if ('_id' in field) or ('_label' in field) or (field=='name') or (field in string_fields):
             ftype = 'STRING'
         elif ('_count' in field):
             ftype = 'INTEGER'
+        elif ('hide_' in field):
+            ftype = 'STRING'
         else:
             ftype = 'FLOAT'
         schema.append({'name': field,

@@ -196,11 +196,13 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
     #        "display_name": "Radiation Exposure", 
     #        "usage_key": "i4x://MITx/6.00.1x_5/problem/ps03:ps03-Radiation-Exposure"
     #    }, 
+    # 28-May-16: context.asides
 
     mobile_api_context_fields = ['application', 'client', 'received_at', 'component', "open_in_browser_url", 
                                  "module.usage_key",
                                  "module.original_usage_version",
                                  "module.original_usage_key",
+                                 "asides",
                              ]
     move_unknown_fields_from_context_to_context_agent(mobile_api_context_fields)
 
@@ -251,6 +253,10 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                              ['event_struct', 'content'],	# 11jan16
                              ['nonInteraction'], 	# 24aug15
                              ['label'],	 		# 24aug15
+                             ['event_struct', 'widget_placement'],	# 08may16
+                             ['event_struct', 'tab_count'],	# 08may16
+                             ['event_struct', 'current_tab'],	# 08may16
+                             ['event_struct', 'target_tab'],	# 08may16
                          ])
 
     #----------------------------------------
