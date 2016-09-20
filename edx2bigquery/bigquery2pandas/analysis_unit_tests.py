@@ -23,6 +23,9 @@ def ans_coupling_test1 (
   '''
   Compares average feature values of previous ans_coupling tables
   with the latest tables.
+
+  Returns a dataframe with the comparitive results of the test. 
+  The result can also be viewed as a table in Google BigQuery.
   '''
 
   if what_changed is None:
@@ -177,7 +180,7 @@ def ans_coupling_test1 (
   	ntestcourses=NUM_TEST_COURSES,
   )
 
-  util.bqutil_SQL2df(
+  return util.bqutil_SQL2df(
     SQL,
     temp_project_id=output_project, 
     temp_dataset=output_dataset, 
@@ -198,6 +201,9 @@ def cameo_test1 (
   '''
   Compares average feature values of previous cameo tables
   with the latest tables.
+
+  Returns a dataframe with the comparitive results of the test. 
+  The result can also be viewed as a table in Google BigQuery.
   '''
 
   if what_changed is None:
@@ -342,6 +348,9 @@ def sab_test1 (
   '''
   Compares average feature values of previous show_ans_before tables
   with the latest tables.
+
+  Returns a dataframe with the comparitive results of the test. 
+  The result can also be viewed as a table in Google BigQuery.
   '''
 
   if what_changed is None:
@@ -496,7 +505,7 @@ def sab_test1 (
   	ntestcourses=NUM_TEST_COURSES,
   )
 
-  util.bqutil_SQL2df(
+  return util.bqutil_SQL2df(
     SQL,
     temp_project_id=output_project, 
     temp_dataset=output_dataset, 
