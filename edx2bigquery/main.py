@@ -492,6 +492,21 @@ def analyze_forum(param, courses, args):
             sys.stdout.flush()
             raise
 
+def analyze_idv(param, courses, args):
+    import make_idv_features
+    for course_id in get_course_ids(courses):
+        try:
+            make_idv_features.AnalyzeIDV(course_id,
+                                         force_recompute=args.force_recompute,
+                                         use_dataset_latest=param.use_dataset_latest,
+            )
+
+        except (AssertionError, Exception) as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+            raise
+
 def problem_events(param, courses, args):
     import make_problem_events
     for course_id in get_course_ids(courses):
@@ -652,6 +667,19 @@ def item_tables(param, courses, args):
             print err
             traceback.print_exc()
             sys.stdout.flush()
+
+def irt_report(param, courses, args):
+    import make_irt_report
+    for course_id in get_course_ids(courses):
+        try:
+            make_irt_report.make_irt_report(course_id, 
+                                            force_recompute=args.force_recompute,
+                                            use_dataset_latest=param.use_dataset_latest,
+                                        )
+        except Exception as err:
+            print err
+            sys.stdout.flush()
+            raise
 
 def problem_check(param, courses, args):
     import make_problem_analysis
@@ -1215,11 +1243,26 @@ analyze_forum <course_id>   : Analyze forum events, generating the forum_events 
 analyze_ora <course_id> ... : Analyze openassessment response problem data in tracking logs, generating the ora_events table as a result.  
                               Uploads the result to google cloud storage and to BigQuery.
 
+analyze_idv <course_id> ... : Analyze engagement of IDV enrollees (and non-IDV enrollees) before end of the course, including
+                              forum, video, and problem activity, up to the point of IDV enrollment (or last ever IDV enrollment
+                              in the course, for non-IDVers).  Also include context about prior activity in other courses,
+                              if course_report_latest.person_course_viewed is available.  Produces idv_analysis table, in each course.
+
 problem_events <course_id>  : Extract capa problem events from the tracking logs, generating the problem_events table as a result.
 
 time_task <course_id> ...   : Update time_task table of data on time on task, based on daily tracking logs, for specified course.
 
 item_tables <course_id> ... : Make course_item and person_item tables, used for IRT analyses.
+
+irt_report <coure_id> ...   : Compute the item_response_theory_report table, which extracts data from item_irt_grm[_R], course_item,
+                              course_problem, and item_reliabilities.  This table is used in the XAnalytics reporting on IRT.
+                              Note that item_reliabilities and item_irt_grm[_R] are computed using external commands, using
+                              Stata and/or R.  If item_irt_grm (produced by Stata) is available, that is used, in preference to
+                              item_irt_grm_R (produced by mirt in R).  This report summarizes, in one place, statistics about
+                              problem difficulty and discrimination, Cronbach's alpha, item-test and item-rest correlations,
+                              average problem raw scores, average problem percent scores, number of unique users attempted.
+                              Standard errors are also provided for difficulty and discrimination.  Requires the IRT tables to
+                              already have been computed.  
 
 staff2bq <staff.csv>        : load staff.csv file into BigQuery; put it in the "courses" dataset.
 
@@ -1381,6 +1424,9 @@ get_table_info <dataset>    : dump meta-data information about the specified dat
 
 delete_empty_tables         : delete empty tables form the tracking logs dataset for the specified course_id's, from BigQuery.
             <course_id> ...   Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
+
+delete_tables               : delete specified table form the datasets for the specified course_id's, from BigQuery.
+  --table <table_id> <cid>    Will skip if table doesn't exist.
 
 delete_stats_tables         : delete stats_activity_by_day tables 
             <course_id> ...   Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
@@ -1742,6 +1788,23 @@ check_for_duplicates        : check list of courses for duplicates
                 print err
                 raise
 
+    elif (args.command=='delete_tables'):
+        import bqutil
+        tablename = args.table
+        for course_id in get_course_ids(args):
+            try:
+                dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
+                the_table = '%s.%s' % (dataset, tablename)
+                tinfo = bqutil.get_bq_table_info(dataset, tablename) or None
+                if tinfo is not None:
+                    print "   Deleting %s.%s" % (dataset, tablename)
+                    bqutil.delete_bq_table(dataset, tablename)
+                else:
+                    print "   Missing %s.%s -- skipping" % (dataset, tablename)
+            except Exception as err:
+                print err
+                raise
+
     elif (args.command=='daily_logs'):
         daily_logs(param, args, args.command)
 
@@ -1807,6 +1870,10 @@ check_for_duplicates        : check list of courses for duplicates
         courses = get_course_ids(args)
         run_parallel_or_serial(analyze_forum, param, courses, args, parallel=args.parallel)
 
+    elif (args.command=='analyze_idv'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(analyze_idv, param, courses, args, parallel=args.parallel)
+
     elif (args.command=='problem_check'):
         problem_check(param, args, args)
 
@@ -1830,6 +1897,10 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='item_tables'):
         courses = get_course_ids(args)
         run_parallel_or_serial(item_tables, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='irt_report'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(irt_report, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='recommend_pin_dates'):
         import make_axis_pin_dates_from_listings

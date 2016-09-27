@@ -832,9 +832,12 @@ class PersonCourse(object):
 		return
 
         self.log( "Loading %s from BigQuery" % tablename )
-        self.person_enrollment_verified = bqutil.get_bq_table( self.dataset, tablename, sql=None, key={'name': 'user_id'},
-                                                       depends_on=[ '%s.person_enrollment_verified' % self.dataset ],
-                                                       force_query=self.force_recompute_from_logs, logger=self.log)
+        try:
+            self.person_enrollment_verified = bqutil.get_bq_table( self.dataset, tablename, sql=None, key={'name': 'user_id'},
+                                                                   depends_on=[ '%s.person_enrollment_verified' % self.dataset ],
+                                                                   force_query=self.force_recompute_from_logs, logger=self.log)
+        except Exception as err:
+            self.log("[load_enrollment_verified] Failed, with error=%s" % str(err))
 
     def load_pc_day_totals(self):
         '''
