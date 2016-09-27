@@ -351,7 +351,7 @@ Command help message:
       --end-date END_DATE   end date for person-course dataset generated, e.g. '2014-09-21'
       --tlfn TLFN           path to daily tracking log file to import, e.g. 'DAILY/mitx-edx-events-2014-10-14.log.gz'
       -v, --verbose         increase output verbosity
-      --year2               increase output verbosity
+      --year2               process all courses in the config file's course_id_list
       --clist CLIST         specify name of list of courses to iterate command over
       --force-recompute     force recomputation
       --dataset-latest      use the *_latest SQL dataset
