@@ -39,7 +39,7 @@ def make_irt_report(course_id, force_recompute=False, use_dataset_latest=False):
     the_sql_alpha_join = """
     JOIN [{dataset}.item_reliabilities] IR
     on IR.item = CP.problem_yid
-    """
+    """.format(dataset=dataset)
 
     the_sql = """
 # item_response_theory_report for {course_id}
