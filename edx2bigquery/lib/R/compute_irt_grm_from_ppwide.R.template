@@ -67,8 +67,12 @@ for (yvar in colnames(df.items)){
     }
 }
 
+unvarying_rows <- rowSums(is.na(df.items)) != ncol(df.items)	# find indices of rows which are all NA
+df.items <- subset(df.items, unvarying_rows)   			# drop row if not varying by user
+
 time.start <- proc.time()
-mres <- mirt(df.items, 1, SE=TRUE, removeEmptyRows=TRUE)
+# mres <- mirt(df.items, 1, SE=TRUE, technical=list(removeEmptyRows=T))
+mres <- mirt(df.items, 1, SE=TRUE)
 time.dt <- proc.time() - time.start
 print(sprintf("--> IRT run time = %8.3f seconds", time.dt["elapsed"]))
 # itemplot(mres, 26, CE=TRUE)
@@ -81,7 +85,8 @@ df.ab <- coef(mres, as.data.frame=TRUE)
 df.theta <- fscores(mres, full.scores.SE=TRUE)
 
 # person-theta dataframe
-df.person_theta = data.frame(user_id=df[,1], theta=df.theta[,1], thetase=df.theta[,2])
+user_ids <- subset(df[,1], unvarying_rows)
+df.person_theta = data.frame(user_id=user_ids, theta=df.theta[,1], thetase=df.theta[,2])
 csvfn.pt = file=dta_name("__R_person_theta.csv")
 write.csv(df.person_theta, row.names=FALSE, csvfn.pt)
 save(df.person_theta,file=dta_name("__R_person_theta.Rda"))
@@ -96,14 +101,30 @@ df.irt_params <- data.frame(matrix(ncol=6, nrow=0))
 for (yv in yvars){
 	problem_nid <- strtoi(substr(yv,2,9999))
 	irt_disc <- df.ab[sprintf("%s.a1", yv), "par"]					# y#.a1 = discimination
-	disc_se <- df.ab[sprintf("%s.a1", yv), "CI_2.5"]			
+	# fails when MIRT converges badly:  disc_se <- df.ab[sprintf("%s.a1", yv), "CI_2.5"]			
+        disc_se <- NA
+	result = tryCatch({
+	    disc_se <- df.ab[sprintf("%s.a1", yv), "CI_2.5"]			
+	}, warning = function(w) {
+	    print(w)
+	}, error = function(e) {
+	    print(e)
+	})
 	ncuts <- length(grep(sprintf("%s\\.d[0-9]*", yv), irtvars)) 		# how many cut scores for this variable?
 	for (k in 1:ncuts){
 		vname = sprintf("%s.d%d", yv, k)					# y#.d# = difficulty * disc
 		if (ncuts==1){ vname = sprintf("%s.d", yv) }	# no trailing number if ncuts=1
 		irt_diffdisc <- df.ab[vname, "par"]
 		irt_diff <- -irt_diffdisc / irt_disc
-		diff_se <- df.ab[vname, "CI_2.5"]
+		# fails when MIRT converges badly: diff_se <- df.ab[vname, "CI_2.5"]
+		diff_se <- NA
+		result = tryCatch({
+		    diff_se <- df.ab[vname, "CI_2.5"]
+		}, warning = function(w){ 
+		    print(w) 
+		}, error = function(e){ 
+		    print(e)
+ 		})
 		newrow <- c(irt_diff, irt_disc, diff_se, disc_se, problem_nid, k)
 		df.irt_params <- rbind(df.irt_params, newrow)
 	}
@@ -115,7 +136,7 @@ df.irt_params <- transform(df.irt_params, problem_nid = as.integer(problem_nid))
 df.irt_params <- transform(df.irt_params, cutnum = as.integer(cutnum))			# make sure cutnum is integer
 
 csvfn.ip = dta_name("__R_item-irt-grm.csv")
-write.csv(df.irt_params, row.names=FALSE, file=csvfn.ip)
+write.csv(df.irt_params, row.names=FALSE, file=csvfn.ip, na="")
 save(df.irt_params,file=dta_name("__R_item-irt-grm.Rda"))
 print(head(df.irt_params))
 
