@@ -1312,7 +1312,8 @@ def compute_stats_problems_cameod(course_id, use_dataset_latest=True,
       ca.time, sa.time,
       ca.ip, sa.ip,
       sa.ip == ca.ip as same_ip,
-      (case when sa.time < ca.time then (ca.time - sa.time) / 1e6 end) as dt
+      (ca.time - sa.time) / 1e6 as dt,
+      sa.time < ca.time as dt_positive
     FROM
     (
       SELECT
@@ -1596,8 +1597,13 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
 def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=True, force_num_partitions=None, 
                             testing=False, testing_dataset= None, project_id = None, force_online=True,
                             problem_check_show_answer_ip_table=None, cameo_master_table="mitx-research:core.cameo_master",
-                            delete_intermediate_tables=True):
+                            delete_intermediate_tables=True, drop_low_count_rows=True):
   '''
+  no_filtering: Default True. Set to False to allow all rows of the table. Set to false to
+    require ncorrect >= 10, X >= 10, nshow_answer > 10, certified=True/False (if offline).
+
+  force_online: Default True. Set to False to requie master certified and harvester not certified.
+
   Computes the percentage of show_ans_before and avg_max_dt_seconds between all certified and uncertied users 
   cameo candidate - certified | shadow candidate - uncertified
 
@@ -2209,8 +2215,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                 ) sa
                                 JOIN EACH [{dataset}.person_course] pc
                                 ON sa.a.username = pc.username
-                                WHERE {not_certified_filter}
-                                AND nshow_ans_distinct >= 10 #to reduce size
+                                {remove_if_no_filtering}WHERE {not_certified_filter}
+                                {remove_if_no_filtering}AND nshow_ans_distinct >= 10 #to reduce size
                               )sa
                               JOIN EACH
                               (
@@ -2249,8 +2255,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                 ) ca
                                 JOIN EACH [{dataset}.person_course] pc
                                 ON ca.a.username = pc.username
-                                WHERE {certified_filter}
-                                AND ncorrect >= 10 #to reduce size
+                                {remove_if_no_filtering}WHERE {certified_filter}
+                                {remove_if_no_filtering}AND ncorrect >= 10 #to reduce size
                               ) ca
                               ON sa.module_id = ca.module_id
                               WHERE master_candidate != harvester_candidate
@@ -2276,8 +2282,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                               ca_dt_p05, ca_dt_p10, ca_dt_p15, ca_dt_p20, ca_dt_p30,
                               ca_dt_p40, ca_dt_p45, ca_dt_p55, ca_dt_p60,  
                               ca_dt_p70, ca_dt_p80, ca_dt_p85, ca_dt_p95
-                HAVING show_ans_before >= 10 #to reduce size
-                AND median_max_dt_seconds <= (60 * 60 * 24 * 7) #to reduce size, less than one week
+                HAVING median_max_dt_seconds <= (60 * 60 * 24 * 7) #to reduce size, less than one week
+                {remove_if_no_filtering}AND show_ans_before >= 10 #to reduce size
               ) a
               LEFT OUTER JOIN EACH  
 
@@ -2338,7 +2344,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                       )
                       WHERE (nearest_sa_before = sa.time) #DROP NEGATIVE DTs and use sa time resulting in smallest positive dt 
                     )
-                    WHERE X >=10 #For tractability
+                    {remove_if_no_filtering}WHERE X >=10 #For tractability
                   ) sao
                   JOIN EACH
                   (
@@ -2381,7 +2387,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                       )
                       WHERE (nearest_sa_before = sa.time) #DROP NEGATIVE DTs and use sa time resulting in smallest positive dt
                     )
-                    WHERE X >=10 #For tractability
+                    {remove_if_no_filtering}WHERE X >=10 #For tractability
                   ) cao
                   ON sao.CH = cao.CH AND sao.CM = cao.CM AND sao.sa_dt_order = cao.ca_dt_order
                 )
@@ -2428,7 +2434,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                 )
                 WHERE nearest_sa_before = sa.time #DROP NEGATIVE DTs and use sa time resulting in smallest positive dt 
                 GROUP BY a, b
-                HAVING X>=10 #For tractability
+                {remove_if_no_filtering}HAVING X>=10 #For tractability
               )
             ) b
             ON a.master_candidate = b.CM AND a.harvester_candidate = b.CH
@@ -2510,7 +2516,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                        partition_without_prefix=the_partition[i].replace('a.', ''),
                        problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
                        not_certified_filter='nshow_ans_distinct >= 10' if force_online else 'certified = false',
-                       certified_filter= 'ncorrect >= 10' if force_online else "certified = true")
+                       certified_filter= 'ncorrect >= 10' if force_online else "certified = true",
+                       remove_if_no_filtering='' if drop_low_count_rows else '#')
 
       item_outer = """
           # Northcutt Code - Show Answer Before, Pearson Correlations, Median Average Times, Optimal Scoring
@@ -2552,7 +2559,10 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             cheating_likelihood,
 
             # Wilson's Interval
-            ((positive + 1.9208) / (positive + negative) - 1.96 * SQRT((positive * negative) / (positive + negative) + 0.9604) / (positive + negative)) / (1 + 3.8416 / (positive + negative)) as wilsons_interval_cheating_score
+            ((positive + 1.9208) / (positive + negative) - 1.96 * SQRT((positive * negative) / (positive + negative) + 0.9604) / (positive + negative)) / (1 + 3.8416 / (positive + negative)) as wilsons_interval_cheating_score,
+
+            # Wilson's Interval using only pairwise features (harvester only features removed) for final ranking
+            ((positive2 + 1.9208) / (positive2 + negative) - 1.96 * SQRT((positive2 * negative) / (positive2 + negative) + 0.9604) / (positive2 + negative)) / (1 + 3.8416 / (positive2 + negative)) as wilsons_interval_pairwise_ranking
           FROM         
           (
             SELECT *,
@@ -2591,7 +2601,26 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
               (CASE WHEN name_similarity_sum != 0 AND name_similarity_sum IS NOT NULL AND name_similarity IS NOT NULL THEN name_similarity / name_similarity_sum ELSE 0 END) * 0.0041068503725 +
               (CASE WHEN percent_show_ans_before_sum != 0 AND percent_show_ans_before_sum IS NOT NULL AND percent_show_ans_before IS NOT NULL THEN percent_show_ans_before / percent_show_ans_before_sum ELSE 0 END) * 0.0053140926666 +
               (CASE WHEN sa_ca_dt_correlation_sum != 0 AND sa_ca_dt_correlation_sum IS NOT NULL AND sa_ca_dt_correlation IS NOT NULL THEN sa_ca_dt_correlation / sa_ca_dt_correlation_sum ELSE 0 END) * 0.0035049193853 
-              AS positive
+              AS positive,
+
+              # Also compute a positive score without Harvester only features (only pairwise features) for final pair ordering
+              # Compute the normalized, weighted sum for all features which should be LARGE for anomalous or CAMEO behavior
+              (CASE WHEN unnormalized_pearson_corr_sum != 0 AND unnormalized_pearson_corr_sum IS NOT NULL AND unnormalized_pearson_corr IS NOT NULL THEN unnormalized_pearson_corr / unnormalized_pearson_corr_sum ELSE 0 END) * 0.0818642541280 +
+              (CASE WHEN ncameo_sum != 0 AND ncameo_sum IS NOT NULL AND ncameo IS NOT NULL THEN ncameo / ncameo_sum ELSE 0 END) * 0.0196638196892 +
+              (CASE WHEN show_ans_before_sum != 0 AND show_ans_before_sum IS NOT NULL AND show_ans_before IS NOT NULL THEN show_ans_before / show_ans_before_sum ELSE 0 END) * 0.0362109982742 +
+              (CASE WHEN ncorrect_sum != 0 AND ncorrect_sum IS NOT NULL AND ncorrect IS NOT NULL THEN ncorrect / ncorrect_sum ELSE 0 END) * 0.0162514812848 +
+              (CASE WHEN sa_ca_dt_chi_squared_sum != 0 AND sa_ca_dt_chi_squared_sum IS NOT NULL AND sa_ca_dt_chi_squared IS NOT NULL THEN sa_ca_dt_chi_squared / sa_ca_dt_chi_squared_sum ELSE 0 END) * 0.0020009368911 +
+              (CASE WHEN x30m_sum != 0 AND x30m_sum IS NOT NULL AND x30m IS NOT NULL THEN x30m / x30m_sum ELSE 0 END) * 0.0028739740957 +
+              (CASE WHEN x03d_sum != 0 AND x03d_sum IS NOT NULL AND x03d IS NOT NULL THEN x03d / x03d_sum ELSE 0 END) * 0.0258500420151 +
+              (CASE WHEN percent_same_ip_sum != 0 AND percent_same_ip_sum IS NOT NULL AND percent_same_ip IS NOT NULL THEN percent_same_ip / percent_same_ip_sum ELSE 0 END) * 0.0245057350431 +
+              (CASE WHEN x15s_same_ip_sum != 0 AND x15s_same_ip_sum IS NOT NULL AND x15s_same_ip IS NOT NULL THEN x15s_same_ip / x15s_same_ip_sum ELSE 0 END) * 0.0134774090809 +
+              (CASE WHEN percent_correct_using_show_answer_sum != 0 AND percent_correct_using_show_answer_sum IS NOT NULL AND percent_correct_using_show_answer IS NOT NULL THEN percent_correct_using_show_answer / percent_correct_using_show_answer_sum ELSE 0 END) * 0.0126195966301 +
+              (CASE WHEN x01m_same_ip_sum != 0 AND x01m_same_ip_sum IS NOT NULL AND x01m_same_ip IS NOT NULL THEN x01m_same_ip / x01m_same_ip_sum ELSE 0 END) * 0.0124578554613 +
+              (CASE WHEN nsame_ip_sum != 0 AND nsame_ip_sum IS NOT NULL AND nsame_ip IS NOT NULL THEN nsame_ip / nsame_ip_sum ELSE 0 END) * 0.0161964905855 +
+              (CASE WHEN name_similarity_sum != 0 AND name_similarity_sum IS NOT NULL AND name_similarity IS NOT NULL THEN name_similarity / name_similarity_sum ELSE 0 END) * 0.0041068503725 +
+              (CASE WHEN percent_show_ans_before_sum != 0 AND percent_show_ans_before_sum IS NOT NULL AND percent_show_ans_before IS NOT NULL THEN percent_show_ans_before / percent_show_ans_before_sum ELSE 0 END) * 0.0053140926666 +
+              (CASE WHEN sa_ca_dt_correlation_sum != 0 AND sa_ca_dt_correlation_sum IS NOT NULL AND sa_ca_dt_correlation IS NOT NULL THEN sa_ca_dt_correlation / sa_ca_dt_correlation_sum ELSE 0 END) * 0.0035049193853 
+              AS positive2
             FROM 
             (
               SELECT
@@ -2816,7 +2845,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                 OR ncameo_both > 0
               )
             )
-            ORDER BY wilsons_interval_cheating_score DESC
+            ORDER BY wilsons_interval_pairwise_ranking DESC
             """.format(course_id = course_id, 
                        cameo_master_table=cameo_master_table,
                        intermediate_table=intermediate_table,
@@ -4108,7 +4137,11 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
             cheating_likelihood,
 
             # Wilson's Interval
-            ((positive + 1.9208) / (positive + negative) - 1.96 * SQRT((positive * negative) / (positive + negative) + 0.9604) / (positive + negative)) / (1 + 3.8416 / (positive + negative)) as wilsons_interval_cheating_score
+            ((positive + 1.9208) / (positive + negative) - 1.96 * SQRT((positive * negative) / (positive + negative) + 0.9604) / (positive + negative)) / (1 + 3.8416 / (positive + negative)) as wilsons_interval_cheating_score,
+
+            
+            # Wilson's Interval using only pairwise features (harvester only features removed) for final ranking
+            ((positive2 + 1.9208) / (positive2 + negative) - 1.96 * SQRT((positive2 * negative) / (positive2 + negative) + 0.9604) / (positive2 + negative)) / (1 + 3.8416 / (positive2 + negative)) as wilsons_interval_pairwise_ranking
           FROM         
           (
             SELECT *,
@@ -4147,7 +4180,26 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
               (CASE WHEN name_similarity_sum != 0 AND name_similarity_sum IS NOT NULL AND name_similarity IS NOT NULL THEN name_similarity / name_similarity_sum ELSE 0 END) * 0.0041068503725 +
               (CASE WHEN percent_show_ans_before_sum != 0 AND percent_show_ans_before_sum IS NOT NULL AND percent_show_ans_before IS NOT NULL THEN percent_show_ans_before / percent_show_ans_before_sum ELSE 0 END) * 0.0053140926666 +
               (CASE WHEN ha_ma_dt_correlation_sum != 0 AND ha_ma_dt_correlation_sum IS NOT NULL AND ha_ma_dt_correlation IS NOT NULL THEN ha_ma_dt_correlation / ha_ma_dt_correlation_sum ELSE 0 END) * 0.0035049193853 
-              AS positive
+              AS positive,
+
+              # Also compute a positive score without Harvester only features (only pairwise features) for final pair ordering
+              # Compute the normalized, weighted sum for all features which should be LARGE for anomalous or CAMEO behavior
+              (CASE WHEN unnormalized_pearson_corr_sum != 0 AND unnormalized_pearson_corr_sum IS NOT NULL AND unnormalized_pearson_corr IS NOT NULL THEN unnormalized_pearson_corr / unnormalized_pearson_corr_sum ELSE 0 END) * 0.0818642541280 +
+              (CASE WHEN ncameo_sum != 0 AND ncameo_sum IS NOT NULL AND ncameo IS NOT NULL THEN ncameo / ncameo_sum ELSE 0 END) * 0.0196638196892 +
+              (CASE WHEN show_ans_before_sum != 0 AND show_ans_before_sum IS NOT NULL AND show_ans_before IS NOT NULL THEN show_ans_before / show_ans_before_sum ELSE 0 END) * 0.0362109982742 +
+              (CASE WHEN ncorrect_sum != 0 AND ncorrect_sum IS NOT NULL AND ncorrect IS NOT NULL THEN ncorrect / ncorrect_sum ELSE 0 END) * 0.0162514812848 +
+              (CASE WHEN ha_ma_dt_chi_squared_sum != 0 AND ha_ma_dt_chi_squared_sum IS NOT NULL AND ha_ma_dt_chi_squared IS NOT NULL THEN ha_ma_dt_chi_squared / ha_ma_dt_chi_squared_sum ELSE 0 END) * 0.0020009368911 +
+              (CASE WHEN x30m_sum != 0 AND x30m_sum IS NOT NULL AND x30m IS NOT NULL THEN x30m / x30m_sum ELSE 0 END) * 0.0028739740957 +
+              (CASE WHEN x03d_sum != 0 AND x03d_sum IS NOT NULL AND x03d IS NOT NULL THEN x03d / x03d_sum ELSE 0 END) * 0.0258500420151 +
+              (CASE WHEN percent_same_ip_sum != 0 AND percent_same_ip_sum IS NOT NULL AND percent_same_ip IS NOT NULL THEN percent_same_ip / percent_same_ip_sum ELSE 0 END) * 0.0245057350431 +
+              (CASE WHEN x15s_same_ip_sum != 0 AND x15s_same_ip_sum IS NOT NULL AND x15s_same_ip IS NOT NULL THEN x15s_same_ip / x15s_same_ip_sum ELSE 0 END) * 0.0134774090809 +
+              (CASE WHEN percent_correct_using_show_answer_sum != 0 AND percent_correct_using_show_answer_sum IS NOT NULL AND percent_correct_using_show_answer IS NOT NULL THEN percent_correct_using_show_answer / percent_correct_using_show_answer_sum ELSE 0 END) * 0.0126195966301 +
+              (CASE WHEN x01m_same_ip_sum != 0 AND x01m_same_ip_sum IS NOT NULL AND x01m_same_ip IS NOT NULL THEN x01m_same_ip / x01m_same_ip_sum ELSE 0 END) * 0.0124578554613 +
+              (CASE WHEN nsame_ip_sum != 0 AND nsame_ip_sum IS NOT NULL AND nsame_ip IS NOT NULL THEN nsame_ip / nsame_ip_sum ELSE 0 END) * 0.0161964905855 +
+              (CASE WHEN name_similarity_sum != 0 AND name_similarity_sum IS NOT NULL AND name_similarity IS NOT NULL THEN name_similarity / name_similarity_sum ELSE 0 END) * 0.0041068503725 +
+              (CASE WHEN percent_show_ans_before_sum != 0 AND percent_show_ans_before_sum IS NOT NULL AND percent_show_ans_before IS NOT NULL THEN percent_show_ans_before / percent_show_ans_before_sum ELSE 0 END) * 0.0053140926666 +
+              (CASE WHEN ha_ma_dt_correlation_sum != 0 AND ha_ma_dt_correlation_sum IS NOT NULL AND ha_ma_dt_correlation IS NOT NULL THEN ha_ma_dt_correlation / ha_ma_dt_correlation_sum ELSE 0 END) * 0.0035049193853 
+              AS positive2
             FROM 
             (
               SELECT
@@ -4372,7 +4424,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                 OR ncameo_both > 0
               )
             )
-            ORDER BY wilsons_interval_cheating_score DESC
+            ORDER BY wilsons_interval_pairwise_ranking DESC
             """.format(course_id = course_id, 
                        cameo_master_table=cameo_master_table,
                        intermediate_table=intermediate_table,
