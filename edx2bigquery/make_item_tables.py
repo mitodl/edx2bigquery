@@ -71,6 +71,27 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     tablename = "course_item"
 
+    # determine if grading_policy exists or not
+    GP_TABLE = "grading_policy"
+    have_grading_policy = False
+    try:
+        tinfo = bqutil.get_bq_table_info(dataset, GP_TABLE)
+        assert tinfo is not None, "%s.%s does not exist" % ( dataset, GP_TABLE )
+        if tinfo is not None:
+            have_grading_policy = True
+    except Exception as err:
+        pass
+
+    # change SQL if grading_policy doesn't exist
+    if have_grading_policy:
+        disable_gformat = ""
+        alternate_gp = ""
+    else:
+        print "Warning - grading_policy doest NOT exist, using a dummy grading policy instead, and allowing gformat=null"
+        sys.stdout.flush()
+        disable_gformat = "#"
+        alternate_gp = '( SELECT "" as assignment_type, 1.0 as fraction_of_overall_grade, "none" as short_label ) GP'
+
     the_sql = """
 SELECT 
     # '{course_id}' as course_id,
@@ -85,8 +106,10 @@ FROM
     SELECT item_id, 
         problem_id,
         max(if(item_number=1, x_item_nid, null)) over (partition by problem_id) as problem_nid,
-        CONCAT(GP.short_label, "_", STRING(assignment_seq_num)) as assignment_short_id,
-        (problem_weight * GP.fraction_of_overall_grade / n_items / sum_problem_weight_in_assignment / n_assignments_of_type) as item_weight,
+        CONCAT((case when GP.short_label is null then "" else GP.short_label end),
+               "_", STRING(assignment_seq_num)) as assignment_short_id,
+        (problem_weight * (case when GP.fraction_of_overall_grade is null then 1.0 else GP.fraction_of_overall_grade end)
+             / n_items / sum_problem_weight_in_assignment / n_assignments_of_type) as item_weight,
         n_user_responses,
         chapter_name,
         section_name,
@@ -95,7 +118,7 @@ FROM
         CI.assignment_id as assignment_id,
         n_problems_in_assignment,
         CI.assignment_type as assignment_type,
-        GP.fraction_of_overall_grade as assignment_type_weight,
+        (case when GP.fraction_of_overall_grade is null then 1.0 else GP.fraction_of_overall_grade end) as assignment_type_weight,
         n_assignments_of_type,
         assignment_seq_num,
         chapter_number,
@@ -296,7 +319,7 @@ FROM
                                     url_name,
                                     index,
                                     If(data.weight is null, 1.0, data.weight) as weight,
-                                    gformat as assignment_type,
+                                    (case when gformat is null then "" else gformat end) as assignment_type,
                                     chapter_mid as chapter_mid,
                                     REGEXP_EXTRACT(path, '^/[^/]+/([^/]+)') as section_mid,
                                     name,
@@ -307,8 +330,9 @@ FROM
                                     split_url_name as split_name,
                                     parent,
                                 FROM [{dataset}.course_axis] CAI
-                                where gformat is not null 
-                                and category = "problem"
+                                where 
+                                {disable_gformat} gformat is not null and
+                                category = "problem"
                                 order by index
                             ) CAI
                             LEFT JOIN  # join course_axis with itself to get chapter_number and section_number
@@ -359,12 +383,14 @@ FROM
             ON PA.problem_id = CA.url_name
         )
     ) CI
-    LEFT JOIN [{dataset}.grading_policy] GP
+    LEFT JOIN 
+    {disable_gformat} [{dataset}.grading_policy] GP
+    {alternate_gp}
     ON CI.assignment_type = GP.assignment_type
     order by content_index, item_number
 )
 order by content_index, item_number
-    """.format(dataset=dataset, course_id=course_id)
+    """.format(dataset=dataset, course_id=course_id, disable_gformat=disable_gformat, alternate_gp=alternate_gp)
 
     depends_on = [ "%s.course_axis" % dataset,
                    "%s.grading_policy" % dataset,
