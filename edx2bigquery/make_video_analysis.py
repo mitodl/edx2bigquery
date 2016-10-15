@@ -46,6 +46,7 @@ TABLE_VIDEO_STATS = 'video_stats'
 TABLE_VIDEO_STATS_PER_DAY = 'video_stats_day'
 TABLE_VIDEO_AXIS = 'video_axis'
 TABLE_COURSE_AXIS = 'course_axis'
+TABLE_PERSON_COURSE_VIDEO_WATCHED = "person_course_video_watched"
 
 FILENAME_VIDEO_AXIS = TABLE_VIDEO_AXIS + ".json.gz"
 
@@ -137,6 +138,9 @@ def make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_
     # Lastly, create video stats
     createVideoStats_day( course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest )
     createVideoStats( course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest )
+
+    # also create person_course_video_watched
+    createPersonCourseVideo( course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest )
 
 #-----------------------------------------------------------------------------
 
@@ -312,7 +316,63 @@ def createVideoStats( course_id, force_recompute=False, use_dataset_latest=False
     return bqdat
 
 
+#-----------------------------------------------------------------------------
 
+def createPersonCourseVideo( course_id, force_recompute=False, use_dataset_latest=False ):
+    '''
+    Create the person_course_video_watched table, based on video_stats.
+    Each row gives the number of unique videos watched by a given user, for the given course.
+    '''
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    table = TABLE_PERSON_COURSE_VIDEO_WATCHED
+
+    the_sql = """
+                  SELECT user_id, 
+                      "{course_id}" as course_id,
+                      count(*) n_unique_videos_watched,
+                      count(*) / n_total_videos as fract_total_videos_watched,
+                      viewed, certified, verified
+                  FROM
+                  (
+                      SELECT PC.user_id as user_id, UV.username as username,
+                          video_id, 
+                          n_views,
+                          NV.n_total_videos as n_total_videos,
+                          certified,
+                          viewed,
+                          (mode=="verified") as verified,
+                      FROM
+                      (
+                          SELECT username, video_id, count(*) as n_views
+                          FROM [{dataset}.video_stats_day] 
+                          GROUP BY username, video_id
+                      ) UV
+                      JOIN [{dataset}.person_course] PC
+                      on UV.username = PC.username
+                      CROSS JOIN 
+                      (
+                          SELECT count(*) as n_total_videos
+                          FROM [{dataset}.video_axis]
+                      ) NV
+                      where PC.nforum_pinned is null or PC.nforum_pinned = 0  # include only non-staff
+                  )
+                  GROUP BY user_id, certified, viewed, verified, n_total_videos
+                  order by user_id
+              """
+
+    the_sql = the_sql.format(course_id=course_id, dataset=dataset)
+    bqdat = bqutil.get_bq_table(dataset, table, the_sql, force_query=force_recompute,
+                                depends_on=["%s.%s" % (dataset, TABLE_VIDEO_STATS)],
+                                startIndex=-2)
+    if not bqdat:
+        nfound = 0
+    else:
+        nfound = bqutil.get_bq_table_size_rows(dataset, table)
+    print "--> Done with %s for %s, %d entries found" % (table, course_id, nfound)
+    sys.stdout.flush()
+
+    return bqdat
+    
 #-----------------------------------------------------------------------------
 
 def createVideoStats_obsolete( course_id, force_recompute=False, use_dataset_latest=False, startDate=DATE_DEFAULT_START, endDate=DATE_DEFAULT_END ):
