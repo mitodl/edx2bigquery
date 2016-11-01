@@ -36,6 +36,11 @@
             "description": "Boolean flag, indicating that the user earned a certificate in the course"
         },
         {
+            "type": "BOOLEAN",
+            "name": "completed",
+            "description": "Boolean flag, indicating that the user completed the course with a passing grade"
+        },
+        {
             "type": "STRING",
             "name": "ip",
             "description": "Modal value of the IP address from which this user connected, from tracking logs"
@@ -123,7 +128,12 @@
         {
             "type": "FLOAT",
             "name": "grade",
-            "description": "Final grade earned in the course, out of 100 points"
+            "description": "Final grade earned in the course, 0 to 1"
+        },
+        {
+            "type": "FLOAT",
+            "name": "passing_grade",
+            "description": "Passing grade for the course, 0 to 1"
         },
         {
             "type": "TIMESTAMP",

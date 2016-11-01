@@ -213,7 +213,28 @@ class PersonCourse(object):
                     dst[key] = mapfun(src[val])
     
     #-----------------------------------------------------------------------------
-    
+
+    def load_passing_grade(self):
+   
+        tablename = 'grading_policy'
+
+        the_sql = '''
+            SELECT FIRST(overall_cutoff_for_pass) as overall_cutoff_for_pass
+            FROM [{dataset}.grading_policy]
+        '''.format(**self.sql_parameters)
+
+        # make sure the studentmodule table exists; if not, skip this
+        tables = bqutil.get_list_of_table_ids(self.dataset)
+        if not tablename in tables:
+            self.log("--> No grading_policy table for %s" % self.course_id)
+            setattr(self, tablename, {'data': [], 'data_by_key': {}})
+            return
+
+        self.log("Loading %s from BigQuery" % tablename)
+        self.grading_policy = bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'name'},
+                                                depends_on=[ '%s.grading_policy' % self.dataset ],
+                                                force_query=self.force_recompute_from_logs, logger=self.log)
+
     def get_nchapters_from_course_metainfo(self):
         '''
         Determine the number of chapters from the course_metainfo table, which is computed
@@ -315,7 +336,34 @@ class PersonCourse(object):
             raise Exception('no user_info_combo')
 
         self.uicdat = uicdat
-    
+
+        try:
+            # initialize
+            passing_grade = None
+            overall_cutoff = None
+
+            self.load_passing_grade()
+            tkeys = self.grading_policy['data_by_key'].items()[0][1].keys()
+            import re
+            # Regex is required since overall_cutoff variables vary 
+            # ( e.g.: overall_cutoff_for_great_work, overall_cutoff_for_passing )
+            pattern = r'(overall_cutoff.*)'
+            regex = re.compile(pattern)
+            for tk in tkeys:
+                m = regex.search(tk)
+                if m is not None:
+                    overall_cutoff = m.group(1)
+                    break
+            if overall_cutoff is not None:
+	        passing_grade = self.grading_policy['data_by_key'].items()[0][1].get(overall_cutoff, None)
+	        if passing_grade is not None:
+ 	            passing_grade = float(passing_grade)
+            print passing_grade
+
+        except Exception as err:
+            self.log("Error %s getting passing grade!" % str(err))
+            passing_grade = None
+
         for key, uicent in uicdat.iteritems():
             pcent = OrderedDict()
             self.pctab[key] = pcent			# key = username
@@ -339,6 +387,18 @@ class PersonCourse(object):
         
             pcent['registered'] = True	# by definition
         
+            # Set passing grade for course; else, assign null to indicate error
+            if passing_grade is not None:
+                pcent['passing_grade'] = passing_grade
+
+            # Set completed field based on current and passing grade
+            current_grade = pcent.get('grade', None)
+            pcent['completed'] = False
+            if current_grade is not None and passing_grade is not None:
+                current_grade = float(current_grade)
+                if current_grade >= passing_grade:
+		    pcent['completed'] = True
+
             # derived entries, from SQL data
         
             # certificate status can be [ "downloadable", "notpassing", "unavailable" ]
