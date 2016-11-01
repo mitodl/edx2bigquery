@@ -256,6 +256,26 @@
             "description": "domain of the email address of the user, i.e. what appears after the '@'"
         },
         {
+            "type": "STRING",
+            "name": "language",
+            "description": "modal transcript language"
+        },
+        {
+            "type": "INTEGER",
+            "name": "language_download",
+            "description": "modal transcript language download for any video"
+        },
+        {
+            "type": "INTEGER",
+            "name": "language_nevents",
+            "description": "modal transcript language events"
+        },
+        {
+            "type": "INTEGER",
+            "name": "language_ndiff",
+            "description": "count of different transcript languages"
+        },
+        {
             "type": "INTEGER",
             "name": "ntranscript",
             "description": "Number of video transcript events from tracking logs"

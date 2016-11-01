@@ -435,16 +435,25 @@ class PersonCourse(object):
         if not skip_modal_ip:
             self.load_modal_ip()
 
+	# Modal language
+        self.load_modal_language()
+
         pcd_fields = ['nevents', 'ndays_act', 'nprogcheck', 'nshow_answer', 'nvideo', 'nproblem_check', 
                       ['nforum', 'nforum_events'], 'ntranscript', 'nseq_goto',
                       ['nvideo', 'nplay_video'],
                       'nseek_video', 'npause_video', 'avg_dt', 'sdv_dt', 'max_dt', 'n_dt', 'sum_dt']
 
+        pc_lang_fields = ['language', 'language_download', 'language_nevents', 'language_ndiff']
+
         nmissing_ip = 0
         nmissing_ip_cert = 0
+	langadded = 0
+	nmissing_lang = 0
         for key, pcent in self.pctab.iteritems():
             username = pcent['username']
 
+	    for pcdl in pc_lang_fields:
+	        pcent[ pcdl ] = None
             # pcent['nevents'] = self.pc_nevents['data_by_key'].get(username, {}).get('nevents', None)
 
             if not skip_last_event:
@@ -464,6 +473,15 @@ class PersonCourse(object):
                     if pcent.get('certified'):
                         nmissing_ip_cert += 1
 
+	    try:
+	        for pcdl in pc_lang_fields:
+	            pcent[ pcdl ] = self.course_modal_language['data_by_key'].get(username, {}).get( pcdl, None)
+	        langadded += 1
+	    except Exception as err:
+	        nmissing_lang += 1
+		continue
+
+            # Copy Modal Language data to Person Course
             for pcdf in pcd_fields:
                 self.copy_from_bq_table(self.pc_day_totals, pcent, username, pcdf)
 
@@ -471,6 +489,9 @@ class PersonCourse(object):
             self.log("--> modal_ip's number missing = %d" % nmissing_ip)
             if nmissing_ip_cert:
                 self.log("==> WARNING: missing %d ip addresses for users with certified=True!" % nmissing_ip_cert)
+
+        self.log("Languages added: %s" % ( langadded ))
+        self.log("Languages not added: %s" % ( nmissing_lang ))
 
     def compute_fourth_phase(self):
     
@@ -830,12 +851,15 @@ class PersonCourse(object):
 		self.log( "===> WARNING: Missing table %s for %s" % ( tablename, self.course_id ) )
 		setattr(self, tablename, {'data': [], 'data_by_key': {}})
 		return
-
+        sql = '''
+	      SELECT *
+              FROM [{dataset}.person_enrollment_verified]
+              '''.format(**self.sql_parameters)
         self.log( "Loading %s from BigQuery" % tablename )
         try:
-            self.person_enrollment_verified = bqutil.get_bq_table( self.dataset, tablename, sql=None, key={'name': 'user_id'},
+            setattr(self, tablename, bqutil.get_bq_table( self.dataset, tablename, sql=sql, key={'name': 'user_id'},
                                                                    depends_on=[ '%s.person_enrollment_verified' % self.dataset ],
-                                                                   force_query=self.force_recompute_from_logs, logger=self.log)
+                                                                   force_query=self.force_recompute_from_logs, logger=self.log) )
         except Exception as err:
             self.log("[load_enrollment_verified] Failed, with error=%s" % str(err))
 
@@ -1031,6 +1055,18 @@ class PersonCourse(object):
         setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'username'},
                                                      force_query=self.force_recompute_from_logs, logger=self.log))
 
+    def load_modal_language(self):
+        '''
+	Compute the modal transcript language and multi_language_table, based on tracking logs
+        using the canonical daily dataset 'pcday_trlang_counts
+        '''
+        tables = bqutil.get_list_of_table_ids(self.dataset)
+        table = 'pcday_trlang_count'
+
+
+        self.make_course_specific_multilang_table()	# make course-specific mult-language table
+        self.make_course_specific_modallang_table()	# make course-specific modal language table
+
     def load_modal_ip(self):
         '''
         Compute the modal IP (the IP address most used by the learner), based on the tracking logs.
@@ -1149,6 +1185,114 @@ class PersonCourse(object):
                                                      newer_than=datetime.datetime(2015, 1, 18, 0, 0),
                                                      force_query=self.force_recompute_from_logs, logger=self.log))
 
+    def make_course_specific_modallang_table(self):
+        '''
+	Make course-specific modal transcript language table, based on local multi transcript language table => language_multi_transcripts
+        This data will be joined with Person Course, where 'language' indicates the modal
+        or most frequently used language for a particular user. 
+        This table should contain users and language, showing up once per course
+        '''
+
+        tablename = 'course_modal_language'
+        SQL = '''
+		SELECT
+		  username,
+		  course_id,
+		  resource,
+		  resource_event_data as language,
+		  transcript_download as language_download,
+		  n_events as language_nevents,
+		  n_diff_lang as language_ndiff,
+		FROM (
+		  SELECT
+		    username,
+		    course_id,
+		    resource,
+		    resource_event_data,
+		    transcript_download,
+		    n_events,
+		    last_time_used_lang,
+		    MAX(last_time_used_lang) OVER (PARTITION BY username ) AS max_time_used_lang,
+		    n_diff_lang
+		  FROM [{dataset}.language_multi_transcripts]
+		  WHERE
+		    rank_num = 1
+		  ORDER BY
+		    username ASC )
+		WHERE
+		  last_time_used_lang = max_time_used_lang
+
+              '''.format(**self.sql_parameters)
+
+
+        self.log("Loading %s from BigQuery" % tablename)
+        setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, SQL, key={'name': 'username'},
+                                                     force_query=self.force_recompute_from_logs, 
+                                                     depends_on=[ '%s.language_multi_transcripts' % self.dataset ],
+                                                     logger=self.log))
+
+
+    def make_course_specific_multilang_table(self):
+        '''
+	Make a course-specific multi transcript language table, based on local pcday_trlang_counts table
+        This table can be used to find out what languages a user has interacted with through
+        the video transcript events
+        '''
+        tablename = 'language_multi_transcripts'
+
+        SQL = '''
+
+		SELECT
+		  username,
+		  course_id,
+		  resource,
+		  resource_event_data,
+		  SUM(transcript_download) as transcript_download,
+		  SUM(n_events) AS n_events,
+		  LAST(last_time_used_lang) AS last_time_used_lang,
+		  COUNT(resource_event_data) OVER (PARTITION BY username ) AS n_diff_lang,
+		  RANK() OVER (PARTITION BY username ORDER BY n_events DESC) AS rank_num,
+		FROM (
+		  SELECT
+		    username,
+		    course_id,
+		    resource,
+		    resource_event_data,
+		    resource_event_type,
+		    SUM(CASE
+			WHEN resource_event_type = 'transcript_download' THEN 1
+			ELSE 0 END) AS transcript_download,
+		    SUM(langcount) AS n_events,
+		    LAST(last_time) AS last_time_used_lang
+		  FROM
+		    [{dataset}.pcday_trlang_counts]
+		  GROUP BY
+		    username,
+		    course_id,
+		    resource,
+		    resource_event_data,
+		    resource_event_type,
+		  ORDER BY
+		    username ASC )
+		GROUP BY
+		  username,
+		  course_id,
+		  resource,
+		  resource_event_data,
+		ORDER BY
+		  username,
+		  rank_num ASC # END - Ranking Table
+
+
+              '''.format(**self.sql_parameters)
+
+
+        self.log("Loading %s from BigQuery" % tablename)
+        setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, SQL, key={'name': 'username'},
+                                                     force_query=self.force_recompute_from_logs, 
+                                                     depends_on=[ '%s.pcday_trlang_counts' % self.dataset ],
+                                                     newer_than=datetime.datetime(2016, 10, 21, 23, 00),
+                                                     logger=self.log))
 
     def make_course_specific_modal_ip_table(self):
         '''

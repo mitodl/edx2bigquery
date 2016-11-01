@@ -756,6 +756,18 @@ def person_day(param, courses, args, check_dates=True, stop_on_error=True):
             if stop_on_error:
                 raise
         
+def pcday_trlang(param, courses, args):
+    import make_person_course_day
+    for course_id in get_course_ids(courses):
+        try:
+            make_person_course_day.compute_person_course_day_trlang_table(course_id, force_recompute=args.force_recompute,
+                                                                      use_dataset_latest=param.use_dataset_latest,
+                                                                      end_date=args.end_date,
+                                                                      )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
 
 def pcday_ip(param, courses, args):
     import make_person_course_day
@@ -846,6 +858,7 @@ def doall(param, course_id, args, stdout=None):
         else:
             daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
         pcday_ip(param, course_id, args)	# needed for modal IP
+        pcday_trlang(param, course_id, args)
         person_day(param, course_id, args, stop_on_error=False)
         enrollment_day(param, course_id, args)
 	enrollment_events_table(param, course_id, args)
@@ -874,21 +887,43 @@ def doall(param, course_id, args, stdout=None):
 
 
 def run_nightly_single(param, course_id, args=None):
+
+    print "-"*100
+    print "NIGHTLY PROCESSING %s" % course_id
+    print "-"*100
+
+
+
     try:
-        print "-"*100
-        print "NIGHTLY PROCESSING %s" % course_id
-        print "-"*100
         daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
+
+        # Ensure latest problem, video and forum data for person course day
+        try:
+            analyze_problems(param, course_id, args)
+        except Exception as err:
+            print "--> Failed in analyze_problems with err=%s" % str(err)
+            print "--> continuing with nightly anyway"
+        try:
+            analyze_videos(param, course_id, args)
+        except Exception as err:
+            print "--> Failed in analyze_videos with err=%s" % str(err)
+            print "--> continuing with nightly anyway"
+        try:
+            analyze_forum(param, course_id, args)
+        except Exception as err:
+            print "--> Failed in analyze_forum with err=%s" % str(err)
+            print "--> continuing with nightly anyway"
+
         person_day(param, course_id, args, check_dates=False, stop_on_error=False)
         enrollment_day(param, course_id, args)
 	enrollment_events_table(param, course_id, args)
         pcday_ip(param, course_id, args)	# needed for modal IP
+        pcday_trlang(param, course_id, args)
         person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
         problem_check(param, course_id, args)
         show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, skip_totals=True)
-        analyze_videos(param, course_id, args)
 
     except Exception as err:
         print "="*100
@@ -1348,6 +1383,21 @@ pcday_ip <course_id> ...    : Compute the pcday_ip_counts table for specified co
                               The "report" command aggregates the individual course_id's pcday_ip tables to produce
                               the courses.global_modal_ip table, which is the modal IP address of each username across 
                               all the courses.
+pcday_trlang <course_id> ...: Compute pcday_trlang_counts table for specified course_id's, based on ingesting
+                              the tracking logs. This is a single table stored in the course's main table and
+                              incrementally updated (by appending) when tracking logs are found. This command is run
+                              as part of doall and nightly commands.
+
+                              This table stores one line per (person, course_id, date, resource_event_data,
+                              resource_event_type) from the tracking logs, where 'resource_event_data' = video
+                              transcript language, and 'resource_event_type' = transcript_language or 
+                              transcript_download. Using this table, another table
+                              language_multi_transcripts is created to capture counts per user per language
+                              and then the modal language is computed per user.
+
+                              The "report" command aggregates the individual course_id's pcday_trlang_counts tables
+                              to produce a courses.global_modal_lang table. This table represents the modal
+                              language per user across all courses, based on transcript language events.
 
 person_day <course_id> ...  : Compute the person_course_day (pcday) for the specified course_id's, based on 
                               processing the course's daily tracking log table data.
@@ -1616,10 +1666,29 @@ check_for_duplicates        : check list of courses for duplicates
             print "-"*100
             try:
                 daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
+
+                # Ensure latest problem, video and forum data for person course day
+                try:
+                    analyze_problems(param, course_id, args)
+                except Exception as err:
+                    print "--> Failed in analyze_problems with err=%s" % str(err)
+                    print "--> continuing with nightly anyway"
+                try:
+                    analyze_videos(param, course_id, args)
+                except Exception as err:
+                    print "--> Failed in analyze_videos with err=%s" % str(err)
+                    print "--> continuing with nightly anyway"
+                try:
+                    analyze_forum(param, course_id, args)
+                except Exception as err:
+                    print "--> Failed in analyze_forum with err=%s" % str(err)
+                    print "--> continuing with nightly anyway"
+
                 person_day(param, course_id, args, check_dates=False)
                 enrollment_day(param, course_id, args)
                 enrollment_events_table(param, course_id, args)
                 pcday_ip(param, course_id, args)	# needed for modal IP
+                pcday_trlang(param, course_id, args)
                 person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
                 problem_check(param, course_id, args)
                 analyze_ora(param, course_id, args)
@@ -1917,6 +1986,9 @@ check_for_duplicates        : check list of courses for duplicates
 
     elif (args.command=='pcday_ip'):
         pcday_ip(param, args, args)
+
+    elif (args.command=='pcday_trlang'):
+        pcday_trlang(param, args, args)
 
     elif (args.command=='person_day'):
         # person_day(param, args, args)

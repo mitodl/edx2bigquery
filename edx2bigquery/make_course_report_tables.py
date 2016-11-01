@@ -57,6 +57,7 @@ class CourseReport(object):
         datasets_with_pc = []
         self.all_pc_tables = OrderedDict()
         self.all_pcday_ip_counts_tables = OrderedDict()
+        self.all_pcday_trlang_counts_tables = OrderedDict()
         self.all_uic_tables = OrderedDict()
         self.all_tott_tables = OrderedDict()
         for cd in course_datasets:
@@ -77,6 +78,13 @@ class CourseReport(object):
                 self.all_pcday_ip_counts_tables[cd] = table
 
             try:
+                table = bqutil.get_bq_table_info(cd, 'pcday_trlang_counts')
+            except Exception as err:
+                table = None
+            if table is not None:
+                self.all_pcday_trlang_counts_tables[cd] = table
+
+            try:
                 table = bqutil.get_bq_table_info(cd, 'user_info_combo')
             except Exception as err:
                 table = None
@@ -94,6 +102,7 @@ class CourseReport(object):
         pc_tables = ',\n'.join(['[%s.person_course]' % x for x in datasets_with_pc])
         pcday_tables = ',\n'.join(['[%s.person_course_day]' % x for x in datasets_with_pc])
         pcday_ip_counts_tables = ',\n'.join(['[%s.pcday_ip_counts]' % x for x in self.all_pcday_ip_counts_tables])
+        pcday_trlang_counts_tables = ',\n'.join(['[%s.pcday_trlang_counts]' % x for x in self.all_pcday_trlang_counts_tables])
         uic_tables = ',\n'.join(['[%s.user_info_combo]' % x for x in self.all_uic_tables])
         tott_tables = ',\n'.join(['[%s.time_on_task_totals]' % x for x in self.all_tott_tables])
 
@@ -114,6 +123,7 @@ class CourseReport(object):
                            'uic_tables': uic_tables,
                            'tott_tables': tott_tables,
                            'pcday_ip_counts_tables': pcday_ip_counts_tables,
+                           'pcday_trlang_counts_tables': pcday_trlang_counts_tables,
                            'combined_person_course': the_cpc_table,
                            }
         print "[make_course_report_tables] ==> Using these datasets (with person_course tables): %s" % datasets_with_pc
@@ -135,6 +145,7 @@ class CourseReport(object):
             self.make_table_of_email_addresses()
             self.make_table_of_email_addresses_by_institution()
             self.make_global_modal_ip_table()
+            self.make_global_modal_lang_table()
             self.make_enrollment_by_day()
             self.make_time_on_task_stats_by_course()
             self.make_total_populations_by_course()
@@ -702,6 +713,41 @@ order by course_id;
         '''.format(**self.parameters)
         
         self.do_table(the_sql, 'geographic_distributions')
+
+    def make_global_modal_lang_table(self):
+        '''
+        Make table of global language, based on each course's transcript language  counts, found in 
+        individual course's pcday_trlang_counts tables.
+        '''
+ 
+        the_sql = '''
+           SELECT
+             username,
+             resource_event_data AS modal_language,
+             langcount,
+             n_different_lang,
+           FROM (
+             SELECT
+               username,
+               resource_event_data,
+               langcount,
+               RANK() OVER (PARTITION BY username ORDER BY langcount ASC) n_different_lang,
+               RANK() OVER (PARTITION BY username ORDER BY langcount DESC) rank,
+             FROM (
+               SELECT
+                 username,
+                 resource_event_data,
+                 SUM(langcount) AS langcount
+               FROM {pcday_trlang_counts_tables}
+               GROUP EACH BY
+                 username,
+                 resource_event_data ) )
+               WHERE rank=1
+               ORDER BY username
+        '''.format(**self.parameters)
+
+        self.do_table(the_sql, 'global_modal_lang', the_dataset='courses')
+
         
     def make_global_modal_ip_table(self):
         '''
