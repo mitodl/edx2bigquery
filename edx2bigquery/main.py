@@ -737,6 +737,37 @@ def make_grading_policy(param, courses, args):
             print "--> course tarfile for %s being pinned to data from dump date %s" % (course_id, pin_date)
         make_grading_policy_table.make_gp_table(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose, pin_date)
         
+def research(param, courses, args, check_dates=True, stop_on_error=False):
+
+    import make_research_data_tables
+    import rephrase_forum_data
+    for course_id in get_course_ids(courses):
+        try:
+	    make_research_data_tables.ResearchDataProducts(course_id,
+						       basedir=param.the_basedir,
+						       datedir=param.the_datedir,
+						       nskip=(args.nskip or 0),
+						       output_project_id=args.output_project_id or edx2bigquery_config.PROJECT_ID,
+						       output_dataset_id=args.output_dataset_id,
+						       output_bucket=args.output_bucket or edx2bigquery_config.GS_BUCKET,
+						       use_dataset_latest=param.use_dataset_latest,
+						       only_step=param.only_step,
+						       end_date=(param.end_date or param.DEFAULT_END_DATE),
+						       )
+
+            rephrase_forum_data.rephrase_forum_json_for_course(course_id,
+                                                               gsbucket=edx2bigquery_config.GS_BUCKET,
+                                                               basedir=param.the_basedir,
+                                                               datedir=param.the_datedir,
+                                                               use_dataset_latest=param.use_dataset_latest,
+                                                               )
+
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+            if stop_on_error:
+                raise
 
 def person_day(param, courses, args, check_dates=True, stop_on_error=True):
     import make_person_course_day
@@ -1667,7 +1698,7 @@ check_for_duplicates        : check list of courses for duplicates
             try:
                 daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
 
-                # Ensure latest problem, video and forum data for person course day
+        # Ensure latest problem, video and forum data for person course day
                 try:
                     analyze_problems(param, course_id, args)
                 except Exception as err:
@@ -2016,6 +2047,11 @@ check_for_duplicates        : check list of courses for duplicates
                                                only_step=param.only_step,
                                                end_date=(param.end_date or param.DEFAULT_END_DATE),
                                                )
+
+    elif (args.command=='research'):
+
+        courses = get_course_ids(args)
+        run_parallel_or_serial(research, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='combinepc'):
         import make_combined_person_course
