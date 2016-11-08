@@ -13,6 +13,8 @@
 import os
 import sys
 import json
+from collections import OrderedDict
+import unicodecsv as csv
 import gzip
 import string
 import datetime
@@ -186,29 +188,47 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data",
     fp = openfile(fn)
 
     ofn = lfp / "forum-rephrased.json.gz"
+    ofncsv = "forum.csv.gz" # To match table name in BQ
+    ofncsv_lfp = lfp / ofncsv
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     bqutil.create_dataset_if_nonexistent(dataset)
 
-    if os.path.exists(ofn):
+    if os.path.exists(ofn) and os.path.exists( ofncsv_lfp ):
 
         tables = bqutil.get_list_of_table_ids(dataset)
         if not 'forum' in tables:
             print "Already done?  But no forums table loaded into datasaet %s.  Redoing." % dataset
         else:
             print "Already done %s -> %s (skipping)" % (fn, ofn)
+            print "Already done %s -> %s (skipping)" % (fn, ofncsv_lfp)
             sys.stdout.flush()
             return
 
-    print "Processing %s -> %s (%s)" % (fn, ofn, datetime.datetime.now())
+    print "Processing %s -> writing to %s and %s (%s)" % (fn, ofn, ofncsv, datetime.datetime.now())
     sys.stdout.flush()
+
+    # Setup CSV header
+    ocsv = csv.DictWriter( openfile(ofncsv, 'w'), fieldnames=SCHEMA_DICT.keys(), quoting=csv.QUOTE_NONNUMERIC )
+    ocsv.writeheader()
 
     cnt = 0
     ofp = gzip.GzipFile('tmp.json.gz', 'w')
+    data = OrderedDict()
     for line in fp:
         cnt += 1
+        # Write JSON row
         newline = do_rephrase_line(line, linecnt=cnt)
         ofp.write(newline)
+
+        try:
+            #Write CSV row
+            data = json.loads(newline)
+            ocsv.writerow( data )
+        except Exception as err: 
+            print "Error writing CSV output row %s=%s" % ( cnt, data )
+            raise
+
     ofp.close()
 
     print "...done (%s)" % datetime.datetime.now()
