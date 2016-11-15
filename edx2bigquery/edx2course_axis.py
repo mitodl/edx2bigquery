@@ -640,6 +640,7 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
         
         # save as csv file
         csvfn = '%s/axis_%s.csv' % (DATADIR, cid.replace('/','__'))
+        csvca = '%s/course_axis.csv' % (DATADIR)
         fp = open(csvfn, 'wb')
         writer = csv.writer(fp, dialect="excel", quotechar='"', quoting=csv.QUOTE_ALL)
         writer.writerow(header)
@@ -651,7 +652,10 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
                 print "Failed to write row %s" % data
                 print "Error=%s" % err
         fp.close()
+        os.system('cp %s %s' % (csvfn, csvca ) ) # Make an extra copy named course_axis.csv
+        os.system('gzip -9 -f %s' % csvca )
         print "Saved course axis to %s" % csvfn
+        print "Saved course axis to %s" % csvca+'.gz'
 
 # <codecell>
 

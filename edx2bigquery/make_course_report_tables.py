@@ -59,6 +59,7 @@ class CourseReport(object):
         self.all_pcday_ip_counts_tables = OrderedDict()
         self.all_pcday_trlang_counts_tables = OrderedDict()
         self.all_uic_tables = OrderedDict()
+        self.all_ca_tables = OrderedDict()
         self.all_tott_tables = OrderedDict()
         for cd in course_datasets:
             try:
@@ -69,6 +70,14 @@ class CourseReport(object):
             if table is not None:
                 self.all_pc_tables[cd] = table
                 datasets_with_pc.append(cd)
+
+            try:
+                table = bqutil.get_bq_table_info(cd, 'course_axis')
+            except Exception as err:
+                print "[make_course_axis_tables] Err: %s" % str(err)
+                table = None
+            if table is not None:
+                self.all_ca_tables[cd] = table
 
             try:
                 table = bqutil.get_bq_table_info(cd, 'pcday_ip_counts')
@@ -104,6 +113,7 @@ class CourseReport(object):
         pcday_ip_counts_tables = ',\n'.join(['[%s.pcday_ip_counts]' % x for x in self.all_pcday_ip_counts_tables])
         pcday_trlang_counts_tables = ',\n'.join(['[%s.pcday_trlang_counts]' % x for x in self.all_pcday_trlang_counts_tables])
         uic_tables = ',\n'.join(['[%s.user_info_combo]' % x for x in self.all_uic_tables])
+        ca_tables = ',\n'.join(['[%s.course_axis]' % x for x in self.all_ca_tables])
         tott_tables = ',\n'.join(['[%s.time_on_task_totals]' % x for x in self.all_tott_tables])
 
         print "%d time_on_task tables: %s" % (len(self.all_tott_tables), tott_tables)
@@ -121,6 +131,7 @@ class CourseReport(object):
                            'pc_tables': pc_tables,
                            'pcday_tables': pcday_tables,
                            'uic_tables': uic_tables,
+                           'ca_tables': ca_tables,
                            'tott_tables': tott_tables,
                            'pcday_ip_counts_tables': pcday_ip_counts_tables,
                            'pcday_trlang_counts_tables': pcday_trlang_counts_tables,
@@ -140,6 +151,7 @@ class CourseReport(object):
         if 1:
             self.combine_show_answer_stats_by_course()
             self.make_totals_by_course()
+            self.make_course_axis_table()
             self.make_person_course_day_table() 
             self.make_medians_by_course()
             self.make_table_of_email_addresses()
@@ -151,7 +163,7 @@ class CourseReport(object):
             self.make_total_populations_by_course()
             self.make_table_of_n_courses_registered()
             self.make_geographic_distributions()
-            # self.count_tracking_log_events()
+            ## self.count_tracking_log_events()
             self.make_overall_totals()
     
         print "="*100
@@ -487,6 +499,14 @@ order by course_id;
             sql_for_description = "outer SQL:\n%s\n\nInner SQL:\n%stt_set=%s" % (outer_sql, sub_sql, self.parameters['tott_tables'])
     
             self.do_table(the_sql, pset['table'], sql_for_description=sql_for_description, check_skip=False, maximumBillingTier=4)
+
+    def make_course_axis_table(self):
+
+        the_sql = '''
+            SELECT *
+            FROM {ca_tables}
+        '''.format(**self.parameters)
+        self.do_table(the_sql, 'course_axis')
 
     def make_person_course_day_table(self):
 
