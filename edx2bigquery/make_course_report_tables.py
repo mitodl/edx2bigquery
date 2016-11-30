@@ -60,6 +60,7 @@ class CourseReport(object):
         self.all_pcday_trlang_counts_tables = OrderedDict()
         self.all_uic_tables = OrderedDict()
         self.all_ca_tables = OrderedDict()
+        self.all_va_tables = OrderedDict()
         self.all_tott_tables = OrderedDict()
         for cd in course_datasets:
             try:
@@ -78,6 +79,14 @@ class CourseReport(object):
                 table = None
             if table is not None:
                 self.all_ca_tables[cd] = table
+
+            try:
+                table = bqutil.get_bq_table_info(cd, 'video_axis')
+            except Exception as err:
+                print "[make_video_axis_tables] Err: %s" % str(err)
+                table = None
+            if table is not None:
+                self.all_va_tables[cd] = table
 
             try:
                 table = bqutil.get_bq_table_info(cd, 'pcday_ip_counts')
@@ -114,6 +123,7 @@ class CourseReport(object):
         pcday_trlang_counts_tables = ',\n'.join(['[%s.pcday_trlang_counts]' % x for x in self.all_pcday_trlang_counts_tables])
         uic_tables = ',\n'.join(['[%s.user_info_combo]' % x for x in self.all_uic_tables])
         ca_tables = ',\n'.join(['[%s.course_axis]' % x for x in self.all_ca_tables])
+        va_tables = ',\n'.join(['[%s.video_axis]' % x for x in self.all_va_tables])
         tott_tables = ',\n'.join(['[%s.time_on_task_totals]' % x for x in self.all_tott_tables])
 
         print "%d time_on_task tables: %s" % (len(self.all_tott_tables), tott_tables)
@@ -132,6 +142,7 @@ class CourseReport(object):
                            'pcday_tables': pcday_tables,
                            'uic_tables': uic_tables,
                            'ca_tables': ca_tables,
+                           'va_tables': va_tables,
                            'tott_tables': tott_tables,
                            'pcday_ip_counts_tables': pcday_ip_counts_tables,
                            'pcday_trlang_counts_tables': pcday_trlang_counts_tables,
@@ -152,6 +163,7 @@ class CourseReport(object):
             self.combine_show_answer_stats_by_course()
             self.make_totals_by_course()
             self.make_course_axis_table()
+            self.make_video_axis_table()
             self.make_person_course_day_table() 
             self.make_medians_by_course()
             self.make_table_of_email_addresses()
@@ -507,6 +519,14 @@ order by course_id;
             FROM {ca_tables}
         '''.format(**self.parameters)
         self.do_table(the_sql, 'course_axis')
+
+    def make_video_axis_table(self):
+
+        the_sql = '''
+            SELECT *
+            FROM {va_tables}
+        '''.format(**self.parameters)
+        self.do_table(the_sql, 'video_axis')
 
     def make_person_course_day_table(self):
 
