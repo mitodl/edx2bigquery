@@ -333,6 +333,12 @@ def time_on_task(param, course_id, optargs=None, skip_totals=False, just_do_tota
     print "Updating time_task table for %s" % course_id
     sys.stdout.flush()
 
+    config_parameter_overrides = None
+    if optargs.time_on_task_config:	# e.g. "timeout_short:7,time_on_task_table_name:test_time_on_task_7"
+        config_parameter_overrides = {x[0]: x[1] for x in [y.split(':', 1) for y in optargs.time_on_task_config.split(',')]}
+        print "   Overriding default config with: %s" % json.dumps(config_parameter_overrides, indent=4)
+        sys.stdout.flush()
+
     import make_time_on_task
 
     try:
@@ -345,6 +351,7 @@ def time_on_task(param, course_id, optargs=None, skip_totals=False, just_do_tota
                                                       limit_query_size=param.limit_query_size,
                                                       table_max_size_mb=(param.table_max_size_mb or 800),
                                                       skip_totals=skip_totals,
+                                                      config_parameter_overrides=config_parameter_overrides,
                                                   )
     except Exception as err:
         print "===> Error completing process_course_time_on_task on %s, err=%s" % (course_id, str(err))
@@ -1485,6 +1492,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--logfn-keepdir", help="keep directory name in tracking which tracking logs have been loaded already", action="store_true")
     parser.add_argument("--skip-last-day", help="skip last day of tracking log data in processing pcday, to avoid partial-day data contamination", action="store_true")
     parser.add_argument("--gzip", help="compress the output file (e.g. for get_course_data)", action="store_true")
+    parser.add_argument("--time-on-task-config", type=str, help="time-on-task computation parameters for overriding default config, as string of comma separated values")
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
     
     args = parser.parse_args()
