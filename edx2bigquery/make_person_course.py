@@ -405,6 +405,7 @@ class PersonCourse(object):
             # if uicent.get('certificate_status', '') in [ "downloadable","unavailable" ]:
             if uicent.get('certificate_status', '') in [ "downloadable" ]:
                 pcent['certified'] = True
+                pcent['completed'] = True
             else:
                 pcent['certified'] = False
         
