@@ -331,7 +331,7 @@ FROM
                                     parent,
                                 FROM [{dataset}.course_axis] CAI
                                 where 
-                                {disable_gformat} gformat is not null and
+                                #{disable_gformat} gformat is not null and
                                 category = "problem"
                                 order by index
                             ) CAI
