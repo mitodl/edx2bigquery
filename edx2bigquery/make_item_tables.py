@@ -427,21 +427,30 @@ def create_person_item_table(course_id, force_recompute=False, use_dataset_lates
 # compute person-item table
 
 SELECT user_id, 
+       course_id,
     # PA.item_id as item_id,
     CI.item_short_id as item_short_id,
     CI.item_nid as item_nid,
     item_grade,
+    grade,
     n_attempts,
     date
 FROM
 (
     SELECT user_id,
+           course_id,
         item.answer_id as item_id,
         if(item.correct_bool, 1, 0) as item_grade,
+	grade,
         attempts as n_attempts,
         max(created) as date,
     FROM [{dataset}.problem_analysis]
-    group by user_id, item_id, item_grade, n_attempts  # force (user_id, item_id) to be unique (it should always be, even w/o this)
+    group by user_id, 
+             course_id, 
+             item_id, 
+             item_grade, 
+	     grade,
+             n_attempts  # force (user_id, item_id) to be unique (it should always be, even w/o this)
 ) PA
 JOIN [{dataset}.course_item] CI
 on PA.item_id = CI.item_id
@@ -484,9 +493,11 @@ def create_person_problem_table(course_id, force_recompute=False, use_dataset_la
 # compute person-problem table for {course_id}
 
 SELECT user_id,
+       course_id,
     CI.problem_nid as problem_nid,
     sum(item_grade) as problem_raw_score,
     sum(item_grade) / sum(CI.item_points_possible) * 100 as problem_pct_score,
+    max(PI.grade) as grade,
     max(n_attempts) as n_attempts,
     max(date) as date,
     
@@ -494,8 +505,8 @@ FROM [{dataset}.person_item] PI
 JOIN [{dataset}.course_item] CI
     
 on PI.item_nid = CI.item_nid
-group by user_id, problem_nid
-order by user_id, problem_nid
+group by user_id, course_id, problem_nid
+order by user_id, course_id, problem_nid
     """.format(dataset=dataset, course_id=course_id)
 
     depends_on = [ "%s.course_item" % dataset,
@@ -532,7 +543,7 @@ def create_course_problem_table(course_id, force_recompute=False, use_dataset_la
 
     the_sql = """
 # compute course_problem table for {course_id}
-SELECT problem_nid, problem_id, problem_short_id, 
+SELECT course_id, problem_nid, problem_id, problem_short_id, 
   avg(problem_grade) as avg_problem_raw_score,
   stddev(problem_grade) as sdv_problem_raw_score,
   # max(problem_grade) as max_problem_raw_score,
@@ -544,14 +555,14 @@ SELECT problem_nid, problem_id, problem_short_id,
   split_name,
 FROM
 (
-    SELECT problem_nid, problem_id, problem_short_id, sum(item_grade) as problem_grade, user_id,
+    SELECT course_id, problem_nid, problem_id, problem_short_id, sum(item_grade) as problem_grade, user_id,
         sum(CI.item_points_possible) as possible_raw_score, problem_name, is_split, split_name,
     FROM [{dataset}.person_item] PI
     JOIN [{dataset}.course_item] CI
     on PI.item_nid = CI.item_nid
-    group by problem_nid, problem_short_id, problem_id, user_id, problem_name, is_split, split_name
+    group by course_id, problem_nid, problem_short_id, problem_id, user_id, problem_name, is_split, split_name
 )
-group by problem_nid, problem_id, problem_short_id, problem_name, is_split, split_name
+group by course_id, problem_nid, problem_id, problem_short_id, problem_name, is_split, split_name
 # order by problem_short_id
 order by avg_problem_pct_score desc
     """.format(dataset=dataset, course_id=course_id)
