@@ -202,7 +202,7 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
             tsv2csv(infn, outfn)
 
     # convert sql files if necesssary
-    fnset = ['users', 'certificates', 'enrollment', "profiles", 'user_id_map']
+    fnset = ['users', 'certificates', 'enrollment', "profiles", 'user_id_map', 'rolecourse', 'roleforum']
     for fn in fnset:
         convert_sql(lfp / fn)
 

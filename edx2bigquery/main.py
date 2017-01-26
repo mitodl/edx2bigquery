@@ -235,6 +235,15 @@ def setup_sql(param, args, steps, course_id=None):
                                           datedir=param.the_datedir,
                                           use_dataset_latest=param.use_dataset_latest,
                                           )
+
+    if sqlall or 'make_roles' in steps:
+        import make_roles
+        make_roles.process_file(course_id, 
+                                basedir=param.the_basedir,
+                                datedir=param.the_datedir,
+                                use_dataset_latest=param.use_dataset_latest,
+                                )
+
     if sqlall or 'sql2bq' in steps:
         import load_course_sql
         try:
@@ -1278,6 +1287,9 @@ make_uic <course_id> ...    : make the "user_info_combo" file for the specified 
                               Does not import into BigQuery.
                               Accepts the "--year2" flag, to process all courses in the config file's course_id_list.
 
+make_roles <course_id> ...  : make the "roles.csv" file for the specified course_id, from edX's SQL dumps
+
+
 sql2bq <course_id> ...      : load specified course_id SQL files into google storage, and import the user_info_combo and studentmodule
                               data into BigQuery.
                               Also upload course_image.jpg images from the course SQL directories (if image exists) to
@@ -1729,6 +1741,9 @@ check_for_duplicates        : check list of courses for duplicates
                 traceback.print_exc()
 
     elif (args.command=='make_uic'):
+        setup_sql(param, args, args.command)
+
+    elif (args.command=='make_roles'):
         setup_sql(param, args, args.command)
                                               
     elif (args.command=='sql2bq'):
