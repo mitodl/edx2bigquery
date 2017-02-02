@@ -121,7 +121,19 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
             if fn.endswith('.gz'):
                 return gzip.GzipFile(fn, mode)
             return open(fn, mode)
-        
+
+    def createRoleVar( wideData ):
+
+        if ( pd.notnull( wideData['Administrator'] ) or \
+               pd.notnull( wideData['Moderator'] ) or \
+               pd.notnull( wideData['beta_testers'] ) or \
+               pd.notnull( wideData['instructor'] ) or \
+               pd.notnull( wideData['staff'] ) or \
+               pd.notnull( wideData['CommunityTA'] ) ):
+             return str("Staff")
+        else:
+             return str("Student")
+           
     def cleanRoles( longData, unique_id, column_header, values, columns, allfields ):
         
         longData[ values ] = int(1)
@@ -157,7 +169,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     
     # Process Course Access Roles
     known_roles_course = OrderedDict([
-                          ('beta_tester', 'roles_isBetaTester'), 
+                          ('beta_testers', 'roles_isBetaTester'), 
                           ('instructor', 'roles_isInstructor'), 
                           ('staff', 'roles_isStaff')
                           ])
@@ -174,16 +186,22 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
                           ('Student', 'forumRoles_isStudent')
                            ])
     base_fields = ['user_id', 'course_id']
+    extra_fields = ['roles'] # To be used to create custom mapping based on existing course and discussion forum roles
     fields = base_fields + known_roles_disc.keys()
     print "  Cleaning %s" % ROLE_FORUM_ACCESS
     wide_rolediscdata = cleanRoles( rolediscdata, 'uid', 'name', 'value', known_roles_disc.keys(), fields )
     
     # Compile
-    fields_all = base_fields + known_roles_course.keys() + known_roles_disc.keys()
+    fields_all = base_fields + known_roles_course.keys() + known_roles_disc.keys() + extra_fields
     rename_dict = dict(known_roles_course, **known_roles_disc)
     wideData = pd.merge( wide_roledata, wide_rolediscdata, how='outer', on=["user_id", "course_id"], suffixes=['', '_disc'] )
+
+    wideData['roles'] = wideData.apply( createRoleVar, axis=1 )
+
+    # Rename columns
     wideData = wideData[ fields_all ]
     wideData.rename( columns=rename_dict, inplace=True )
+
     finalFields = wideData.columns.tolist()
 
     # Write out

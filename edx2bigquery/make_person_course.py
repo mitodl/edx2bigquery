@@ -730,13 +730,16 @@ class PersonCourse(object):
         
         roles = self.load_csv(rfn, 'user_id', keymap=int)
 
-        fields = ["roles_isBetaTester","roles_isInstructor",
+        fields = ["roles", "roles_isBetaTester","roles_isInstructor",
                   "roles_isStaff","forumRoles_isAdmin","forumRoles_isCommunityTA",
                   "forumRoles_isModerator","forumRoles_isStudent"]
 
         def mapfun(x):
             if x or x==0:
-                return int(float(x))
+                if type(x) == float or type(x) == int:
+                   return int(float(x))
+                else:
+                   return x
             return None
 
         nroles = 0
