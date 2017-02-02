@@ -520,12 +520,15 @@ class PersonCourse(object):
             if not skip_last_event:
                 # le = self.pc_last_event['data_by_key'].get(username, {}).get('last_event', None)
                 le = self.pc_day_totals['data_by_key'].get(username, {}).get('last_event', None)
+                fe = self.pc_day_totals['data_by_key'].get(username, {}).get('first_event', None)
                 if le is not None and le:
                     try:
                         le = str(datetime.datetime.utcfromtimestamp(float(le)))
+                        fe = str(datetime.datetime.utcfromtimestamp(float(fe)))
                     except Exception as err:
                         self.log('oops, last event cannot be turned into a time; le=%s, username=%s' % (le, username))
                     pcent['last_event'] = le
+                    pcent['first_event'] = fe
 
             if not skip_modal_ip:
                 self.copy_from_bq_table(self.pc_modal_ip, pcent, username, 'modal_ip', new_field='ip')
@@ -953,6 +956,7 @@ class PersonCourse(object):
                 sum(nseq_goto) as nseq_goto,
                 sum(nseek_video) as nseek_video,
                 sum(npause_video) as npause_video,
+                MIN(first_event) as first_event,
                 MAX(last_event) as last_event,
                 AVG(avg_dt) as avg_dt,
                 sqrt(sum(sdv_dt*sdv_dt * n_dt)/sum(n_dt)) as sdv_dt,

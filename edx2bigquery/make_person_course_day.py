@@ -332,6 +332,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
     PCDAY_SQL_PROBLEM_SELECT = PCDAY_SQL_PROBLEM_EXISTS if problemTableExists else PCDAY_SQL_PROBLEM_DNE
 
     PCDAY_SQL_MID = """
+				 MIN(time) AS first_event,
 				 MAX(time) AS last_event,
 				 AVG( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS avg_dt,
 				 STDDEV( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS sdv_dt,
@@ -527,7 +528,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
                                                      use_dataset_latest=use_dataset_latest,
                                                      end_date=end_date,
                                                      get_date_function=gdf,
-                                                     newer_than=datetime.datetime( 2016, 1, 19, 22, 30 ),
+                                                     newer_than=datetime.datetime( 2017, 2, 17, 13, 19 ),
                                                      skip_last_day=skip_last_day)
     
     print "Done with person_course_day for %s (end %s)"  % (course_id, datetime.datetime.now())

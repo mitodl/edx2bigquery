@@ -142,6 +142,11 @@
         },
         {
             "type": "TIMESTAMP",
+            "name": "first_event",
+            "description": "Date of first event of user, from tracking logs"
+        },
+        {
+            "type": "TIMESTAMP",
             "name": "last_event",
             "description": "Date of last event of user, from tracking logs"
         },
