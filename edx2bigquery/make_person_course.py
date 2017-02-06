@@ -524,10 +524,15 @@ class PersonCourse(object):
                 if le is not None and le:
                     try:
                         le = str(datetime.datetime.utcfromtimestamp(float(le)))
-                        fe = str(datetime.datetime.utcfromtimestamp(float(fe)))
                     except Exception as err:
                         self.log('oops, last event cannot be turned into a time; le=%s, username=%s' % (le, username))
                     pcent['last_event'] = le
+
+                if fe is not None and fe:
+                    try:
+                        fe = str(datetime.datetime.utcfromtimestamp(float(fe)))
+                    except Exception as err:
+                        self.log('oops, last event cannot be turned into a time; le=%s, username=%s' % (fe, username))
                     pcent['first_event'] = fe
 
             if not skip_modal_ip:
