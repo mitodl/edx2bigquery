@@ -491,6 +491,10 @@ class PersonCourse(object):
 
         self.load_pc_day_totals()	# person-course-day totals contains all the aggregate nevents, etc.
 
+        # Video Watched
+        self.load_pc_video_watched()
+
+        # Modal IP
         skip_modal_ip = skip_modal_ip or self.skip_geoip
 
         if not skip_modal_ip:
@@ -511,6 +515,7 @@ class PersonCourse(object):
 	langadded = 0
 	nmissing_lang = 0
         for key, pcent in self.pctab.iteritems():
+            uid = str(pcent['user_id'])
             username = pcent['username']
 
 	    for pcdl in pc_lang_fields:
@@ -535,6 +540,11 @@ class PersonCourse(object):
                         self.log('oops, last event cannot be turned into a time; le=%s, username=%s' % (fe, username))
                     pcent['first_event'] = fe
 
+            # Video Watched
+	    self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'n_unique_videos_watched', new_field='nvideos_unique_viewed')
+	    self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'fract_total_videos_watched', new_field='nvideos_total_watched')
+
+	    # Copy Modal IP data
             if not skip_modal_ip:
                 self.copy_from_bq_table(self.pc_modal_ip, pcent, username, 'modal_ip', new_field='ip')
                 if self.pc_modal_ip['data_by_key'].get(username, {}).get('source', None)=='missing':
@@ -934,6 +944,27 @@ class PersonCourse(object):
                                                                    force_query=self.force_recompute_from_logs, logger=self.log) )
         except Exception as err:
             self.log("[load_enrollment_verified] Failed, with error=%s" % str(err))
+
+    def load_pc_video_watched(self):
+
+        tables = bqutil.get_list_of_table_ids(self.dataset)     
+        tablename = 'person_course_video_watched'
+	if not tablename in tables:
+		self.log( "===> WARNING: Missing table %s for %s" % ( tablename, self.course_id ) )
+		setattr(self, tablename, {'data': [], 'data_by_key': {}})
+		return
+        sql = '''
+	      SELECT *
+              FROM [{dataset}.person_course_video_watched]
+              '''.format(**self.sql_parameters)
+        self.log( "Loading %s from BigQuery" % tablename )
+        try:
+            setattr(self, tablename, bqutil.get_bq_table( self.dataset, tablename, sql=sql, key={'name': 'user_id'},
+                                                                   depends_on=[ '%s.person_course_video_watched' % self.dataset ],
+                                                                   force_query=self.force_recompute_from_logs, logger=self.log) )
+        except Exception as err:
+            self.log("[load_enrollment_verified] Failed, with error=%s" % str(err))
+
 
     def load_pc_day_totals(self):
         '''

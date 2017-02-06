@@ -307,6 +307,16 @@
         },
         {
             "type": "INTEGER",
+            "name": "nvideos_unique_viewed",
+            "description": "Unique Videos viewed per user within a course"
+        },
+        {
+            "type": "FLOAT",
+            "name": "nvideos_total_watched",
+            "description": "Total % of all videos watched per user within a course"
+        },
+        {
+            "type": "INTEGER",
             "name": "nseq_goto",
             "description": "Number of 'sequence goto' navigational events from tracking logs"
         },

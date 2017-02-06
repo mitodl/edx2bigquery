@@ -354,7 +354,7 @@ def createPersonCourseVideo( course_id, force_recompute=False, use_dataset_lates
                           SELECT count(*) as n_total_videos
                           FROM [{dataset}.video_axis]
                       ) NV
-                      where PC.nforum_pinned is null or PC.nforum_pinned = 0  # include only non-staff
+                      WHERE PC.roles = 'Student'
                   )
                   GROUP BY user_id, certified, viewed, verified, n_total_videos
                   order by user_id
@@ -363,6 +363,7 @@ def createPersonCourseVideo( course_id, force_recompute=False, use_dataset_lates
     the_sql = the_sql.format(course_id=course_id, dataset=dataset)
     bqdat = bqutil.get_bq_table(dataset, table, the_sql, force_query=force_recompute,
                                 depends_on=["%s.%s" % (dataset, TABLE_VIDEO_STATS)],
+                                newer_than=datetime.datetime( 2017, 2, 6, 18, 30 ),
                                 startIndex=-2)
     if not bqdat:
         nfound = 0
