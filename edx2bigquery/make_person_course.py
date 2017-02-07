@@ -749,7 +749,8 @@ class PersonCourse(object):
         roles = self.load_csv(rfn, 'user_id', keymap=int)
 
         fields = ["roles", "roles_isBetaTester","roles_isInstructor",
-                  "roles_isStaff","forumRoles_isAdmin","forumRoles_isCommunityTA",
+                  "roles_isStaff", "roles_isCCX", "roles_isFinance", "roles_isLibrary", "roles_isSales",
+                  "forumRoles_isAdmin","forumRoles_isCommunityTA",
                   "forumRoles_isModerator","forumRoles_isStudent"]
 
         def mapfun(x):

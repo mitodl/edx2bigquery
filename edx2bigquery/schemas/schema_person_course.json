@@ -372,6 +372,26 @@
         }, 
         {
             "type": "INTEGER", 
+            "name": "roles_isCCX",
+            "description":  "1 if user is ccx coach"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "roles_isFinance",
+            "description":  "1 if user is finance admin"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "roles_isLibrary",
+            "description":  "1 if user is library user"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "roles_isSales",
+            "description":  "1 if user is sales"
+        }, 
+        {
+            "type": "INTEGER", 
             "name": "forumRoles_isAdmin",
             "description":  "1 if user is a forum admin"
         }, 

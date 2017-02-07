@@ -122,14 +122,9 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
                 return gzip.GzipFile(fn, mode)
             return open(fn, mode)
 
-    def createRoleVar( wideData ):
+    def createRoleVar( wideData, all_roles ):
 
-        if ( pd.notnull( wideData['Administrator'] ) or \
-               pd.notnull( wideData['Moderator'] ) or \
-               pd.notnull( wideData['beta_testers'] ) or \
-               pd.notnull( wideData['instructor'] ) or \
-               pd.notnull( wideData['staff'] ) or \
-               pd.notnull( wideData['CommunityTA'] ) ):
+	if wideData[ all_roles ].notnull().values.any():
              return str("Staff")
         else:
              return str("Student")
@@ -171,7 +166,11 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     known_roles_course = OrderedDict([
                           ('beta_testers', 'roles_isBetaTester'), 
                           ('instructor', 'roles_isInstructor'), 
-                          ('staff', 'roles_isStaff')
+                          ('staff', 'roles_isStaff'),
+                          ('ccx_coach', 'roles_isCCX'),
+                          ('finance_admin', 'roles_isFinance'),
+                          ('library_user', 'roles_isLibrary'),
+                          ('sales_admin', 'roles_isSales')
                           ])
     base_fields = ['user_id', 'course_id']
     fields = base_fields + known_roles_course.keys()
@@ -196,7 +195,10 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     rename_dict = dict(known_roles_course, **known_roles_disc)
     wideData = pd.merge( wide_roledata, wide_rolediscdata, how='outer', on=["user_id", "course_id"], suffixes=['', '_disc'] )
 
-    wideData['roles'] = wideData.apply( createRoleVar, axis=1 )
+    # Create Roles var
+    all_roles = known_roles_disc.keys() + known_roles_course.keys()
+    all_roles.remove('Student')
+    wideData['roles'] = wideData.apply( createRoleVar, args=[all_roles], axis=1 )
 
     # Rename columns
     wideData = wideData[ fields_all ]
