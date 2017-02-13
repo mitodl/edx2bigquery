@@ -541,8 +541,12 @@ class PersonCourse(object):
                     pcent['first_event'] = fe
 
             # Video Watched
-	    self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'n_unique_videos_watched', new_field='nvideos_unique_viewed')
-	    self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'fract_total_videos_watched', new_field='nvideos_total_watched')
+            try:
+	        self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'n_unique_videos_watched', new_field='nvideos_unique_viewed')
+	        self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'fract_total_videos_watched', new_field='nvideos_total_watched')
+
+            except Exception as err:
+                continue
 
 	    # Copy Modal IP data
             if not skip_modal_ip:
@@ -771,8 +775,14 @@ class PersonCourse(object):
                 nmissing += 1
                 continue
 
-            self.copy_fields(roles[uid], pcent, {x:x for x in fields}, mapfun=mapfun)
-            nroles += 1
+            try:
+                self.copy_fields(roles[uid], pcent, {x:x for x in fields}, mapfun=mapfun)
+                nroles += 1
+
+	    except Exception as err:
+                print str(err)
+                #self.log( "---> Cannot add roles data... Skipping" )
+		continue
 
         if self.verbose and False:
             self.log("--> Err! missing roles information for uid=%s" % missing_uids)
