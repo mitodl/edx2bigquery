@@ -41,11 +41,13 @@ RDP_FORUMS = 'forum'
 RDP_FORUM_POSTS = 'forum_posts'
 
 # Problems
+RDP_COURSE_ITEM = 'course_item'
 RDP_COURSE_PROBLEM = 'course_problem'
 RDP_PERSON_PROBLEM_WIDE = 'person_problem_wide'
 RDP_PERSON_PROBLEM = 'person_problem'
 RDP_PROBLEM_ANALYSIS = 'problem_analysis'
 RDP_PROBLEM_EVENTS = 'problem_events'
+RDP_PROBLEM_CHECK = 'problem_check'
 RDP_PERSON_ITEM = 'person_item'
 
 # Time on Task
@@ -56,6 +58,7 @@ RDP_TIME_ON_TASK_TOTALS = 'time_on_task_totals'
 RDP_VIDEO_AXIS = 'video_axis'
 RDP_VIDEO_STATS = 'video_stats'
 RDP_VIDEO_STATS_DAY = 'video_stats_day'
+RDP_PERSON_VIDEO_WATCHED = 'person_course_video_watched'
 
 # Pre course survey
 RDP_PRECOURSE_SURVEY = 'survey_precourse_download'
@@ -84,8 +87,12 @@ RESEARCH_DATA_PRODUCTS = collections.OrderedDict( [\
 			( RDP_VIDEO_AXIS, RDP_VIDEO_AXIS + FILE_EXT ),
 			( RDP_VIDEO_STATS, RDP_VIDEO_STATS + FILE_EXT ),
 			( RDP_VIDEO_STATS_DAY, RDP_VIDEO_STATS_DAY + FILE_EXT ),
+			( RDP_PERSON_VIDEO_WATCHED, RDP_PERSON_VIDEO_WATCHED + FILE_EXT ),
 			# Problems
 			( RDP_COURSE_PROBLEM, RDP_COURSE_PROBLEM + FILE_EXT ),
+			( RDP_PERSON_PROBLEM, RDP_PERSON_PROBLEM + FILE_EXT ),
+			( RDP_PROBLEM_CHECK, RDP_PROBLEM_CHECK + FILE_EXT ),
+			( RDP_COURSE_ITEM, RDP_COURSE_ITEM + FILE_EXT ),
 			( RDP_PERSON_PROBLEM, RDP_PERSON_PROBLEM + FILE_EXT ),
 			#( RDP_PROBLEM_ANALYSIS, RDP_PROBLEM_ANALYSIS + FILE_EXT ),
 			# Pre Course Survey
