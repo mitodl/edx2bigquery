@@ -528,7 +528,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
                                                      use_dataset_latest=use_dataset_latest,
                                                      end_date=end_date,
                                                      get_date_function=gdf,
-                                                     newer_than=datetime.datetime( 2017, 2, 17, 13, 19 ),
+                                                     newer_than=datetime.datetime( 2017, 2, 8, 16, 30 ),
                                                      skip_last_day=skip_last_day)
     
     print "Done with person_course_day for %s (end %s)"  % (course_id, datetime.datetime.now())
