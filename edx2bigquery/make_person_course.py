@@ -231,7 +231,7 @@ class PersonCourse(object):
             return
 
         self.log("Loading %s from BigQuery" % tablename)
-        self.grading_policy = bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'name'},
+        self.grading_policy = bqutil.get_bq_table(self.dataset, tablename, the_sql, key={'name': 'overall_cutoff_for_pass'},
                                                 depends_on=[ '%s.grading_policy' % self.dataset ],
                                                 force_query=self.force_recompute_from_logs, logger=self.log)
 
