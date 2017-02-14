@@ -35,9 +35,8 @@ from gsutil import get_gs_file_list
 
 def process_course_time_on_task(course_id, force_recompute=False, use_dataset_latest=False, end_date=None,
                                 just_do_totals=False, limit_query_size=False, table_max_size_mb=800,
-                                skip_totals=False, start_date=None):
-    '''
-    Create the time_on_task table, containing time, user_id, and time
+                                skip_totals=False, start_date=None, config_parameter_overrides=None):
+    '''Create the time_on_task table, containing time, user_id, and time
     on task stats.  This table isn't split into separate days.  It is
     ordered in time, however.  To update it, a new day's logs are
     processed, then the results appended to this table.
@@ -51,40 +50,83 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
 
     Compute totals and store in time_on_task_totals, by summing over all dates, 
     grouped by user.
+
+    config_parameter_overrides may be provided as a dict, which
+    overrides the default timeout parameters (5 min and 30 min) and
+    output table name; used for bounday analysis testing.
+
+    How are time_on_task numbers computed?
+
+    Let TO be the timeout (eg 5 min or 30 min).  For all time-ordered
+    pairs of events, at times t1 and t2, with dt = t2-t1, the total
+    time is the sum of all dt such that dt <= TO.
+
+    Solo (unpaired) events do not cause addition of any time to the total.
+
+    For video (or text or problems), events are filtered and only
+    include events of those types.
+
+    This methodology undercounts, for example, if the learner ends
+    watching a video by closing the browser, or by switching elsewhere
+    without stopping the video player first.  (note there does exist a
+    stop_video event, which occurs when the video stop button is
+    clicked).
+
+    This methodology overcounts, for example, if the learner watches a
+    video for awhile, switches to a problem, then back to the video.
+    If the initial and final video intervals happen within TO, then
+    the intermediate interval is counted towards the video total time,
+    despite the learner actually doing something else (the problem)
+    during that time.
+
     '''
 
     if just_do_totals:
-        return process_time_on_task_totals(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
+        return process_time_on_task_totals(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest,
+                                           config_parameter_overrides=config_parameter_overrides)
 
-    SQL = """
+    config_parameters = {
+        'timeout_short': 5,
+        'timeout_long': 30,
+        'time_on_task_table_name': 'time_on_task',
+        'course_id': course_id,
+        }
+
+    config_parameters.update(config_parameter_overrides or {})
+
+    SQL_TOP = """
             SELECT 
   		    "{course_id}" as course_id,
                     date(time) as date,
                     username, 
 
                     # total time spent on system
-                    SUM( case when dt < 5*60 then dt end ) as total_time_5,
-                    SUM( case when dt < 30*60 then dt end ) as total_time_30,
+                    SUM( case when dt < {timeout_short}*60 then dt end ) as total_time_{timeout_short},
+                    SUM( case when dt < {timeout_long}*60 then dt end ) as total_time_{timeout_long},
 
                     # total time spent watching videos
-                    SUM( case when (dt_video is not null) and (dt_video < 5*60) then dt_video end ) as total_video_time_5,
-                    SUM( case when (dt_video is not null) and (dt_video < 30*60) then dt_video end ) as total_video_time_30,
-                    SUM( case when (serial_dt_video is not null) and (serial_dt_video < 30*60) then serial_dt_video end ) as serial_video_time_30,
+                    SUM( case when (dt_video is not null) and (dt_video < {timeout_short}*60) then dt_video end ) as total_video_time_{timeout_short},
+                    SUM( case when (dt_video is not null) and (dt_video < {timeout_long}*60) then dt_video end ) as total_video_time_{timeout_long},
+                    SUM( case when (serial_dt_video is not null) and (serial_dt_video < {timeout_long}*60) then serial_dt_video end ) as serial_video_time_{timeout_long},
 
                     # total time spent doing problems
-                    SUM( case when (dt_problem is not null) and (dt_problem < 5*60) then dt_problem end ) as total_problem_time_5,
-                    SUM( case when (dt_problem is not null) and (dt_problem < 30*60) then dt_problem end ) as total_problem_time_30,
-                    SUM( case when (serial_dt_problem is not null) and (serial_dt_problem < 30*60) then serial_dt_problem end ) as serial_problem_time_30,
+                    SUM( case when (dt_problem is not null) and (dt_problem < {timeout_short}*60) then dt_problem end ) as total_problem_time_{timeout_short},
+                    SUM( case when (dt_problem is not null) and (dt_problem < {timeout_long}*60) then dt_problem end ) as total_problem_time_{timeout_long},
+                    SUM( case when (serial_dt_problem is not null) and (serial_dt_problem < {timeout_long}*60) then serial_dt_problem end ) as serial_problem_time_{timeout_long},
 
                     # total time spent on forum
-                    SUM( case when (dt_forum is not null) and (dt_forum < 5*60) then dt_forum end ) as total_forum_time_5,
-                    SUM( case when (dt_forum is not null) and (dt_forum < 30*60) then dt_forum end ) as total_forum_time_30,
-                    SUM( case when (serial_dt_forum is not null) and (serial_dt_forum < 30*60) then serial_dt_forum end ) as serial_forum_time_30,
+                    SUM( case when (dt_forum is not null) and (dt_forum < {timeout_short}*60) then dt_forum end ) as total_forum_time_{timeout_short},
+                    SUM( case when (dt_forum is not null) and (dt_forum < {timeout_long}*60) then dt_forum end ) as total_forum_time_{timeout_long},
+                    SUM( case when (serial_dt_forum is not null) and (serial_dt_forum < {timeout_long}*60) then serial_dt_forum end ) as serial_forum_time_{timeout_long},
 
                     # total time spent with textbook or wiki
-                    SUM( case when (dt_text is not null) and (dt_text < 5*60) then dt_text end ) as total_text_time_5,
-                    SUM( case when (dt_text is not null) and (dt_text < 30*60) then dt_text end ) as total_text_time_30,
-                    SUM( case when (serial_dt_text is not null) and (serial_dt_text < 30*60) then serial_dt_text end ) as serial_text_time_30,
+                    SUM( case when (dt_text is not null) and (dt_text < {timeout_short}*60) then dt_text end ) as total_text_time_{timeout_short},
+                    SUM( case when (dt_text is not null) and (dt_text < {timeout_long}*60) then dt_text end ) as total_text_time_{timeout_long},
+                    SUM( case when (serial_dt_text is not null) and (serial_dt_text < {timeout_long}*60) then serial_dt_text end ) as serial_text_time_{timeout_long},
+
+    """
+
+    SQL_BOT = """
             FROM
               (
               SELECT time,
@@ -176,7 +218,9 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
             order by date, username;
           """
 
-    table = 'time_on_task'
+    SQL = SQL_TOP.format(**config_parameters) + SQL_BOT
+
+    table = config_parameters.get('time_on_task_table_name') or 'time_on_task'
 
     def gdf(row):
         return datetime.datetime.strptime(row['date'], '%Y-%m-%d')
@@ -193,46 +237,58 @@ def process_course_time_on_task(course_id, force_recompute=False, use_dataset_la
                                                      limit_query_size=limit_query_size)
 
     if not skip_totals:
-        return process_time_on_task_totals(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
+        return process_time_on_task_totals(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest,
+                                           config_parameter_overrides=config_parameter_overrides)
 
     return
 
-def process_time_on_task_totals(course_id, force_recompute=False, use_dataset_latest=False):
+def process_time_on_task_totals(course_id, force_recompute=False, use_dataset_latest=False, config_parameter_overrides=None):
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+
+    config_parameters = {
+        'timeout_short': 5,
+        'timeout_long': 30,
+        'time_on_task_table_name': 'time_on_task',
+        'time_on_task_totals_table_name': 'time_on_task_totals',
+        'course_id': course_id,
+        'dataset': dataset,
+        }
+
+    config_parameters.update(config_parameter_overrides or {})
 
     SQL = """
             SELECT 
   		    "{course_id}" as course_id,
                     username, 
 
-                    sum(total_time_5) as total_time_5,
-                    sum(total_time_30) as total_time_30,
+                    sum(total_time_{timeout_short}) as total_time_{timeout_short},
+                    sum(total_time_{timeout_long}) as total_time_{timeout_long},
 
-                    sum(total_video_time_5) as total_video_time_5,
-                    sum(total_video_time_30) as total_video_time_30,
-                    sum(serial_video_time_30) as serial_video_time_30,
+                    sum(total_video_time_{timeout_short}) as total_video_time_{timeout_short},
+                    sum(total_video_time_{timeout_long}) as total_video_time_{timeout_long},
+                    sum(serial_video_time_{timeout_long}) as serial_video_time_{timeout_long},
 
-                    sum(total_problem_time_5) as total_problem_time_5,
-                    sum(total_problem_time_30) as total_problem_time_30,
-                    sum(serial_problem_time_30) as serial_problem_time_30,
+                    sum(total_problem_time_{timeout_short}) as total_problem_time_{timeout_short},
+                    sum(total_problem_time_{timeout_long}) as total_problem_time_{timeout_long},
+                    sum(serial_problem_time_{timeout_long}) as serial_problem_time_{timeout_long},
 
-                    sum(total_forum_time_5) as total_forum_time_5,
-                    sum(total_forum_time_30) as total_forum_time_30,
-                    sum(serial_forum_time_30) as serial_forum_time_30,
+                    sum(total_forum_time_{timeout_short}) as total_forum_time_{timeout_short},
+                    sum(total_forum_time_{timeout_long}) as total_forum_time_{timeout_long},
+                    sum(serial_forum_time_{timeout_long}) as serial_forum_time_{timeout_long},
 
-                    sum(total_text_time_5) as total_text_time_5,
-                    sum(total_text_time_30) as total_text_time_30,
-                    sum(serial_text_time_30) as serial_text_time_30,
+                    sum(total_text_time_{timeout_short}) as total_text_time_{timeout_short},
+                    sum(total_text_time_{timeout_long}) as total_text_time_{timeout_long},
+                    sum(serial_text_time_{timeout_long}) as serial_text_time_{timeout_long},
 
-            FROM [{dataset}.time_on_task]
+            FROM [{dataset}.{time_on_task_table_name}]
             GROUP BY course_id, username
             order by username
          """
 
-    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    the_sql = SQL.format(**config_parameters)
 
-    the_sql = SQL.format(dataset=dataset, course_id=course_id)
-
-    tablename = 'time_on_task_totals'
+    tablename = config_parameters.get('time_on_task_totals_table_name') or 'time_on_task_totals'
 
     print "Computing %s for %s" % (tablename, dataset)
     sys.stdout.flush()
