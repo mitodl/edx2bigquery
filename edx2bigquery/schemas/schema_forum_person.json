@@ -1,0 +1,89 @@
+{
+    "forum_person": [
+        {
+            "type": "STRING", 
+            "name": "username",
+            "description": "Author of forum thread/response/comment"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id",
+            "description": "Course Id"
+        },
+        {
+            "type": "STRING", 
+            "name": "slug_id",
+            "description": "Unique identifier for forum thread/response/comment"
+        },
+        {
+            "type": "STRING", 
+            "name": "slug_type",
+            "description": "One of 'initial_post', 'response_post' or 'comment' "
+        },
+        {
+            "type": "STRING", 
+            "name": "thread_id",
+            "description": "slug_id, for initial_post which started the thread related to this row"
+        },
+        {
+            "type": "STRING", 
+            "name": "parent_id",
+            "description": "slug_id, for response_post to which this comment is attached, if this row has slug_type = comment"
+        },
+        {
+            "type": "STRING", 
+            "name": "original_poster",
+            "description": "username of forum author who created the original thread"
+        },
+        {
+            "type": "STRING", 
+            "name": "responded_to",
+            "description": "username of forum author who created a response to the original thread, if this row has slug_type = 'comment'"
+        },
+        {
+            "type": "STRING", 
+            "name": "title",
+            "description": "Title of Forum thread"
+        },
+        {
+            "type": "INTEGER", 
+            "name": "wrote",
+            "description": "Count of total writes, indicating user wrote this post / comment"
+        },
+        {
+            "type": "INTEGER", 
+            "name": "read",
+            "description": "Count of total reads, indicating user read this post / comment"
+        },
+        {
+            "type": "INTEGER", 
+            "name": "pinned",
+            "description": "Count of total pins, indicating user pinned this post / comment"
+        },
+        {
+            "type": "INTEGER", 
+            "name": "upvoted",
+            "description": "Count of total upvotes, indicating user upvoted this post / comment"
+        },
+        {
+            "type": "INTEGER", 
+            "name": "unvoted",
+            "description": "Count of total unvotes, indicating user unvoted this post / comment"
+        },
+        {
+            "type": "INTEGER", 
+            "name": "followed",
+            "description": "Count of total follows, indicating user unvoted this post / comment"
+        },
+        {
+            "type": "TIMESTAMP", 
+            "name": "first_time",
+            "description": "time when first of the actions (read, write, ...) occurred"
+        },
+        {
+            "type": "TIMESTAMP", 
+            "name": "last_time",
+            "description": "time when last of the actions (read, write, ...) occurred"
+        }
+    ]
+}

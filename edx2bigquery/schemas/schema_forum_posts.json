@@ -1,0 +1,59 @@
+{
+    "forum_posts": [
+        {
+            "type": "STRING", 
+            "name": "username",
+            "description": "Author of forum thread/response/comment"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id",
+            "description": "Course Id"
+        },
+        {
+            "type": "STRING", 
+            "name": "slug_id",
+            "description": "Unique identifier for forum thread/response/comment"
+        },
+        {
+            "type": "STRING", 
+            "name": "slug_type",
+            "description": "One of 'initial_post', 'response_post' or 'comment' "
+        },
+        {
+            "type": "STRING", 
+            "name": "thread_id",
+            "description": "slug_id, for initial_post which started the thread related to this row"
+        },
+        {
+            "type": "STRING", 
+            "name": "parent_id",
+            "description": "slug_id, for response_post to which this comment is attached, if this row has slug_type = comment"
+        },
+        {
+            "type": "STRING", 
+            "name": "original_poster",
+            "description": "username of forum author who created the original thread"
+        },
+        {
+            "type": "STRING", 
+            "name": "responded_to",
+            "description": "username of forum author who created a response to the original thread, if this row has slug_type = 'comment'"
+        },
+        {
+            "type": "STRING", 
+            "name": "title",
+            "description": "Title of Forum thread"
+        },
+        {
+            "type": "TIMESTAMP", 
+            "name": "first_time",
+            "description": "Time when forum thread/response/comment was created"
+        },
+        {
+            "type": "STRING", 
+            "name": "body_preview",
+            "description": "Preview of first 100 characters of the content of the forum thread/response/comment"
+        }
+    ]
+}

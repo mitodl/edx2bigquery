@@ -1,0 +1,49 @@
+{
+    "forum_events": [
+        {
+            "type": "TIMESTAMP", 
+            "name": "time",
+            "description": "Time of forum event"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "username",
+            "description": "username for forum event"
+        }, 
+        {
+            "type": "STRING", 
+            "name": "course_id",
+            "description": "Course Id"
+        },
+        {
+            "type": "STRING", 
+            "name": "forum_action",
+            "description": "Forum action, including reply, upvote, unvote, update, delete, close, follow_thread, unfollow_thread, pin, unpin, follow_user, target_user, read, read_inline, search, enter_forum, created_thread, created_response, created_comment"
+        },
+        {
+            "type": "STRING", 
+            "name": "thread_id",
+            "description": "unique forum id for forum thread/response/comment related to this event"
+        },
+        {
+            "type": "STRING", 
+            "name": "subject",
+            "description": "event subject"
+        },
+        {
+            "type": "STRING", 
+            "name": "target_user_id",
+            "description": "event target user id"
+        },
+        {
+            "type": "STRING", 
+            "name": "search_query",
+            "description": "Search query for event. Unavailable before June 1, 2015"
+        },
+        {
+            "type": "STRING", 
+            "name": "event_GET",
+            "description": "GET parameter for event. Unavailable before June 1, 2015"
+        }
+    ] 
+}
