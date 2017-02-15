@@ -11,8 +11,8 @@ filename2collection = {'certificates': 'certificates_generatedcertificate',
                        'profiles': 'auth_userprofile',
                        'studentmodule': 'courseware_studentmodule',
                        'users': 'auth_user',
-                       'rolecourse': 'courseaccessrole',
-                       'roleforum': 'client_role_users',
+                       'rolecourse': 'student_courseaccessrole',
+                       'roleforum': 'django_comment_client_role_users',
                        }
 
 collection2filename = {v:k for k, v in filename2collection.items()}
