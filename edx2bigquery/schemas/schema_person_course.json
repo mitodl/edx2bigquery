@@ -203,7 +203,7 @@
         {
             "type": "STRING",
             "name": "roles",
-            "description": "Roles played by the user in the course, e.g. instructor, course_staff"
+            "description":  " One of 3 values, 'Student', Staff' or null; null means that user does not have course role or discussion forum role assigned from edX data"
         },
         {
             "type": "INTEGER",
