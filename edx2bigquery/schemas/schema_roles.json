@@ -1,0 +1,74 @@
+{
+    "staff": [
+        {
+            "type": "STRING",
+            "name": "course_id",
+	    "description": "course ID"
+        },
+        {
+            "type": "STRING",
+            "name": "user_id",
+	    "description": "user_id"
+        },
+        {
+            "type": "INTEGER",
+            "name": "roles_isBetaTester",
+            "description":  "1 if user is a course beta tester; null means user does not have course role assigned"
+        },
+        {
+            "type": "INTEGER",
+            "name": "roles_isInstructor",
+            "description":  "1 if user is a course instructor; null means user does not have course role assigned"
+        },
+        {
+            "type": "INTEGER",
+            "name": "roles_isStaff",
+            "description":  "1 if user is course staff; null means user does not have course role assigned"
+        },
+        {
+            "type": "INTEGER", 
+            "name": "roles_isCCX",
+            "description":  "1 if user is ccx coach; null means user does not have course role assigned"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "roles_isFinance",
+            "description":  "1 if user is finance admin; null means user does not have course role assigned"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "roles_isLibrary",
+            "description":  "1 if user is library user; null means user does not have course role assigned"
+        }, 
+        {
+            "type": "INTEGER", 
+            "name": "roles_isSales",
+            "description":  "1 if user is sales; null means user does not have course role assigned"
+        }, 
+        {
+            "type": "INTEGER",
+            "name": "forumRoles_isAdmin",
+            "description":  "1 if user is a forum admin; null means that user does not have a discussion forum role assigned"
+        },
+        {
+            "type": "INTEGER",
+            "name": "forumRoles_isCommunityTA",
+            "description":  "1 if user is a community TA; null means that user does not have a discussion forum role assigned"
+        },
+        {
+            "type": "INTEGER",
+            "name": "forumRoles_isModerator",
+            "description":  "1 if user is a forum moderator; null means that user does not have a discussion forum role assigned"
+        },
+        {
+            "type": "INTEGER",
+            "name": "forumRoles_isStudent",
+            "description":  "1 if user is student on the forum; null means that user does not have a discussion forum role assigned"
+        },
+        {
+            "type": "STRING",
+            "name": "roles",
+            "description":  " One of 3 values, 'Student', Staff' or null; null means that user does not have course role or discussion forum role assigned from edX data"
+        }
+    ]
+}
