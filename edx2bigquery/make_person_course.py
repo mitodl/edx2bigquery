@@ -540,6 +540,11 @@ class PersonCourse(object):
                         self.log('oops, last event cannot be turned into a time; le=%s, username=%s' % (fe, username))
                     pcent['first_event'] = fe
 
+
+            # Copy standard person_course_day data to Person Course (do this before other cases, which may fail and stop the copying)
+            for pcdf in pcd_fields:
+                self.copy_from_bq_table(self.pc_day_totals, pcent, username, pcdf)
+
             # Video Watched
             try:
 	        self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'n_unique_videos_watched', new_field='nvideos_unique_viewed')
@@ -563,10 +568,6 @@ class PersonCourse(object):
 	    except Exception as err:
 	        nmissing_lang += 1
 		continue
-
-            # Copy Modal Language data to Person Course
-            for pcdf in pcd_fields:
-                self.copy_from_bq_table(self.pc_day_totals, pcent, username, pcdf)
 
         if not skip_modal_ip:
             self.log("--> modal_ip's number missing = %d" % nmissing_ip)
