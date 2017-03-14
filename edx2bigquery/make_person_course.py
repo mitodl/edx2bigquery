@@ -69,6 +69,8 @@ from collections import OrderedDict, defaultdict
 from check_schema_tracking_log import schema2dict, check_schema
 from load_course_sql import find_course_sql_dir
 
+csv.field_size_limit(13107200)
+
 #-----------------------------------------------------------------------------
 
 class PersonCourse(object):

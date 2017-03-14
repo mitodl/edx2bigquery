@@ -25,7 +25,7 @@ from collections import defaultdict
 from check_schema_tracking_log import schema2dict, check_schema
 from load_course_sql import find_course_sql_dir, openfile
 
-csv.field_size_limit(1310720)
+csv.field_size_limit(13107200)
 
 def analyze_problems(course_id, basedir=None, datedir=None, force_recompute=False,
                      use_dataset_latest=False,

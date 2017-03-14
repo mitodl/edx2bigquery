@@ -59,7 +59,7 @@ from check_schema_tracking_log import schema2dict, check_schema
 from load_course_sql import find_course_sql_dir
 
 #csv.field_size_limit(sys.maxsize)
-csv.field_size_limit(1310720)
+csv.field_size_limit(13107200)
 
 def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False):
 
