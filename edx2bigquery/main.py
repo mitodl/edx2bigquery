@@ -1433,11 +1433,13 @@ grade_reports <course_id>   : request and download the latest edx instructor gra
                               For courses that are self-paced/on-demand, edX does not provide grades for non-verified ID users. 
                               To fix this issue, this function was created to grab the latest grades for all users from the grade report
                               in the edX instructor dashboard. This requires the following updates to the following: 
-                              a) edx2bigquery_config.py: 
-                                 MAXIMUM_PARALLEL_PROCESSES = 
-                                 ORG_LIST (Optional, if there are more than one possible org name)
-                              b) edX instructor level access:
-                                 In order to download grade reports, the edx account must have instructor level access
+                              1) edx2bigquery_config.py: 
+                                 PRIVATE_PATH = Location to Private path containing new edx_private_config.py
+                                 ORG_LIST = (Optional, if there are more than one possible org name. ex: ['HarvardX', 'Harvardx', 'VJx'])
+                              2) edx_private_config.py (create new file in PRIVATE_PATH): 
+                                 EDX_USER = edX login
+                                 EDX_PW = edX pw
+                              **NOTE: In order to download grade reports, the edx account must have instructor level access
 
                               Optional command line args:
                               --download-only=Do not make a new grade report request, but just download the latest available
@@ -1445,14 +1447,19 @@ grade_reports <course_id>   : request and download the latest edx instructor gra
 
                               sample commands:
                               a) Request for new grade reports and then download based on list of self-paced/on-demand courses
+                                 After request is made, check if grade report is ready every 5 minutes.
+                                 MAXIMUM_PARALLEL_PROCESSES can be increased to make edX grade report requests in parallel
+                                 Recommend using --parallel command
                                  self_paced_courses = [ 'ORG/COURSECODE1/TERM', 'ORG/COURSECODE2/TERM', ...] 
-                                 NOTE: Listed courses should be in 'transparent' course id format
+                                 NOTE: Listed courses should be in 'transparent' course id format (shown above)
                                        This process may take anywhere between 0.5 - 3 hours per course 
                               edx2bigquery --dataset-latest --course-base-dir=HarvardX-SQL --end-date="2019-01-01" --clist=self_paced_courses --parallel  --course-id-type opaque grade_reports >& LOGS/LOG.gradereports
 
-                              b) Request for latest existing grade reports for a list of self-paced/on-demand courses (fast download)
-                                 This command may be used if a request has timed out, for instance 
-                                 NOTE: Listed courses should be in 'transparent' course id format
+                              b) Download latest existing grade reports for a list of self-paced/on-demand courses (fast download)
+                                 This command may be used if there is an issue with the request
+                                 for instance, after issuing grade_reports command
+                                 self_paced_courses = [ 'ORG/COURSECODE1/TERM', 'ORG/COURSECODE2/TERM', ...] 
+                                 NOTE: Listed courses should be in 'transparent' course id format (shown above)
                                        Since only download is requested and no new request is made to edx, this process should be quick
                               edx2bigquery --dataset-latest --course-base-dir=HarvardX-SQL --end-date="2019-01-01" --clist=self_paced_courses --parallel --download-only --course-id-type opaque grade_reports >& LOGS/LOG.gradereports_download
 
@@ -1845,10 +1852,9 @@ check_for_duplicates        : check list of courses for duplicates
         courses = get_course_ids(args)
 
         # Import instance of edxapi, in order to connect to edX instructor dashboard
-        import CONFIG as CFG
         import edxapi
         import time
-        getGrades = edxapi.edXapi(username=CFG.USER, password=CFG.PW )
+        getGrades = edxapi.edXapi(username=edx2bigquery_config.EDX_USER, password=edx2bigquery_config.EDX_PW )
         args.getGrades = getGrades
         time.sleep( 10 )
 
