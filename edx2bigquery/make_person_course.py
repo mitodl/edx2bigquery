@@ -67,7 +67,7 @@ import copy
 from path import path
 from collections import OrderedDict, defaultdict
 from check_schema_tracking_log import schema2dict, check_schema
-from load_course_sql import find_course_sql_dir
+from load_course_sql import find_course_sql_dir, get_course_sql_dirdate
 
 #-----------------------------------------------------------------------------
 
@@ -90,6 +90,7 @@ class PersonCourse(object):
         self.logmsg = []
         self.nskip = nskip
         self.skip_geoip = skip_geoip
+        self.sql_dir_date = get_course_sql_dirdate( course_id=course_id, lfp=self.course_dir, datedir=course_dir_date, use_dataset_latest=use_dataset_latest or use_latest_sql_dir )
 
         if not self.cdir.exists():
             print "Oops: missing directory %s!" % self.cdir
@@ -358,11 +359,14 @@ class PersonCourse(object):
 	        passing_grade = self.grading_policy['data_by_key'].items()[0][1].get(overall_cutoff, None)
 	        if passing_grade is not None:
  	            passing_grade = float(passing_grade)
-            print passing_grade
+            print 'Passing grade = %s' % passing_grade
 
         except Exception as err:
             self.log("Error %s getting passing grade!" % str(err))
             passing_grade = None
+
+        grade_dash_cnt = 0 # Initialize count for edx instructor grades
+        grade_cert_cnt = 0 # Initialize count for edx weekly data dump grades
 
         for key, uicent in uicdat.iteritems():
             pcent = OrderedDict()
@@ -389,13 +393,50 @@ class PersonCourse(object):
         
             # Set passing grade for course; else, assign null to indicate error
             if passing_grade is not None:
-                pcent['passing_grade'] = passing_grade
+                pcent['passing_grade'] = float( passing_grade )
 
-            # Set completed field based on current and passing grade
-            current_grade = pcent.get('grade', None)
+            # Perform Grade corrections using certificates and edX instructor dashboard data (if it exists)
             pcent['completed'] = False
+            import dateutil.parser
+	    grade_cert = uicent.get('certificate_grade', None)
+	    grade_cert_date = dateutil.parser.parse( self.sql_dir_date ) if self.sql_dir_date is not None else None
+            grade_dash = uicent.get('edxinstructordash_Grade', None)
+            grade_dash_date = uicent.get('edxinstructordash_Grade_timestamp', None)
+            # If grade dash exists and grade cert exists, then check which one is the newest
+            if grade_dash is not None and grade_dash_date is not None and\
+               grade_cert is not None and grade_cert_date is not None:
+
+                # Use latest directory data as time stamp for edx weekly data dump
+                grade_dash_date = dateutil.parser.parse( grade_dash_date )
+                # Grade from edx instructor dash is newer than latest week folder, use edx instructor dash grade
+                if grade_dash_date > grade_cert_date:
+
+                    #print "Grade from edx instructor dash is %s (newer) than cert grade %s" % (grade_dash_date, grade_cert_date)
+                    grade_dash_cnt += 1
+		    pcent['grade'] = grade_dash
+
+                # Grade from certificates file is newer
+                elif grade_dash_date <= grade_cert_date:
+                    grade_cert_cnt += 1
+                    #print "Grade from certificate is newer (%s) than edx instructor dash (%s)" % (grade_cert_date, grade_dash_date)
+                    pcent['grade'] = grade_cert
+
+            # If grade dash exists, but cert grade doesn't, then use grade dash
+            elif grade_dash is not None and grade_dash_date is not None and grade_cert is None:
+
+                    grade_dash_cnt += 1
+                    #print "Grade from certificate is missing, so using edx instructor dash grade from (%s)" % (grade_dash_date)
+		    pcent['grade'] = grade_dash
+
+            else:
+                # Default to using certificate file data
+                grade_cert_cnt += 1
+                pcent['grade'] = grade_cert
+
+            current_grade = pcent.get('grade', None)
+            # Set if current grade exists
             if current_grade is not None and passing_grade is not None:
-                current_grade = float(current_grade)
+                current_grade = float(pcent['grade'])
                 if current_grade >= passing_grade:
 		    pcent['completed'] = True
 
@@ -411,6 +452,9 @@ class PersonCourse(object):
         
             # email domain
             pcent['email_domain'] = uicent.get('email').split('@')[1]
+
+        # Grades Summary
+        print "%s Grades loaded from Certificates file, %s Grades loaded from edX instructor Dashboard" % (grade_cert_cnt, grade_dash_cnt)
 
     def compute_second_phase(self):
     

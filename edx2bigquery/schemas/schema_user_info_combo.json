@@ -157,6 +157,14 @@
                   "name": "id_map_hash_id"
               },
         {
+            "type": "FLOAT", 
+            "name": "edxinstructordash_Grade"
+        },
+        {
+            "type": "STRING", 
+            "name": "edxinstructordash_Grade_timestamp"
+        },
+        {
             "type": "INTEGER", 
             "name": "y1_anomalous"
         }

@@ -142,6 +142,8 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         uic[uid]['user_id'] = uid
         nusers += 1
         uic[uid]['y1_anomalous'] = None
+        uic[uid]['edxinstructordash_Grade'] = None
+        uic[uid]['edxinstructordash_Grade_timestamp'] = None
     
     print "  %d users loaded from users.csv" % nusers
 
@@ -237,6 +239,30 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
                                                                                                                          n_removed_after_cutoff,
                                                                                                                          cutoff)
         sys.stdout.flush()
+
+    # See if instructor grade reports are present for this course; if so, merge in that data
+    edxinstructordash = cdir.dirname() / 'from_edxinstructordash'
+    if edxinstructordash.exists():
+        print "--> %s exists, merging in users, profile, and enrollment data from_edxinstructordash" % edxinstructordash
+        sys.stdout.flush()
+
+        grade_report_fn = ( edxinstructordash / 'grade_report.csv' )
+        fp = openfile( grade_report_fn, add_dir=False )
+        if fp is None:
+            print "--> Skipping grade_report.csv, file does not exist in dir from_edxinstructordash"
+        nadded = 0
+        print fp
+        for line in csv.DictReader(fp):
+            uid = int(line['Student ID'])
+            fields = [ 'Grade', 'Grade_timestamp' ]
+                     #['course_id','Student ID','Email','Username','Grade' ]
+                     #'Enrollment Track',' Verification Status','Certificate Eligible','Certificate Delivered','Certificate Type' ]
+            copy_elements(line, uic[uid], fields, prefix="edxinstructordash_")
+            nadded += 1
+        fp.close()
+        print "  %d grades loaded from %s/grade_report.csv" % (nadded, edxinstructordash )
+        sys.stdout.flush()
+
 
     fp = openfile('certificates.csv')
     if fp is None:
