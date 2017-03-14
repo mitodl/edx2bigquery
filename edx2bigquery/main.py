@@ -238,11 +238,14 @@ def setup_sql(param, args, steps, course_id=None):
 
     if sqlall or 'make_roles' in steps:
         import make_roles
-        make_roles.process_file(course_id, 
-                                basedir=param.the_basedir,
-                                datedir=param.the_datedir,
-                                use_dataset_latest=param.use_dataset_latest,
+        try:
+            make_roles.process_file(course_id, 
+                                    basedir=param.the_basedir,
+                                    datedir=param.the_datedir,
+                                    use_dataset_latest=param.use_dataset_latest,
                                 )
+        except Exception as err:
+            print err
 
     if sqlall or 'sql2bq' in steps:
         import load_course_sql
