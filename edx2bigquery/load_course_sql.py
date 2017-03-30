@@ -80,6 +80,117 @@ def find_course_sql_dir(course_id, basedir, datedir=None, use_dataset_latest=Fal
 
     return lfp
 
+def get_course_sql_dirdate( course_id, lfp, datedir, use_dataset_latest ):
+    '''
+    Function to return the sql dirdate (latest or specified)
+    lfp is the find_course_sql_dir output (e.g.: Org/Code-Term/YYYY-MM-DD)
+    '''
+    if use_dataset_latest or datedir is not None:
+        datedir = lfp.basename()
+        print "[get_course_sql_dirdate] set dirdate = %s for %s" % (datedir, course_id)
+        return datedir
+    else: 
+        msg = "[get_course_sql_dirdate] No date directories found in %s!" % (lfp)
+        print msg
+        return None
+
+#-----------------------------------------------------------------------------
+def makeCourseIdRegex( org_list ):
+    '''
+    Function to create Regexp to search for transparent ID's
+    for a given organization, based on multiple org name values
+    Returns Regex pattern
+    '''
+
+    PRE = '(^'
+    POST = ')'
+    org_regex_mid = ''
+    org_regex = ''
+
+    # Multiple values in the org list can happen when:
+    # There may be errors in edX setting the org name
+    # Or, if there are joint projects between universities (VJx => MIT/Harvard)
+    if len(org_list) > 1:
+
+        # Add '|' between each org value in the list
+        # (e.g.: HarvardX|VJx )
+        for org in org_list:
+            if org != org_list[-1]:
+                org_regex_mid = org_regex_mid + str(org) + str('|')
+            else:
+                org_regex_mid = org_regex_mid + str(org)
+
+    # Only one value in the list
+    else:
+        org_regex_mid = org_list[0]
+
+    # Construct org regex pattern
+    org_regex = str( PRE ) + str( org_regex_mid ) + str( POST )
+    return org_regex
+
+def parseCourseIdField( course, 
+                        org_list,
+                        course_id_type='transparent'):
+
+    # There are 2 formats to process
+    # 1) Transparent Key Format => 
+    #    <dirname>/cnameprefix/cnameterm 
+    #    [This is pre-March 2015, when it was introduced in Hx Logs]
+    # 2) Opaque Key Identifier => "course-v1:HarvardX+cnameprefix+cnameterm"
+    #    "HarvardX/cnameprefix/cnameterm"
+    # By default, output course id in Transparent Key Format
+    # If course_id_type = 'opaque' (by setting --course_id_type opaque in the command line
+    # then convert transparent key input format to opaque key format
+
+    # Patterns to look for detecting course id type
+    import re
+    org_regex = makeCourseIdRegex( org_list )
+    COURSE_ID_KEY_FORMAT = [{'key_type': 'transparent', 'regex': re.compile( org_regex )},
+                            {'key_type': 'opaque', 'regex': re.compile('([^:]*:)')},
+                           ]
+
+    try:
+
+        for id_key in COURSE_ID_KEY_FORMAT:
+
+            # Transparent Key
+            m = id_key['regex'].match( course )
+
+            if (m and id_key['key_type'] == 'transparent'):
+                dirname, cnameprefix, cnameterm = course.split('/')
+
+                # Translate Transparent => Opaque
+                if course_id_type == 'opaque':
+                    opaque_id = str('course-v1:') + course.replace('/', '+')
+                    cname = opaque_id
+                else:    
+                    cname = course
+                break
+
+            # Opaque Key
+            elif m and id_key['key_type'] == 'opaque':
+                course_version_prefix = m.group().replace(':','')
+                course_prefix, course_version = course_version_prefix.split('-') # Might need this in the future for course versioning
+                opaque_id = course.replace(course_version_prefix, '')
+                transparent_id = opaque_id.replace('+', '/')
+                transparent_id = transparent_id.replace(':', '')
+                dirname, cnameprefix, cnameterm = transparent_id.split('/')
+
+                if course_id_type == 'opaque':
+                    cname = course
+                # Translate Opaque to Transparent
+                else:
+                    cname = transparent_id
+                break
+            else:
+                cname = course
+
+    except ValueError:
+        cname = course
+        pass
+
+    return cname
+
 #-----------------------------------------------------------------------------
 
 def openfile(fn, mode='r'):

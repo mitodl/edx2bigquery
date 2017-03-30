@@ -292,6 +292,30 @@ def setup_sql_single(param, course_id, optargs=None):
         sys.stdout.flush()
         raise
 
+def fix_gradereport_single(param, course_id, optargs=None):
+
+    print "="*100
+    print "Processing fix_gradereport_single for %s" % course_id
+    sys.stdout.flush()
+
+    try:
+        import fix_missing_grades
+        fix_missing_grades.fix_missing_grades(course_id, 
+                                              getGrades=optargs.getGrades,
+                                              download_only=optargs.download_only,
+                                              course_id_type=optargs.course_id_type,
+                                              org_list=getattr(edx2bigquery_config, 'ORG_LIST', [getattr(edx2bigquery_config, 'ORG', None)] ),
+                                              basedir=param.the_basedir, 
+                                              datedir=param.the_datedir,
+                                              use_dataset_latest=param.use_dataset_latest)
+    except Exception as err:
+        print "===> Error completing fix_gradereport_single on %s, err=%s" % (course_id, str(err))
+        traceback.print_exc()
+        sys.stdout.flush()
+        raise
+
+    
+
 def analyze_course_single(param, course_id, optargs=None):
     '''
     run analyze_course_content on a single course
@@ -1408,6 +1432,40 @@ grading_policy <course_id>  : construct the "grading_policy" table, upload to gs
                               the specified course_id's.  Uses pin dates, just as does axis2bq.  Requires course.tar.gz file,
                               from the weekly SQL dumps.
 
+grade_reports <course_id>   : request and download the latest edx instructor grade report from the edx instructor dashboards.
+                              For courses that are self-paced/on-demand, edX does not provide grades for non-verified ID users. 
+                              To fix this issue, this function was created to grab the latest grades for all users from the grade report
+                              in the edX instructor dashboard. This requires the following updates to the following: 
+                              1) edx2bigquery_config.py: 
+                                 PRIVATE_PATH = Location to Private path containing new edx_private_config.py
+                                 ORG_LIST = (Optional, if there are more than one possible org name. ex: ['HarvardX', 'Harvardx', 'VJx'])
+                              2) edx_private_config.py (create new file in PRIVATE_PATH): 
+                                 EDX_USER = edX login
+                                 EDX_PW = edX pw
+                              **NOTE: In order to download grade reports, the edx account must have instructor level access
+
+                              Optional command line args:
+                              --download-only=Do not make a new grade report request, but just download the latest available
+                              --course-id-type=specify either 'opaque' or 'transparent' (default) for the original raw course id
+
+                              sample commands:
+                              a) Request for new grade reports and then download based on list of self-paced/on-demand courses
+                                 After request is made, check if grade report is ready every 5 minutes.
+                                 MAXIMUM_PARALLEL_PROCESSES can be increased to make edX grade report requests in parallel
+                                 Recommend using --parallel command
+                                 self_paced_courses = [ 'ORG/COURSECODE1/TERM', 'ORG/COURSECODE2/TERM', ...] 
+                                 NOTE: Listed courses should be in 'transparent' course id format (shown above)
+                                       This process may take anywhere between 0.5 - 3 hours per course 
+                              edx2bigquery --dataset-latest --course-base-dir=HarvardX-SQL --end-date="2019-01-01" --clist=self_paced_courses --parallel  --course-id-type opaque grade_reports >& LOGS/LOG.gradereports
+
+                              b) Download latest existing grade reports for a list of self-paced/on-demand courses (fast download)
+                                 This command may be used if there is an issue with the request
+                                 for instance, after issuing grade_reports command
+                                 self_paced_courses = [ 'ORG/COURSECODE1/TERM', 'ORG/COURSECODE2/TERM', ...] 
+                                 NOTE: Listed courses should be in 'transparent' course id format (shown above)
+                                       Since only download is requested and no new request is made to edx, this process should be quick
+                              edx2bigquery --dataset-latest --course-base-dir=HarvardX-SQL --end-date="2019-01-01" --clist=self_paced_courses --parallel --download-only --course-id-type opaque grade_reports >& LOGS/LOG.gradereports_download
+
 recommend_pin_dates         : produce a list of recommended "pin dates" for the course axis, based on the specified --listings.  Example:
                               -->  edx2bigquery --clist=all --listings="course_listings.json" --course-base-dir=DATA-SQL recommend_pin_dates
                               These "pin dates" can be defined in edx2bigquery_config in the course_axis_pin_dates dict, to
@@ -1551,6 +1609,8 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--clist-from-missing-table", type=str, help="iterate command over list of course_id's missing specified table")
     parser.add_argument("--force-recompute", help="force recomputation", action="store_true")
     parser.add_argument("--dataset-latest", help="use the *_latest SQL dataset", action="store_true")
+    parser.add_argument("--download-only", help="For grade_reports command when downloading grades through edxapi, get latest only without making a request", action="store_true")
+    parser.add_argument("--course-id-type", type=str, help="Specify 'transparent' or 'opaque' course id format type. When downloading grades through edxapi, specify that course id format is the old legacy format (e.g.: HarvardX/course/term) or new format (e.g.: course-v1:HarvardX+course+term" )
     parser.add_argument("--latest-sql-dir", help="use the most recent SQL data directory (for person_course)", action="store_true")
     parser.add_argument("--skiprun", help="for external command, print, and skip running", action="store_true")
     parser.add_argument("--external", help="run specified command as being an external command", action="store_true")
@@ -1789,6 +1849,20 @@ check_for_duplicates        : check list of courses for duplicates
         else:
             courses = get_course_ids(args)
             run_parallel_or_serial(analyze_course_single, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='grade_reports'):
+
+        courses = get_course_ids(args)
+
+        # Import instance of edxapi, in order to connect to edX instructor dashboard
+        import edxapi
+        import time
+        getGrades = edxapi.edXapi(username=edx2bigquery_config.EDX_USER, password=edx2bigquery_config.EDX_PW )
+        args.getGrades = getGrades
+        time.sleep( 10 )
+
+        run_parallel_or_serial(fix_gradereport_single, param, courses, optargs=args, parallel=args.parallel)
+
 
     elif (args.command=='mongo2user_info'):
         import fix_missing_user_info

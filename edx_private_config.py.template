@@ -1,0 +1,8 @@
+#-------------------------------------------
+# Private EdX login
+# Instructor level access is required for this account
+# Keep this in a protected, private directory
+# edx2bigquery_config.py reads from this file
+#-------------------------------------------
+EDX_USER = 'edxuser'
+EDX_PW = 'edxpw'

@@ -38,4 +38,48 @@ MAXIMUM_PARALLEL_PROCESSES = 3
 # external command definitions
 extra_external_commands = {}
 
+#-------------------------------------------
+# Private edX login Setup
+# This setup is needed in order to fix missing grades
+# for self-paced courses; edX weekly dumps only contain
+# grades for verified ID users.
+# Workaround is to download grade reports from edX instructor
+# dashboard and import into BigQuery
+# Instuctor level access is required 
+#-------------------------------------------
+import os, sys
+from path import path
+
+# Store username and password in a protected, private path
+# create new file called edx_private_config.py 
+PRIVATE_PATH = "/local/home/private/path"
+try:
+	PRIVATE_CONFIG = 'edx_private_config'
+	PRIVATE_CONFIG_FILENAME = PRIVATE_CONFIG + '.py'
+	currentDir = os.getcwd()
+	if os.path.exists( path(PRIVATE_PATH) / PRIVATE_CONFIG_FILENAME ):
+		os.chdir( PRIVATE_PATH )
+		sys.path.append( PRIVATE_PATH )
+		import edx_private_config as CFG
+	else:
+		print "[edx2bigquery_config]: WARNING: Need to specify a configuration file, %s/%s, to operate properly" % ( PRIVATE_PATH, PRIVATE_CONFIG_FILENAME )
+	os.chdir(currentDir) # Set back to current working dir
+
+except Exception as err:
+
+	print "[edx2bigquery_config]: Could not import private config"
+	print "[edx2bigquery_config]: Error = %s" % err
+	raise
+
+#-------------------------------------------
+# EdX Login
+# Instructor level access is required
+# edx_private_config.py contains login variables
+#-------------------------------------------
+
+EDX_USER = getattr( CFG, "EDX_USER", None )
+EDX_PW = getattr( CFG, "EDX_PW", None )
+
+
+
 #-----------------------------------------------------------------------------
