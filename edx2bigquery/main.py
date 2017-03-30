@@ -1855,7 +1855,10 @@ check_for_duplicates        : check list of courses for duplicates
         courses = get_course_ids(args)
 
         # Import instance of edxapi, in order to connect to edX instructor dashboard
-        import edxapi
+        try:
+            import edxapi
+        except:
+            from edxcut import edxapi
         import time
         getGrades = edxapi.edXapi(username=edx2bigquery_config.EDX_USER, password=edx2bigquery_config.EDX_PW )
         args.getGrades = getGrades

@@ -5,8 +5,10 @@ import gzip
 import json
 import gsutil
 import time
-import edxapi
-import CONFIG as CFG
+try:
+    import edxapi
+except:
+    from edxcut import edxapi
 import datetime
 
 from path import path

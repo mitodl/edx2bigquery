@@ -6,3 +6,9 @@
 #-------------------------------------------
 EDX_USER = 'edxuser'
 EDX_PW = 'edxpw'
+
+# alternatively, this information can be entered interactively, on each run,
+# by using the configuration lines below:
+#
+# EDX_USER = raw_input("edX instructor user (email address): ")
+# EDX_PW = getpass("Password for edX user '%s': " % EDX_USER)

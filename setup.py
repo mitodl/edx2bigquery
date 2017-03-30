@@ -38,7 +38,7 @@ setup(
                       'unicodecsv',
                       'Jinja2',
                       'google-api-python-client',
-                      'edxapi',
+                      'edxcut',
                       ],
     dependency_links = [
         ],
