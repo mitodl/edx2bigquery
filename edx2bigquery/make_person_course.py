@@ -597,7 +597,7 @@ class PersonCourse(object):
 	        self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'fract_total_videos_watched', new_field='nvideos_total_watched')
 
             except Exception as err:
-                continue
+                pass
 
 	    # Copy Modal IP data
             if not skip_modal_ip:
@@ -613,7 +613,7 @@ class PersonCourse(object):
 	        langadded += 1
 	    except Exception as err:
 	        nmissing_lang += 1
-		continue
+                pass
 
         if not skip_modal_ip:
             self.log("--> modal_ip's number missing = %d" % nmissing_ip)
