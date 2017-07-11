@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# File:   make_times_on_task.py
+# File:   make_time_on_task.py
 # Date:   05-Mar-2015
 # Author: I. Chuang <ichuang@mit.edu>
 #

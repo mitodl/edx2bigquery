@@ -396,6 +396,39 @@ def time_on_task(param, course_id, optargs=None, skip_totals=False, just_do_tota
         if not suppress_errors:
             raise
 
+def time_on_asset(param, course_id, optargs=None, skip_totals=False, just_do_totals=False, suppress_errors=False):
+    '''
+    update time_on_asset tables based on tracking logs
+
+    param = (dict) run parameters
+    course_id = (string) course_id of course to run on
+    optargs is ignored
+    skip_totals typically set to True for nightly runs
+    '''
+    print "="*100
+    print "Updating time_on_asset tables for %s" % course_id
+    sys.stdout.flush()
+
+    import make_time_on_asset
+
+    try:
+        make_time_on_asset.process_course_time_on_asset(course_id, 
+                                                        force_recompute=param.force_recompute,
+                                                        use_dataset_latest=param.use_dataset_latest,
+                                                        end_date=param.end_date,
+                                                        start_date=param.start_date,
+                                                        just_do_totals=(param.just_do_totals or just_do_totals),
+                                                        limit_query_size=param.limit_query_size,
+                                                        table_max_size_mb=(param.table_max_size_mb or 800),
+                                                        skip_totals=skip_totals,
+                                                    )
+    except Exception as err:
+        print "===> Error completing process_course_time_on_asset on %s, err=%s" % (course_id, str(err))
+        traceback.print_exc()
+        sys.stdout.flush()
+        if not suppress_errors:
+            raise
+
 def logs2gs_single(param, course_id, args):
     '''
     transfers tracking logs from filesystem to gs, by calling daily_logs appropriately.  can be used with run_parallel_or_serial.
@@ -1364,6 +1397,9 @@ problem_events <course_id>  : Extract capa problem events from the tracking logs
 
 time_task <course_id> ...   : Update time_task table of data on time on task, based on daily tracking logs, for specified course.
 
+time_asset <course_id> ...   : Update time_on_asset_daily and time_on_asset_totals tables of data on time on asset (ie module_id,
+                               aka url_name), based on daily tracking logs, for specified course.
+
 item_tables <course_id> ... : Make course_item and person_item tables, used for IRT analyses.
 
 irt_report <coure_id> ...   : Compute the item_response_theory_report table, which extracts data from item_irt_grm[_R], course_item,
@@ -1622,7 +1658,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--skip-log-loading", help="when processing a 'doall' command, skip loading of tracking logs", action="store_true")
     parser.add_argument("--just-do-nightly", help="for person_course, just update activity stats for new logs", action="store_true")
     parser.add_argument("--just-do-geoip", help="for person_course, just update geoip using local db", action="store_true")
-    parser.add_argument("--just-do-totals", help="for time_task, just compute total sums", action="store_true")
+    parser.add_argument("--just-do-totals", help="for time_task or time_asset, just compute total sums", action="store_true")
     parser.add_argument("--just-get-schema", help="for get_course_data and get_data, just return the table schema as a json file", action="store_true")
     parser.add_argument("--only-if-newer", help="for get_course_data and get_data, only get if bq table newer than local file", action="store_true")
     parser.add_argument("--limit-query-size", help="for time_task, limit query size to one day at a time and use hashing for large tables", action="store_true")
@@ -2057,6 +2093,10 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='time_task'):
         courses = get_course_ids(args)
         run_parallel_or_serial(time_on_task, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='time_asset'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(time_on_asset, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='analyze_ora'):
         analyze_ora(param, args, args)
