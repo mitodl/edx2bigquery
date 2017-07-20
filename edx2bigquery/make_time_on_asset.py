@@ -34,6 +34,15 @@ def process_course_time_on_asset(course_id, force_recompute=False, use_dataset_l
     How are time_on_asset numbers computed?
 
     See discussion in make_time_on_task.py
+
+    The time_one_asset_daily table has these columns:
+
+    - date: gives day for the data
+    - username
+    - module_id
+    - time_umid5: total time on module (by module_id) in seconds, with a 5-minute timeout
+    - time_umid30: total time on module (by module_id) in seconds, with a 30-minute timeout
+
     '''
 
 
@@ -121,6 +130,29 @@ def process_course_time_on_asset(course_id, force_recompute=False, use_dataset_l
 
 
 def process_time_on_asset_totals(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    Compute total time on asset values, across various subpopulations of users, for different
+    assets (labeled by their module id's).  This requires time_on_asset_daily.
+
+    The time_on_asset_totals table has these columns:
+
+    - course_id
+    - module_id: ID for the asset (including video, problem, text, vertical, sequential - see course axis)
+    - n_unique_users: number of unique users who accessed the asset
+    - n_unique_certified: number of unique users who accessed the asset and also earned a certificate
+    - mean_tmid5: mean time spent on asset [sec], for the given module_id, with a 5-minute timeout
+    - cert_mean_tmid5: mean time spent on asset by certified users [sec], for the given module_id, with a 5-minute timeout
+    - mean_tmid30: mean time spent on asset [sec], for the given module_id, with a 30-minute timeout
+    - cert_mean_tmid30: mean time spent on asset by certified users [sec], for the given module_id, with a 30-minute timeout
+    - median_tmid5: median time spent on asset [sec], for the given module_id, with a 5-minute timeout
+    - cert_median_tmid5: median time spent on asset by certified users [sec], for the given module_id, with a 5-minute timeout
+    - median_tmid30: median time spent on asset [sec], for the given module_id, with a 30-minute timeout
+    - cert_median_tmid30: median time spent on asset by certified users [sec], for the given module_id, with a 30-minute timeout
+    - total_tmid5: total time spent on given module_id, in seconds, with a 5-minute timeout
+    - cert_total_tmid5: total time spent on given module_id, in seconds, with a 5-minute timeout, by certified users
+    - total_tmid30: total time spent on given module_id, in seconds, with a 30-minute timeout
+    - cert_total_tmid30: total time spent on given module_id, in seconds, with a 30-minute timeout, by certified users
+    '''
 
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     SQL = """
