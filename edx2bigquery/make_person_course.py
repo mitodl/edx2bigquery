@@ -401,7 +401,11 @@ class PersonCourse(object):
             pcent['completed'] = False
             import dateutil.parser
 	    grade_cert = uicent.get('certificate_grade', None)
-	    grade_cert_date = dateutil.parser.parse( self.sql_dir_date ) if self.sql_dir_date is not None else None
+            try:
+                grade_cert_date = dateutil.parser.parse( self.sql_dir_date ) if self.sql_dir_date is not None else None
+            except Exception as err:
+                self.log("Error %s getting grade_cert_date!" % str(err))
+                grade_cert_date = None
             grade_dash = uicent.get('edxinstructordash_Grade', None)
             grade_dash_date = uicent.get('edxinstructordash_Grade_timestamp', None)
             # If grade dash exists and grade cert exists, then check which one is the newest
