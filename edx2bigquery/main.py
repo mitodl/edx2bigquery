@@ -795,7 +795,6 @@ def axis2bq(param, courses, args, stop_on_error=True):
 def grades_persistent(param, courses, args, stop_on_error=True):
     import make_grading_policy_table
 
-
     for course_id in get_course_ids(courses):
         if args.skip_if_exists and make_grading_policy_table.already_exists(course_id,
                                                                             use_dataset_latest=param.use_dataset_latest,
@@ -803,7 +802,7 @@ def grades_persistent(param, courses, args, stop_on_error=True):
             print "--> grades_persistent for %s already exists, skipping" % course_id
             sys.stdout.flush()
             continue
-        make_grading_policy_table.make_grade_persisent_table(course_id, param.the_datedir, param.use_dataset_latest)
+        make_grading_policy_table.upload_grade_persistent_data(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest)
     
 def make_grading_policy(param, courses, args):
     pass
