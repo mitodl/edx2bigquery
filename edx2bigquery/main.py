@@ -2136,7 +2136,7 @@ check_for_duplicates        : check list of courses for duplicates
         run_parallel_or_serial(grades_persistent, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='grading_policy'):
-        courses = get_courfse_ids(args)
+        courses = get_course_ids(args)
         run_parallel_or_serial(make_grading_policy, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='item_tables'):
