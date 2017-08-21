@@ -792,26 +792,18 @@ def axis2bq(param, courses, args, stop_on_error=True):
         make_course_axis.process_course(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, 
                                         args.verbose, pin_date, stop_on_error=stop_on_error)
 
-def axis2bq(param, courses, args, stop_on_error=True):
-    import make_course_axis
+def grades_persistent(param, courses, args, stop_on_error=True):
+    import make_grading_policy_table
 
-    try:
-        course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", None)
-    except:
-        pass
-    if not course_axis_pin_dates:
-        course_axis_pin_dates = {}
 
     for course_id in get_course_ids(courses):
-        if args.skip_if_exists and make_course_axis.axis2bigquery.already_exists(course_id, use_dataset_latest=param.use_dataset_latest):
-            print "--> course_axis for %s already exists, skipping" % course_id
+        if args.skip_if_exists and make_grading_policy_table.already_exists(course_id,
+                                                                            use_dataset_latest=param.use_dataset_latest,
+                                                                            table="grades_persistent"):
+            print "--> grades_persistent for %s already exists, skipping" % course_id
             sys.stdout.flush()
             continue
-        pin_date = course_axis_pin_dates.get(course_id)
-        if pin_date:
-            print "--> course_axis for %s being pinned to data from dump date %s" % (course_id, pin_date)
-        make_course_axis.process_course(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest,
-                                        args.verbose, pin_date, stop_on_error=stop_on_error)
+        make_grading_policy_table.make_grade_persisent_table(course_id, param.the_datedir, param.use_dataset_latest)
     
 def make_grading_policy(param, courses, args):
     pass
@@ -2144,7 +2136,7 @@ check_for_duplicates        : check list of courses for duplicates
         run_parallel_or_serial(grades_persistent, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='grading_policy'):
-        courses = get_course_ids(args)
+        courses = get_courfse_ids(args)
         run_parallel_or_serial(make_grading_policy, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='item_tables'):
