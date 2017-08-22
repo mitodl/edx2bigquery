@@ -1,5 +1,5 @@
 {
-    "grades_persistent": [
+    "grades_persistent_subsection": [
         {
             "type": "STRING",
             "name": "course_id",
