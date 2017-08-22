@@ -184,7 +184,20 @@ def already_exists(course_id, use_dataset_latest, table="grading_policy"):
     return table in tables
 
 
-def upload_grade_persistent_data(cid, basedir, datedir, use_dataset_latest=False, subsection=False):
+def upload_grades_persistent_data(cid, basedir, datedir, use_dataset_latest=False, subsection=False):
+    """Upload grades_persistent csv.gz to Google Storage, create the BigQuery table, then insert the data into the table
+
+    :param cid: the course id
+    :param basedir: the base directory path
+    :param datedir: the date directory name (represented as YYYY-MM-DD)
+    :param use_dataset_latest: should the most recent dataset be used?
+    :param subsection: should grades_persistentsubsection be uploaded?
+    :type cid: str
+    :type basedir: str
+    :type datedir: str
+    :type use_dataset_latest: bool
+    :type subsection: bool
+    """
     gsdir = path(gsutil.gs_path_from_course_id(cid, use_dataset_latest=use_dataset_latest))
 
     if subsection:
@@ -225,6 +238,8 @@ def remove_nulls_from_grade_persistent(csvfn, tempfn):
 
     :param csvfn: The path of the csv.gz to be modified
     :param tempfn: The path of the temporary csv.gz
+    :type csvfn: str
+    :type tempfn: str
     """
     with gzip.open(csvfn, "r") as open_csv:
         csv_dict = csv.DictReader(open_csv)
@@ -242,7 +257,10 @@ def remove_nulls_from_row(row_dict, column):
 
     :param row_dict: A dictionary representing a row
     :param column: A string representing the column to be replaced
-    :return:
+    :type row_dict: dict
+    :type column: str
+    :return: the modified row
+    :rtype: dict
     """
     if row_dict[column] == "NULL":
         row_dict[column] = ""

@@ -811,17 +811,17 @@ def grades_persistent(param, courses, args):
             sys.stdout.flush()
             continue
         if param.subsection:
-            make_grading_policy_table.upload_grade_persistent_data(course_id,
-                                                                   param.the_basedir,
-                                                                   param.the_datedir,
-                                                                param.use_dataset_latest,
-                                                                   subsection=True)
+            make_grading_policy_table.upload_grades_persistent_data(course_id,
+                                                                    param.the_basedir,
+                                                                    param.the_datedir,
+                                                                    param.use_dataset_latest,
+                                                                    subsection=True)
         else:
-            make_grading_policy_table.upload_grade_persistent_data(course_id,
-                                                                   param.the_basedir,
-                                                                   param.the_datedir,
-                                                                param.use_dataset_latest,
-                                                                   subsection=False)
+            make_grading_policy_table.upload_grades_persistent_data(course_id,
+                                                                    param.the_basedir,
+                                                                    param.the_datedir,
+                                                                    param.use_dataset_latest,
+                                                                    subsection=False)
 
 def make_grading_policy(param, courses, args):
     import make_grading_policy_table
