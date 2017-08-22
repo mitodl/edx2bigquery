@@ -183,21 +183,47 @@ def already_exists(course_id, use_dataset_latest, table="grading_policy"):
     tables = bqutil.get_list_of_table_ids(dataset)
     return table in tables
 
-def upload_grade_persistent_data(cid, datadir, datedir, use_dataset_latest=False):
+
+def upload_grade_persistent_data(cid, basedir, datedir, use_dataset_latest=False):
     gsdir = path(gsutil.gs_path_from_course_id(cid, use_dataset_latest=use_dataset_latest))
 
-    csvfn = '%s/%s/%s/grades_persistentcoursegrade.csv.gz' % (datadir, cid.replace('/', '__'), datedir)
-    gsutil.upload_file_to_gs(csvfn, gsdir, verbose=False)
+    csv_name = "grades_persistentcoursegrade.csv"
+    temp_name = "grades_persistentcoursegrade_temp.csv"
 
-    #
-    # mypath = os.path.dirname(os.path.realpath(__file__))
-    # the_schema = json.loads(open('%s/schemas/schema_grades_persistent.json' % mypath).read())['grades_persistent']
-    #
-    # dataset = bqutil.course_id2dataset(cid, use_dataset_latest=use_dataset_latest)
-    # bqutil.create_dataset_if_nonexistent(dataset)  # create dataset if not already existent
-    # table = "grades_persistent"
-    #
-    # bqutil.load_data_to_table(dataset, table, gsdir / datadir, the_schema)
+    csvfn = '%s/%s/%s/%s' % (basedir, cid.replace('/', '__'), datedir, csv_name)
+    tempfn = '%s/%s/%s/%s' % (basedir, cid.replace('/', '__'), datedir, temp_name)
+
+    mypath = os.path.dirname(os.path.realpath(__file__))
+    the_schema = json.loads(open('%s/schemas/schema_grades_persistent.json' % mypath).read())['grades_persistent']
+
+    with open(csvfn, "r") as open_csv:
+        csv_dict = csv.DictReader(open_csv)
+        with open(tempfn, "w+") as write_csv_file:
+            write_csv = csv.DictWriter(write_csv_file, fieldnames=csv_dict.fieldnames)
+            write_csv.writeheader()
+            for row in csv_dict:
+                row_dict = remove_nulls_from_row(row, "passed_timestamp")
+                write_csv.writerow(row_dict)
+
+    os.rename(tempfn, csvfn)
+    gsutil.upload_file_to_gs(csvfn, gsdir, options="-z csv", verbose=True)
+
+    dataset = bqutil.course_id2dataset(cid, use_dataset_latest=use_dataset_latest)
+    bqutil.create_dataset_if_nonexistent(dataset)  # create dataset if not already existent
+    table = "grades_persistent"
+
+    bqutil.load_data_to_table(dataset,
+                              table,
+                              gsdir / csv_name,
+                              the_schema,
+                              format="csv",
+                              skiprows=1)
+
+
+def remove_nulls_from_row(row_dict, column):
+    if row_dict[column] == "NULL":
+        row_dict[column] = ""
+    return row_dict
 
 
 def make_grade_persistent_table(cid, caset_in, datadir, log_msg, use_dataset_latest=False):
