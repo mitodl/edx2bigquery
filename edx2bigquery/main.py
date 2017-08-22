@@ -7,6 +7,7 @@ import os
 import sys
 
 import argparse
+import copy
 import json
 import traceback
 import datetime
@@ -997,14 +998,20 @@ def doall(param, course_id, args, stdout=None):
         pcday_trlang(param, course_id, args)
         person_day(param, course_id, args, stop_on_error=False)
         enrollment_day(param, course_id, args)
-	enrollment_events_table(param, course_id, args)
+    	enrollment_events_table(param, course_id, args)
         person_course(param, course_id, args)
         problem_check(param, course_id, args)
         show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, just_do_totals=True, suppress_errors=True)
         item_tables(param, course_id, args)
-        
+        grades_persistent(param, course_id, args)
+
+        subsection_param = copy.deepcopy(param)
+        subsection_param.subsection = True
+
+        grades_persistent(subsection_param, course_id, args)
+
         success = True
 
     except Exception as err:
