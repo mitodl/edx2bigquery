@@ -1716,7 +1716,8 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--skip-last-day", help="skip last day of tracking log data in processing pcday, to avoid partial-day data contamination", action="store_true")
     parser.add_argument("--gzip", help="compress the output file (e.g. for get_course_data)", action="store_true")
     parser.add_argument("--time-on-task-config", type=str, help="time-on-task computation parameters for overriding default config, as string of comma separated values")
-    parser.add_argument("--subsection", help="Add grades_persistent_subsection instead of grades_persistent", action="store_false")
+    parser.add_argument("--subsection", help="Add grades_persistent_subsection instead of grades_persistent",
+                        action="store_true")
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
     
     args = parser.parse_args()
