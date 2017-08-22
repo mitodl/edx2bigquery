@@ -5,6 +5,7 @@ import re
 import gsutil
 import bqutil
 
+import gzip
 import unicodecsv as csv
 
 from path import path
@@ -187,12 +188,12 @@ def upload_grade_persistent_data(cid, basedir, datedir, use_dataset_latest=False
     gsdir = path(gsutil.gs_path_from_course_id(cid, use_dataset_latest=use_dataset_latest))
 
     if subsection:
-        csv_name = "grades_persistentsubsectiongrade.csv"
-        temp_name = "grades_persistentsubsectiongrade_temp.csv"
+        csv_name = "grades_persistentsubsectiongrade.csv.gz"
+        temp_name = "grades_persistentsubsectiongrade_temp.csv.gz"
         table = "grades_persistent_subsection"
     else:
-        csv_name = "grades_persistentcoursegrade.csv"
-        temp_name = "grades_persistentcoursegrade_temp.csv"
+        csv_name = "grades_persistentcoursegrade.csv.gz"
+        temp_name = "grades_persistentcoursegrade_temp.csv.gz"
         table = "grades_persistent"
 
 
@@ -203,16 +204,8 @@ def upload_grade_persistent_data(cid, basedir, datedir, use_dataset_latest=False
     the_schema = json.loads(open('%s/schemas/schema_%s.json' % (mypath, table)).read())[table]
 
     if not subsection:
-        with open(csvfn, "r") as open_csv:
-            csv_dict = csv.DictReader(open_csv)
-            with open(tempfn, "w+") as write_csv_file:
-                write_csv = csv.DictWriter(write_csv_file, fieldnames=csv_dict.fieldnames)
-                write_csv.writeheader()
-                for row in csv_dict:
-                    row_dict = remove_nulls_from_row(row, "passed_timestamp")
-                    write_csv.writerow(row_dict)
+        remove_nulls_from_grade_persistent(csvfn, tempfn)
 
-        os.rename(tempfn, csvfn)
     gsutil.upload_file_to_gs(csvfn, gsdir, options="-z csv", verbose=True)
 
     dataset = bqutil.course_id2dataset(cid, use_dataset_latest=use_dataset_latest)
@@ -227,7 +220,30 @@ def upload_grade_persistent_data(cid, basedir, datedir, use_dataset_latest=False
                               skiprows=1)
 
 
+def remove_nulls_from_grade_persistent(csvfn, tempfn):
+    """Removes the null values from grades_persistentcoursegrade.csv.gz. This operation permanently modifies the CSV.
+
+    :param csvfn: The path of the csv.gz to be modified
+    :param tempfn: The path of the temporary csv.gz
+    """
+    with gzip.open(csvfn, "r") as open_csv:
+        csv_dict = csv.DictReader(open_csv)
+        with gzip.open(tempfn, "w+") as write_csv_file:
+            write_csv = csv.DictWriter(write_csv_file, fieldnames=csv_dict.fieldnames)
+            write_csv.writeheader()
+            for row in csv_dict:
+                row_dict = remove_nulls_from_row(row, "passed_timestamp")
+                write_csv.writerow(row_dict)
+    os.rename(tempfn, csvfn)
+
+
 def remove_nulls_from_row(row_dict, column):
+    """Replace the "NULL" values with an empty string
+
+    :param row_dict: A dictionary representing a row
+    :param column: A string representing the column to be replaced
+    :return:
+    """
     if row_dict[column] == "NULL":
         row_dict[column] = ""
     return row_dict
