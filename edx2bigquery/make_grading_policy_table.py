@@ -200,7 +200,7 @@ def upload_grade_persistent_data(cid, basedir, datedir, use_dataset_latest=False
     tempfn = '%s/%s/%s/%s' % (basedir, cid.replace('/', '__'), datedir, temp_name)
 
     mypath = os.path.dirname(os.path.realpath(__file__))
-    the_schema = json.loads(open('%s/schemas/schema_%s.json' % mypath, table).read())[table]
+    the_schema = json.loads(open('%s/schemas/schema_%s.json' % (mypath, table)).read())[table]
 
     if not subsection:
         with open(csvfn, "r") as open_csv:
