@@ -792,20 +792,35 @@ def axis2bq(param, courses, args, stop_on_error=True):
         make_course_axis.process_course(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, 
                                         args.verbose, pin_date, stop_on_error=stop_on_error)
 
-def grades_persistent(param, courses, args, stop_on_error=True):
+
+def grades_persistent(param, courses, args):
     import make_grading_policy_table
 
+    if param.subsection:
+        table = "grades_persistent_subsection"
+    else:
+        table = "grades_persistent"
+
     for course_id in get_course_ids(courses):
-        if args.skip_if_exists and make_grading_policy_table.already_exists(course_id,
-                                                                            use_dataset_latest=param.use_dataset_latest,
-                                                                            table="grades_persistent"):
-            print "--> grades_persistent for %s already exists, skipping" % course_id
+        if args.skip_if_exists and \
+                make_grading_policy_table.already_exists(course_id,
+                    use_dataset_latest=param.use_dataset_latest,
+                    table=table):
+            print "--> %s for %s already exists, skipping" % (table, course_id)
             sys.stdout.flush()
             continue
-        make_grading_policy_table.upload_grade_persistent_data(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest)
-    
-def make_grading_policy(param, courses, args):
-    pass
+        if param.subsection:
+            make_grading_policy_table.upload_grade_persistent_data(course_id,
+                                                                   param.the_basedir,
+                                                                   param.the_datedir,
+                                                                param.use_dataset_latest,
+                                                                   subsection=True)
+        else:
+            make_grading_policy_table.upload_grade_persistent_data(course_id,
+                                                                   param.the_basedir,
+                                                                   param.the_datedir,
+                                                                param.use_dataset_latest,
+                                                                   subsection=False)
         
 def research(param, courses, args, check_dates=True, stop_on_error=False):
 
@@ -968,7 +983,6 @@ def doall(param, course_id, args, stdout=None):
         show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, just_do_totals=True, suppress_errors=True)
-        make_grading_policy(param, course_id, args)
         item_tables(param, course_id, args)
         
         success = True
@@ -1462,8 +1476,8 @@ grading_policy <course_id>  : construct the "grading_policy" table, upload to gs
                               the specified course_id's.  Uses pin dates, just as does axis2bq.  Requires course.tar.gz file,
                               from the weekly SQL dumps.
 
-grades_persistent <course_id> : construct "grades_persistent" and "grades_persistent_subsection", upload to gs, and 
-                                generate table in BigQuery dataset for the specified course_id's.
+grades_persistent <course_id> : construct "grades_persistent", upload to gs, and 
+                                generate table in BigQuery dataset for the specified course_ids. If the option "--subsection" is used, construct "grades_persistent_subsection" instead.
 
 grade_reports <course_id>   : request and download the latest edx instructor grade report from the edx instructor dashboards.
                               For courses that are self-paced/on-demand, edX does not provide grades for non-verified ID users. 
@@ -1682,6 +1696,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--skip-last-day", help="skip last day of tracking log data in processing pcday, to avoid partial-day data contamination", action="store_true")
     parser.add_argument("--gzip", help="compress the output file (e.g. for get_course_data)", action="store_true")
     parser.add_argument("--time-on-task-config", type=str, help="time-on-task computation parameters for overriding default config, as string of comma separated values")
+    parser.add_argument("--subsection", help="Add grades_persistent_subsection instead of grades_persistent", action="store_false")
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
     
     args = parser.parse_args()
@@ -1711,6 +1726,7 @@ check_for_duplicates        : check list of courses for duplicates
     param.max_parallel = args.max_parallel
     param.submit_condor = args.submit_condor
     param.skip_log_loading = args.skip_log_loading
+    param.subsection = args.subsection
 
     # default end date for person_course
     try:
@@ -2134,7 +2150,7 @@ check_for_duplicates        : check list of courses for duplicates
         courses = get_course_ids(args)
         run_parallel_or_serial(grades_persistent, param, courses, args, parallel=args.parallel)
 
-    elif (args.command=='grading_policy'):
+    elif (args.command=='grades'):
         courses = get_course_ids(args)
         run_parallel_or_serial(make_grading_policy, param, courses, args, parallel=args.parallel)
 

@@ -183,7 +183,7 @@ def already_exists(course_id, use_dataset_latest, table="grading_policy"):
     return table in tables
 
 
-def upload_grade_persistent_data(cid, basedir, datedir, use_dataset_latest=False, subsection = False):
+def upload_grade_persistent_data(cid, basedir, datedir, use_dataset_latest=False, subsection=False):
     gsdir = path(gsutil.gs_path_from_course_id(cid, use_dataset_latest=use_dataset_latest))
 
     if subsection:
