@@ -821,7 +821,27 @@ def grades_persistent(param, courses, args):
                                                                    param.the_datedir,
                                                                 param.use_dataset_latest,
                                                                    subsection=False)
-        
+
+def make_grading_policy(param, courses, args):
+    import make_grading_policy_table
+
+    try:
+        course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", None)
+    except:
+        pass
+    if not course_axis_pin_dates:
+        course_axis_pin_dates = {}
+
+    for course_id in get_course_ids(courses):
+        if args.skip_if_exists and make_grading_policy_table.already_exists(course_id, use_dataset_latest=param.use_dataset_latest):
+            print "--> grading_policy for %s already exists, skipping" % course_id
+            sys.stdout.flush()
+            continue
+        pin_date = course_axis_pin_dates.get(course_id)
+        if pin_date:
+            print "--> course tarfile for %s being pinned to data from dump date %s" % (course_id, pin_date)
+        make_grading_policy_table.make_gp_table(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose, pin_date)
+
 def research(param, courses, args, check_dates=True, stop_on_error=False):
 
     import make_research_data_tables
