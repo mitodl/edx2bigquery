@@ -18,8 +18,6 @@ from path import path
 from argparse import RawTextHelpFormatter
 from collections import OrderedDict
 
-import edx2bigquery.make_grades_persistent
-
 CURDIR = path(os.path.abspath(os.curdir))
 if os.path.exists(CURDIR / 'edx2bigquery_config.py'):
     sys.path.append(CURDIR)
