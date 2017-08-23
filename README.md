@@ -4,6 +4,10 @@ edx2bigquery
 edx2bigquery is a tool for importing edX SQL and log data into Google
 BigQuery for research and analysis.
 
+Read more about it in [this writeup](https://vpal.harvard.edu/blog/demystifying-educational-mooc-data-using-google-bigquery-person-course-dataset-part-1) by the Harvard University Office of the Vice Provost for Advances in Learning, and the article "[Google BigQuery for Education: Framework for Parsing and Analyzing edX MOOC Data](http://dl.acm.org/citation.cfm?doid=3051457.3053980)", by Glenn Lopez, Daniel Seaton, Andrew Ang, Dustin Tingley, and Isaac Chuang.
+
+## Getting Started
+
 To get started, install the Google Cloud SDK first:
 
   https://cloud.google.com/sdk/
@@ -52,6 +56,8 @@ Also, setup the file edx2bigquery_config.py in your current working directory.  
 To run:
 
   edx2bigquery
+
+## Command line parameters and options
 
 Command help message:
 
