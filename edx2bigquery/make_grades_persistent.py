@@ -14,6 +14,7 @@ import bqutil
 import unicodecsv as csv
 
 from path import path
+import load_course_sql
 
 
 def remove_nulls_from_row(row_dict, column):
@@ -75,11 +76,21 @@ def upload_grades_persistent_data(cid, basedir, datedir, use_dataset_latest=Fals
         temp_name = "grades_persistentcoursegrade_temp.csv.gz"
         table = "grades_persistent"
 
-    csvfn = '%s/%s/%s/%s' % (basedir, cid.replace('/', '__'), datedir, csv_name)
-    tempfn = '%s/%s/%s/%s' % (basedir, cid.replace('/', '__'), datedir, temp_name)
+    sdir = load_course_sql.find_course_sql_dir(cid, 
+                                               basedir=basedir,
+                                               datedir=datedir,
+                                               use_dataset_latest=(use_dataset_latest),
+                                               )
+
+    csvfn = sdir / csv_name
+    tempfn = sdir / temp_name
 
     mypath = os.path.dirname(os.path.realpath(__file__))
     the_schema = json.loads(open('%s/schemas/schema_%s.json' % (mypath, table)).read())[table]
+
+    if not os.path.exists(csvfn):
+        print "[edx2bigquery] make_grades_persistent: missing file %s, skipping" % csvfn
+        return
 
     if not subsection:
         remove_nulls_from_grade_persistent(csvfn, tempfn)
