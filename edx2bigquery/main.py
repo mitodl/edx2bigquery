@@ -7,6 +7,7 @@ import os
 import sys
 
 import argparse
+import copy
 import json
 import traceback
 import datetime
@@ -791,8 +792,37 @@ def axis2bq(param, courses, args, stop_on_error=True):
             print "--> course_axis for %s being pinned to data from dump date %s" % (course_id, pin_date)
         make_course_axis.process_course(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, 
                                         args.verbose, pin_date, stop_on_error=stop_on_error)
-        
-    
+
+
+def grades_persistent(param, courses, args):
+    import make_grades_persistent
+
+    if param.subsection:
+        table = "grades_persistent_subsection"
+    else:
+        table = "grades_persistent"
+
+    for course_id in get_course_ids(courses):
+        if args.skip_if_exists and \
+                make_grades_persistent.already_exists(course_id,
+                    use_dataset_latest=param.use_dataset_latest,
+                    table=table):
+            print "--> %s for %s already exists, skipping" % (table, course_id)
+            sys.stdout.flush()
+            continue
+        if param.subsection:
+            make_grades_persistent.upload_grades_persistent_data(course_id,
+                param.the_basedir,
+                param.the_datedir,
+                param.use_dataset_latest,
+                subsection=True)
+        else:
+            make_grades_persistent.upload_grades_persistent_data(course_id,
+                param.the_basedir,
+                param.the_datedir,
+                param.use_dataset_latest,
+                subsection=False)
+
 def make_grading_policy(param, courses, args):
     import make_grading_policy_table
 
@@ -812,7 +842,7 @@ def make_grading_policy(param, courses, args):
         if pin_date:
             print "--> course tarfile for %s being pinned to data from dump date %s" % (course_id, pin_date)
         make_grading_policy_table.make_gp_table(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose, pin_date)
-        
+
 def research(param, courses, args, check_dates=True, stop_on_error=False):
 
     import make_research_data_tables
@@ -968,15 +998,21 @@ def doall(param, course_id, args, stdout=None):
         pcday_trlang(param, course_id, args)
         person_day(param, course_id, args, stop_on_error=False)
         enrollment_day(param, course_id, args)
-	enrollment_events_table(param, course_id, args)
+    	enrollment_events_table(param, course_id, args)
         person_course(param, course_id, args)
         problem_check(param, course_id, args)
         show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, just_do_totals=True, suppress_errors=True)
-        make_grading_policy(param, course_id, args)
         item_tables(param, course_id, args)
-        
+        make_grading_policy(param, course_id, args)
+        grades_persistent(param, course_id, args)
+
+        subsection_param = copy.deepcopy(param)
+        subsection_param.subsection = True
+
+        grades_persistent(subsection_param, course_id, args)
+
         success = True
 
     except Exception as err:
@@ -1468,6 +1504,9 @@ grading_policy <course_id>  : construct the "grading_policy" table, upload to gs
                               the specified course_id's.  Uses pin dates, just as does axis2bq.  Requires course.tar.gz file,
                               from the weekly SQL dumps.
 
+grades_persistent <course_id> : construct "grades_persistent", upload to gs, and 
+                                generate table in BigQuery dataset for the specified course_ids. If the option "--subsection" is used, construct "grades_persistent_subsection" instead.
+
 grade_reports <course_id>   : request and download the latest edx instructor grade report from the edx instructor dashboards.
                               For courses that are self-paced/on-demand, edX does not provide grades for non-verified ID users. 
                               To fix this issue, this function was created to grab the latest grades for all users from the grade report
@@ -1685,6 +1724,8 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--skip-last-day", help="skip last day of tracking log data in processing pcday, to avoid partial-day data contamination", action="store_true")
     parser.add_argument("--gzip", help="compress the output file (e.g. for get_course_data)", action="store_true")
     parser.add_argument("--time-on-task-config", type=str, help="time-on-task computation parameters for overriding default config, as string of comma separated values")
+    parser.add_argument("--subsection", help="Add grades_persistent_subsection instead of grades_persistent",
+                        action="store_true")
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
     
     args = parser.parse_args()
@@ -1714,6 +1755,7 @@ check_for_duplicates        : check list of courses for duplicates
     param.max_parallel = args.max_parallel
     param.submit_condor = args.submit_condor
     param.skip_log_loading = args.skip_log_loading
+    param.subsection = args.subsection
 
     # default end date for person_course
     try:
@@ -2133,7 +2175,16 @@ check_for_duplicates        : check list of courses for duplicates
         run_parallel_or_serial(axis2bq, param, courses, args, parallel=args.parallel)
         # axis2bq(param, args, args)
 
-    elif (args.command=='grading_policy'):
+    elif (args.command == 'grading_policy'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(make_grading_policy, param, courses, args, parallel=args.parallel)
+
+
+    elif (args.command=='grades_persistent'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(grades_persistent, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='grades'):
         courses = get_course_ids(args)
         run_parallel_or_serial(make_grading_policy, param, courses, args, parallel=args.parallel)
 
@@ -2210,3 +2261,6 @@ check_for_duplicates        : check list of courses for duplicates
     else:
         print "Unknown command %s!" % args.command
         sys.exit(-1)
+
+if __name__ == '__main__':
+    CommandLine()
