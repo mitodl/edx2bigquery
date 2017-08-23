@@ -797,7 +797,7 @@ def axis2bq(param, courses, args, stop_on_error=True):
 
 
 def grades_persistent(param, courses, args):
-    import make_grading_policy_table
+    import make_grades_persistent
 
     if param.subsection:
         table = "grades_persistent_subsection"
@@ -806,24 +806,24 @@ def grades_persistent(param, courses, args):
 
     for course_id in get_course_ids(courses):
         if args.skip_if_exists and \
-                make_grading_policy_table.already_exists(course_id,
+                make_grades_persistent.already_exists(course_id,
                     use_dataset_latest=param.use_dataset_latest,
                     table=table):
             print "--> %s for %s already exists, skipping" % (table, course_id)
             sys.stdout.flush()
             continue
         if param.subsection:
-            edx2bigquery.make_grades_persistent.upload_grades_persistent_data(course_id,
-                                                                              param.the_basedir,
-                                                                              param.the_datedir,
-                                                                              param.use_dataset_latest,
-                                                                              subsection=True)
+            make_grades_persistent.upload_grades_persistent_data(course_id,
+                param.the_basedir,
+                param.the_datedir,
+                param.use_dataset_latest,
+                subsection=True)
         else:
-            edx2bigquery.make_grades_persistent.upload_grades_persistent_data(course_id,
-                                                                              param.the_basedir,
-                                                                              param.the_datedir,
-                                                                              param.use_dataset_latest,
-                                                                              subsection=False)
+            make_grades_persistent.upload_grades_persistent_data(course_id,
+                param.the_basedir,
+                param.the_datedir,
+                param.use_dataset_latest,
+                subsection=False)
 
 def make_grading_policy(param, courses, args):
     import make_grading_policy_table
@@ -1007,6 +1007,7 @@ def doall(param, course_id, args, stdout=None):
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, just_do_totals=True, suppress_errors=True)
         item_tables(param, course_id, args)
+        make_grading_policy(param, course_id, args)
         grades_persistent(param, course_id, args)
 
         subsection_param = copy.deepcopy(param)
@@ -2175,6 +2176,11 @@ check_for_duplicates        : check list of courses for duplicates
         courses = get_course_ids(args)
         run_parallel_or_serial(axis2bq, param, courses, args, parallel=args.parallel)
         # axis2bq(param, args, args)
+
+    elif (args.command == 'grading_policy'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(make_grading_policy, param, courses, args, parallel=args.parallel)
+
 
     elif (args.command=='grades_persistent'):
         courses = get_course_ids(args)

@@ -4,14 +4,9 @@
 #
 # part of the edx2bigquery package.
 
-import copy
 import gzip
 import os
 import json
-import tarfile
-import re
-
-from path import path
 
 import gsutil
 import bqutil
@@ -19,13 +14,6 @@ import bqutil
 import unicodecsv as csv
 
 from path import path
-import load_course_sql
-from make_grading_policy_table import already_exists
-import datetime
-from check_schema_tracking_log import check_schema, schema2dict
-from edx2bigquery import gsutil, bqutil
-
-
 
 
 def remove_nulls_from_row(row_dict, column):
@@ -87,7 +75,6 @@ def upload_grades_persistent_data(cid, basedir, datedir, use_dataset_latest=Fals
         temp_name = "grades_persistentcoursegrade_temp.csv.gz"
         table = "grades_persistent"
 
-
     csvfn = '%s/%s/%s/%s' % (basedir, cid.replace('/', '__'), datedir, csv_name)
     tempfn = '%s/%s/%s/%s' % (basedir, cid.replace('/', '__'), datedir, temp_name)
 
@@ -101,7 +88,6 @@ def upload_grades_persistent_data(cid, basedir, datedir, use_dataset_latest=Fals
 
     dataset = bqutil.course_id2dataset(cid, use_dataset_latest=use_dataset_latest)
     bqutil.create_dataset_if_nonexistent(dataset)  # create dataset if not already existent
-
 
     bqutil.load_data_to_table(dataset,
                               table,
