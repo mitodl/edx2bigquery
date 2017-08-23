@@ -18,6 +18,8 @@ from path import path
 from argparse import RawTextHelpFormatter
 from collections import OrderedDict
 
+import edx2bigquery.make_grades_persistent
+
 CURDIR = path(os.path.abspath(os.curdir))
 if os.path.exists(CURDIR / 'edx2bigquery_config.py'):
     sys.path.append(CURDIR)
@@ -811,17 +813,17 @@ def grades_persistent(param, courses, args):
             sys.stdout.flush()
             continue
         if param.subsection:
-            make_grading_policy_table.upload_grades_persistent_data(course_id,
-                                                                    param.the_basedir,
-                                                                    param.the_datedir,
-                                                                    param.use_dataset_latest,
-                                                                    subsection=True)
+            edx2bigquery.make_grades_persistent.upload_grades_persistent_data(course_id,
+                                                                              param.the_basedir,
+                                                                              param.the_datedir,
+                                                                              param.use_dataset_latest,
+                                                                              subsection=True)
         else:
-            make_grading_policy_table.upload_grades_persistent_data(course_id,
-                                                                    param.the_basedir,
-                                                                    param.the_datedir,
-                                                                    param.use_dataset_latest,
-                                                                    subsection=False)
+            edx2bigquery.make_grades_persistent.upload_grades_persistent_data(course_id,
+                                                                              param.the_basedir,
+                                                                              param.the_datedir,
+                                                                              param.use_dataset_latest,
+                                                                              subsection=False)
 
 def make_grading_policy(param, courses, args):
     import make_grading_policy_table
