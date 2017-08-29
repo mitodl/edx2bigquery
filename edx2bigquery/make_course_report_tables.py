@@ -171,7 +171,11 @@ class CourseReport(object):
             self.make_global_modal_ip_table()
             self.make_global_modal_lang_table()
             self.make_enrollment_by_day()
-            self.make_time_on_task_stats_by_course()
+            try:
+                self.make_time_on_task_stats_by_course()
+            except Exception as err:
+                print "====> ERROR: Failed in make_time_on_task_stats_by_course(), err %s" % str(err)
+                print "====> Continuing anyway"
             self.make_total_populations_by_course()
             self.make_table_of_n_courses_registered()
             self.make_geographic_distributions()
