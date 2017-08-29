@@ -71,7 +71,7 @@ def cleanup_rows_from_grade_persistent(csvfn, tempfn):
             write_csv.writeheader()
             for row in csv_dict:
                 row_dict = remove_nulls_from_row(row, "passed_timestamp")
-                row_dict = fix_course_ids(row)
+                row_dict = fix_course_ids(row_dict)
                 write_csv.writerow(row_dict)
     os.rename(tempfn, csvfn)
 
