@@ -72,7 +72,13 @@ def create_dataset_if_nonexistent(dataset, project_id=DEFAULT_PROJECT_ID):
       dataset_ref = {'datasetId': dataset,
                      'projectId': project_id}
       dataset = {'datasetReference': dataset_ref}
-      dataset = datasets.insert(body=dataset, projectId=project_id).execute()
+      try:
+          dataset = datasets.insert(body=dataset, projectId=project_id).execute()
+      except Exception as err:
+          if 'Already Exists' in str(err):
+              return dataset
+          else:
+              raise
       return dataset
 
 def get_list_of_datasets(project_id=DEFAULT_PROJECT_ID):
