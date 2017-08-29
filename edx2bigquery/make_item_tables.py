@@ -1,12 +1,23 @@
 #!/usr/bin/python
 '''
-Make tables for IRT analyses.
+Make the following tables for IRT analyses:
 
 1. course-item table, with one row per assessment item.
 
    Currently only includes capa problems (LTI and other xmodules / xblocks not included)
 
 2. person-item table, with one row per item & person.  Only includes items in the course-item table.
+
+3. course_problem
+
+4. person_problem
+
+5. problem_first_attempt_correct
+
+A problem may contain one or more items.  Each item is a question which is graded for correctness 
+by the edX system.  For example, an item may be a multiple choice question, or a custom response
+question.  A problem may contain a multiple choice question and a custom response question,
+together.
 
 '''
 
@@ -19,7 +30,8 @@ def make_item_tables(course_id, force_recompute=False, use_dataset_latest=False)
     create_person_item_table(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
     create_person_problem_table(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
     create_course_problem_table(course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest)
-
+    create_problem_first_attempt_correct_table(course_id, force_recompute=force_recompute, 
+                                               use_dataset_latest=use_dataset_latest)
 
 def create_course_item_table(course_id, force_recompute=False, use_dataset_latest=False):
     '''
@@ -588,3 +600,64 @@ order by avg_problem_pct_score desc
     print "--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound)
     sys.stdout.flush()
     
+#-----------------------------------------------------------------------------
+
+def create_problem_first_attempt_correct_table(course_id, force_recompute=False, use_dataset_latest=False):
+    '''
+    It is very useful to know, for each graded problem, the percentage of users who got the problem
+    correct on their first attempt.  This information is computed and stored in the problem_first_attempt_correct
+    table, for users who completed, and users who certified.  Problems are indexed by problem_nid,
+    which is a unique index used by course_problem and course_item.
+    '''
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    tablename = "problem_first_attempt_correct"
+
+    the_sql = """
+# compute problem_first_attempt_correct table for {course_id}
+SELECT
+    problem_nid,
+    n_first_attempt_correct_by_certified,
+    n_certified_users_attempted,
+    n_first_attempt_correct_by_certified / n_certified_users_attempted * 100 as pct_correct_first_attempt_by_certified,
+    n_first_attempt_correct_by_completed,
+    n_completed_users_attempted,
+    n_first_attempt_correct_by_completed / n_completed_users_attempted * 100 as pct_correct_first_attempt_by_completed,
+FROM (
+    SELECT 
+
+      PP.problem_nid as problem_nid,
+      sum(case when PC.certified and PP.n_attempts=1 and PP.problem_pct_score=100 then 1 else 0 end) as n_first_attempt_correct_by_certified,
+      sum(case when PC.completed and PP.n_attempts=1 and PP.problem_pct_score=100 then 1 else 0 end) as n_first_attempt_correct_by_completed,
+      count(case when PC.certified then PP.user_id else null end) as n_certified_users_attempted,
+      count(case when PC.completed then PP.user_id else null end) as n_completed_users_attempted,
+
+    FROM [{dataset}.person_problem] PP
+    JOIN [{dataset}.person_course] PC
+    on PP.user_id = PC.user_id
+    WHERE PC.certified or PC.completed
+    group by problem_nid
+    order by problem_nid
+)
+    """.format(dataset=dataset, course_id=course_id)
+
+    depends_on = [ "%s.person_problem" % dataset,
+                   "%s.person_course" % dataset,
+               ]
+
+    try:
+        bqdat = bqutil.get_bq_table(dataset, tablename, the_sql, 
+                                    depends_on=depends_on,
+                                    force_query=force_recompute,
+                                    startIndex=-2)
+    except Exception as err:
+        print "[create_problem_first_attempt_correct_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename)
+        print the_sql
+        raise
+
+    if not bqdat:
+        nfound = 0
+    else:
+        nfound = bqutil.get_bq_table_size_rows(dataset, tablename)
+    print "--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound)
+    sys.stdout.flush()

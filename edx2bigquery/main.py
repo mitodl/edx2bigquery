@@ -1436,7 +1436,8 @@ time_task <course_id> ...   : Update time_task table of data on time on task, ba
 time_asset <course_id> ...   : Update time_on_asset_daily and time_on_asset_totals tables of data on time on asset (ie module_id,
                                aka url_name), based on daily tracking logs, for specified course.
 
-item_tables <course_id> ... : Make course_item and person_item tables, used for IRT analyses.
+item_tables <course_id> ... : Make course_item, person_item, course_problem, and person_problem tables, used for IRT analyses.
+                              Also computes or updates the problem_first_attempt_correct table.
 
 irt_report <coure_id> ...   : Compute the item_response_theory_report table, which extracts data from item_irt_grm[_R], course_item,
                               course_problem, and item_reliabilities.  This table is used in the XAnalytics reporting on IRT.
