@@ -17,6 +17,24 @@ from path import path
 import load_course_sql
 
 
+def fix_course_ids(row_dict, column="course_id"):
+    """
+    Course ids are coming from edX in their URL
+    form. So we apply something like course_id.split(":")[-1].replace("+", "/")
+    to get the course id in its expected format.
+
+    :param row_dict: A dictionary representing a row
+    :param column: A string representing the column to be replaced
+    :type row_dict: dict
+    :type column: str
+    :return: the modified row
+    :rtype: dict
+    """
+    row_dict[column] = row_dict.get(column, "").split(":")[-1].replace("+", "/")
+    return row_dict
+
+
+
 def remove_nulls_from_row(row_dict, column):
     """Replace the "NULL" values with an empty string
 
@@ -32,8 +50,14 @@ def remove_nulls_from_row(row_dict, column):
     return row_dict
 
 
-def remove_nulls_from_grade_persistent(csvfn, tempfn):
-    """Removes the null values from grades_persistentcoursegrade.csv.gz. This operation permanently modifies the CSV.
+def cleanup_rows_from_grade_persistent(csvfn, tempfn):
+    """
+    Removes the null values from grades_persistentcoursegrade.csv.gz.
+    The function also fixes course ids by changing them from their
+    edX URL format to their usual format. For instance,
+    course-v1:MITx+STL.162x+2T2017 should be MITx/STL.162x/2T2017.
+
+    This operation permanently modifies the CSV.
 
     :param csvfn: The path of the csv.gz to be modified
     :param tempfn: The path of the temporary csv.gz
@@ -47,12 +71,16 @@ def remove_nulls_from_grade_persistent(csvfn, tempfn):
             write_csv.writeheader()
             for row in csv_dict:
                 row_dict = remove_nulls_from_row(row, "passed_timestamp")
+                row_dict = fix_course_ids(row)
                 write_csv.writerow(row_dict)
     os.rename(tempfn, csvfn)
 
 
 def upload_grades_persistent_data(cid, basedir, datedir, use_dataset_latest=False, subsection=False):
-    """Upload grades_persistent csv.gz to Google Storage, create the BigQuery table, then insert the data into the table
+    """
+    Upload grades_persistent csv.gz to Google Storage,
+    create the BigQuery table,
+    then insert the data into the table.
 
     :param cid: the course id
     :param basedir: the base directory path
@@ -76,7 +104,7 @@ def upload_grades_persistent_data(cid, basedir, datedir, use_dataset_latest=Fals
         temp_name = "grades_persistentcoursegrade_temp.csv.gz"
         table = "grades_persistent"
 
-    sdir = load_course_sql.find_course_sql_dir(cid, 
+    sdir = load_course_sql.find_course_sql_dir(cid,
                                                basedir=basedir,
                                                datedir=datedir,
                                                use_dataset_latest=(use_dataset_latest),
@@ -93,7 +121,7 @@ def upload_grades_persistent_data(cid, basedir, datedir, use_dataset_latest=Fals
         return
 
     if not subsection:
-        remove_nulls_from_grade_persistent(csvfn, tempfn)
+        cleanup_rows_from_grade_persistent(csvfn, tempfn)
 
     gsutil.upload_file_to_gs(csvfn, gsdir, options="-z csv", verbose=True)
 
