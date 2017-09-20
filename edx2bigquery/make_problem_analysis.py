@@ -1518,12 +1518,14 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
     tracking_log_dataset = project_id + ":" + bqutil.course_id2dataset(course_id, use_dataset_latest=False) + '_logs'
     table = "stats_problem_check_show_answer_ip"
 
-    if last_date is None:
-      last_date = compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest, testing, testing_dataset, project_id)
+    # if last_date is None:
+    #   last_date = compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest, testing, testing_dataset, project_id)
     
-    print "="*80 + "\nComputing problem check and show answer ip table until end date: " + str(last_date) + "\n" + "="*80 
+    # print "="*80 + "\nComputing problem check and show answer ip table until end date: " + str(last_date) + "\n" + "="*80 
     
-    cap = str(last_date.year) + ('0'+str(last_date.month))[-2:] + ('0'+str(last_date.day))[-2:] #Formatted as YYYYMMDD
+    # cap = str(last_date.year) + ('0'+str(last_date.month))[-2:] + ('0'+str(last_date.day))[-2:] #Formatted as YYYYMMDD
+
+    cap = "29991231" # Ensure all tracking logs are included
 
     sql = []
     for i in range(num_partitions):
@@ -1597,7 +1599,8 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
 def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest=True, force_num_partitions=None, 
                             testing=False, testing_dataset= None, project_id = None, force_online=True,
                             problem_check_show_answer_ip_table=None, cameo_master_table="mitx-research:core.cameo_master",
-                            delete_intermediate_tables=True, drop_low_count_rows=True):
+                            delete_intermediate_tables=True, drop_low_count_rows=True, 
+                            master_list = None, harvester_list = None,):
   '''
   no_filtering: Default True. Set to False to allow all rows of the table. Set to false to
     require ncorrect >= 10, X >= 10, nshow_answer > 10, certified=True/False (if offline).
@@ -1841,6 +1844,12 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
       the_partition.append(make_username_partition(num_partitions, k))
 
   #-------------------- build sql, one for each partition
+
+  if master_list is not None:
+    master_list_str = str(tuple(master_list))
+
+  if harvester_list is not None:
+    harvester_list_str = str(tuple(harvester_list))
 
   sql_inner = []
   sql_outer = []
@@ -2212,6 +2221,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                   JOIN EACH [{problem_check_show_answer_ip_table}] b
                                   ON a.time = b.time AND a.username = b.username AND a.module_id = b.module_id
                                   WHERE b.event_type = 'show_answer'
+                                  {harvester_list}
                                 ) sa
                                 JOIN EACH [{dataset}.person_course] pc
                                 ON sa.a.username = pc.username
@@ -2239,7 +2249,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                       a.module_id,
                                       a.success,
                                       ip,
-                                      MIN(a.time) OVER (PARTITION BY a.username, a.module_id) as min_time,
+                                      MIN(a.time) OVER (PARTITION BY a.username, a.module_id, a.success) as min_time,
                                       MIN(TIMESTAMP_TO_USEC(a.time)) OVER (PARTITION BY a.module_id) as min_first_check_time,
                                       COUNT(DISTINCT CONCAT(a.module_id, STRING(a.attempts))) OVER (PARTITION BY a.username) AS nattempts #unique
                                     FROM [{dataset}.problem_check] a
@@ -2247,6 +2257,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                     ON a.time = b.time AND a.username = b.username AND a.course_id = b.course_id AND a.module_id = b.module_id
                                     WHERE b.event_type = 'problem_check'
                                     AND {partition} #PARTITION
+                                    {master_list}
                                   )
                                   WHERE a.success = 'correct' 
                                   AND a.time = min_time #Only keep first correct answer
@@ -2510,14 +2521,18 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
             GROUP BY username
           ) b
           ON a.harvester_candidate = b.username
-             """.format(dataset=project_id + ':' + dataset if testing else dataset, 
-                       course_id = course_id, 
-                       partition=the_partition[i],
-                       partition_without_prefix=the_partition[i].replace('a.', ''),
-                       problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
-                       not_certified_filter='nshow_ans_distinct >= 10' if force_online else 'certified = false',
-                       certified_filter= 'ncorrect >= 10' if force_online else "certified = true",
-                       remove_if_no_filtering='' if drop_low_count_rows else '#')
+             """.format(
+               dataset=project_id + ':' + dataset if testing else dataset, 
+               course_id = course_id, 
+               partition=the_partition[i],
+               partition_without_prefix=the_partition[i].replace('a.', ''),
+               problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
+               not_certified_filter='nshow_ans_distinct >= 10' if force_online else 'certified = false',
+               certified_filter= 'ncorrect >= 10' if force_online else "certified = true",
+               remove_if_no_filtering='' if drop_low_count_rows else '#',
+               master_list='AND a.username in '+master_list_str if master_list is not None else '',
+               harvester_list='AND a.username in '+harvester_list_str if harvester_list is not None else '',
+             )
 
       item_outer = """
           # Northcutt Code - Show Answer Before, Pearson Correlations, Median Average Times, Optimal Scoring
