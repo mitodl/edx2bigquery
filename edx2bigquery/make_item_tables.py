@@ -606,7 +606,7 @@ def create_problem_first_attempt_correct_table(course_id, force_recompute=False,
     '''
     It is very useful to know, for each graded problem, the percentage of users who got the problem
     correct on their first attempt.  This information is computed and stored in the problem_first_attempt_correct
-    table, for users who completed, and users who certified.  Problems are indexed by problem_nid,
+    table, for exploreres, users who completed, and users who certified.  Problems are indexed by problem_nid,
     which is a unique index used by course_problem and course_item.
     '''
 
@@ -623,19 +623,24 @@ SELECT
     n_first_attempt_correct_by_completed,
     n_completed_users_attempted,
     n_first_attempt_correct_by_completed / n_completed_users_attempted * 100 as pct_correct_first_attempt_by_completed,
+    n_first_attempt_correct_by_explored,
+    n_explored_users_attempted,
+    n_first_attempt_correct_by_explored / n_explored_users_attempted * 100 as pct_correct_first_attempt_by_explored,
 FROM (
     SELECT 
 
       PP.problem_nid as problem_nid,
       sum(case when PC.certified and PP.n_attempts=1 and PP.problem_pct_score=100 then 1 else 0 end) as n_first_attempt_correct_by_certified,
       sum(case when PC.completed and PP.n_attempts=1 and PP.problem_pct_score=100 then 1 else 0 end) as n_first_attempt_correct_by_completed,
+      sum(case when PC.explored and PP.n_attempts=1 and PP.problem_pct_score=100 then 1 else 0 end) as n_first_attempt_correct_by_explored,
       count(case when PC.certified then PP.user_id else null end) as n_certified_users_attempted,
       count(case when PC.completed then PP.user_id else null end) as n_completed_users_attempted,
+      count(case when PC.explored then PP.user_id else null end) as n_explored_users_attempted,
 
     FROM [{dataset}.person_problem] PP
     JOIN [{dataset}.person_course] PC
     on PP.user_id = PC.user_id
-    WHERE PC.certified or PC.completed
+    WHERE PC.certified or PC.completed or PC.explored
     group by problem_nid
     order by problem_nid
 )
