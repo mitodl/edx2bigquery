@@ -57,6 +57,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
             event_js = True
         except Exception as err:
             event_js = False
+            event = ""
             
         data['event'] = event
         data['event_js'] = event_js
@@ -303,7 +304,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
         except ValueError:
             return False
 
-    if data['event_type']=='speed_change_video':
+    if data.get('event_type')=='speed_change_video':
         if 'event_struct' in data and 'new_speed' in data['event_struct']:
             # First check if string is float
             if string_is_float(data['event_struct']['new_speed']):
