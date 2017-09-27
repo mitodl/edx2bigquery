@@ -1581,7 +1581,7 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
         -- and time > TIMESTAMP("2010-10-01 01:02:03")
         and HASH(username) % {num_partitions} = {partition}
       order by time
-      """.format(tracking_log_dataset=tracking_log_dataset,cap=cap,num_partitions=num_partitions, partition = i)
+      """.format(tracking_log_dataset=tracking_log_dataset,start=start,end=end,num_partitions=num_partitions, partition = i)
       sql.append(item)
 
     print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
