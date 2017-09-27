@@ -1496,6 +1496,33 @@ def compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest = Tr
     bqutil.delete_bq_table(dataset_id=dataset, table_id=table_id)
     return last_date
 
+
+#-----------------------------------------------------------------------------
+def compute_tracking_log_range(course_id, use_dataset_latest = True, testing=False, project_id=None):
+    '''Helper function for compute_problem_check_show_answer_ip.
+    Finds the start date of the first problem_check or show_answer and also
+    returns an end date that is 999 days. Only 1000 tracking logs
+    can be processed in a single bigquery query, so this range maximizes that limit. '''
+
+    dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
+    SQL = '''
+    SELECT TIMESTAMP(min(time)) as date_of_first_pc_or_sa
+    FROM (SELECT min(time) as time FROM [{dataset}.problem_check]),
+    (SELECT min(time) as time FROM [{dataset}.show_answer])
+    '''.format(dataset=project_id + ":" + dataset if testing else dataset)
+    table_id = 'temp' + str(abs(hash(course_id))) #Unique id to prevent issues when running in parallel
+    dataset = "curtis_northcutt" if testing else dataset
+    bqutil.create_bq_table(dataset_id=dataset, 
+                           table_id=table_id, sql=SQL, overwrite=True)
+
+    data = bqutil.get_table_data(dataset_id=dataset, table_id=table_id)
+    start_date = datetime.datetime.fromtimestamp(float(data['data'][0]['date_of_first_pc_or_sa']))
+    start = str(start_date.date()).replace("-","")
+    end = str((start_date + datetime.timedelta(days=999)).date()).replace("-","")
+    bqutil.delete_bq_table(dataset_id=dataset, table_id=table_id)
+    return (start, end)
+
+
 #-----------------------------------------------------------------------------
 
 def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, num_partitions = 1, last_date=None,
@@ -1525,7 +1552,9 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
     
     # cap = str(last_date.year) + ('0'+str(last_date.month))[-2:] + ('0'+str(last_date.day))[-2:] #Formatted as YYYYMMDD
 
-    cap = "29991231" # Ensure all tracking logs are included
+    #cap = "29991231" # Ensure all tracking logs are included
+
+    start, end = compute_tracking_log_range(course_id, use_dataset_latest, testing, project_id)
 
     sql = []
     for i in range(num_partitions):
@@ -1543,13 +1572,13 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
         ip
       from (
         TABLE_QUERY([{tracking_log_dataset}],
-             "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) <= {cap}" #Formatted as YYYYMMDD
+             "integer(regexp_extract(table_id, r'tracklog_([0-9]+)')) BETWEEN {start} AND {end}" #Formatted as YYYYMMDD
            )
         )
 
       where (event_type = "problem_check" or event_type = "save_problem_check" or event_type = "show_answer" or event_type = "showanswer")
         and event_source = "server"
-        and time > TIMESTAMP("2010-10-01 01:02:03")
+        -- and time > TIMESTAMP("2010-10-01 01:02:03")
         and HASH(username) % {num_partitions} = {partition}
       order by time
       """.format(tracking_log_dataset=tracking_log_dataset,cap=cap,num_partitions=num_partitions, partition = i)
