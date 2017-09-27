@@ -57,7 +57,9 @@ def get_creds(verbose=False):
       print "service_acct=%s, key_file=%s" % (SERVICE_ACCT, KEY_FILE)
     return get_service_acct_creds(SERVICE_ACCT, KEY_FILE)
   elif KEY_FILE=='USE_GCLOUD_AUTH':
-    return get_gcloud_oauth2_creds()
+    from oauth2client.client import GoogleCredentials
+    return GoogleCredentials.get_application_default()
+    # return get_gcloud_oauth2_creds()
   else:
     return get_oauth2_creds()
   
