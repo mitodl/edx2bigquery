@@ -28,7 +28,7 @@ import bqutil
 import datetime
 import process_tracking_logs
 
-from path import path
+from path import Path as path
 from gsutil import get_gs_file_list
         
 #-----------------------------------------------------------------------------

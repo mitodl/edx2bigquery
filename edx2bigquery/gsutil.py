@@ -5,7 +5,7 @@
 
 import os, sys
 import dateutil.parser
-from path import path
+from path import Path as path
 from collections import OrderedDict
 import datetime
 import pytz

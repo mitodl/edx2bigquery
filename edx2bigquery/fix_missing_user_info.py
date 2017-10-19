@@ -5,7 +5,7 @@ import gzip
 import json
 import gsutil
 
-from path import path
+from path import Path as path
 from collections import defaultdict
 from check_schema_tracking_log import schema2dict, check_schema
 from load_course_sql import find_course_sql_dir
