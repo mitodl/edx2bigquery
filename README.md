@@ -15,6 +15,12 @@ To get started, install the Google Cloud SDK first:
 Then generate authentication tokens using "gcloud auth login". Make sure
 that "bq" and "gsutil" work properly.
 
+Install edxcut dependency:
+```
+git clone https://github.com/mitodl/edxcut.git
+pip install ./edxcut
+```
+
 To install:
 
   python setup.py develop
