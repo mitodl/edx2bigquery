@@ -32,7 +32,7 @@ import string
 import datetime
 import traceback
 from math import isnan
-from path import path
+from path import Path as path
 from addmoduleid import add_module_id
 from check_schema_tracking_log import check_schema
 
