@@ -17,17 +17,12 @@ import httplib2
 import json
 import os
 import sys
-from edx2bigquery_config import auth_key_file, auth_service_acct
-
-HAS_CRYPTO = False
+from edx2bigquery_config import auth_key_file
 
 from apiclient import discovery
 from oauth2client.client import flow_from_clientsecrets, Credentials
 try: 
-  # Some systems may not have OpenSSL installed so can't use
-  # SignedJwtAssertionCredentials.
-  from oauth2client.client import SignedJwtAssertionCredentials
-  HAS_CRYPTO = True
+  from oauth2client.service_account import ServiceAccountCredentials
 except ImportError:
   pass
 
@@ -39,9 +34,7 @@ BIGQUERY_SCOPE = 'https://www.googleapis.com/auth/bigquery'
 # PROJECT_NUMBER = project_id
 # PROJECT_ID = project_id
 
-# Service account and keyfile only used for service account auth.
-SERVICE_ACCT = auth_service_acct
-
+# Service account keyfile only used for service account auth.
 # Set this to the full path to your service account private key file.
 KEY_FILE = auth_key_file
 
@@ -55,7 +48,7 @@ def get_creds(verbose=False):
     if verbose:
       print "using key file"
       print "service_acct=%s, key_file=%s" % (SERVICE_ACCT, KEY_FILE)
-    return get_service_acct_creds(SERVICE_ACCT, KEY_FILE)
+    return get_service_acct_creds(KEY_FILE)
   elif KEY_FILE=='USE_GCLOUD_AUTH':
     return get_gcloud_oauth2_creds()
   else:
@@ -91,20 +84,23 @@ def get_oauth2_creds():
     credentials.refresh(httplib2.Http())
   return credentials
 
-def get_service_acct_creds(service_acct, key_file):
+def get_service_acct_creds(key_file):
   '''Generate service account credentials using the given key file.
   
   service_acct: service account ID.
   key_file: path to file containing private key.
   '''
-  if not HAS_CRYPTO:
-    raise Exception("Unable to use cryptographic functions "
-                    + "Try installing OpenSSL")
-  with open (key_file, 'rb') as f:
-    key = f.read();
-  creds = SignedJwtAssertionCredentials(
-    service_acct, 
-    key,
+  ### backcompatability for .p12 keyfiles
+  if key_file.endswith('.p12'):
+    from edx2bigquery_config import auth_service_acct as SERVICE_ACCT
+    creds = ServiceAccountCredentials.from_p12_keyfile_name(
+      service_acct,
+      key_file,
+      scopes=BIGQUERY_SCOPE)
+    return creds
+  ###
+  creds = ServiceAccountCredentials.from_json_keyfile_name(
+    key_file,
     BIGQUERY_SCOPE)
   return creds
 
