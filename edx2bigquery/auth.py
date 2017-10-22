@@ -86,15 +86,13 @@ def get_oauth2_creds():
 
 def get_service_acct_creds(key_file):
   '''Generate service account credentials using the given key file.
-  
-  service_acct: service account ID.
-  key_file: path to file containing private key.
+    key_file: path to file containing private key.
   '''
   ### backcompatability for .p12 keyfiles
   if key_file.endswith('.p12'):
     from edx2bigquery_config import auth_service_acct as SERVICE_ACCT
-    creds = ServiceAccountCredentials.from_p12_keyfile_name(
-      service_acct,
+    creds = ServiceAccountCredentials.from_p12_keyfile(
+      SERVICE_ACCT,
       key_file,
       scopes=BIGQUERY_SCOPE)
     return creds
