@@ -45,19 +45,19 @@ extra_external_commands = {}
 # grades for verified ID users.
 # Workaround is to download grade reports from edX instructor
 # dashboard and import into BigQuery
-# Instuctor level access is required 
+# Instuctor level access is required
 #-------------------------------------------
-import os, sys
-from path import path
+import os, sys, path
+
 
 # Store username and password in a protected, private path
-# create new file called edx_private_config.py 
+# create new file called edx_private_config.py
 PRIVATE_PATH = "/local/home/private/path"
 try:
 	PRIVATE_CONFIG = 'edx_private_config'
 	PRIVATE_CONFIG_FILENAME = PRIVATE_CONFIG + '.py'
 	currentDir = os.getcwd()
-	if os.path.exists( path(PRIVATE_PATH) / PRIVATE_CONFIG_FILENAME ):
+	if os.path.exists(os.path.join(path(PRIVATE_PATH), PRIVATE_CONFIG_FILENAME)):
 		os.chdir( PRIVATE_PATH )
 		sys.path.append( PRIVATE_PATH )
 		import edx_private_config as CFG
