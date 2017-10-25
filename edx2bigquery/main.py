@@ -13,13 +13,12 @@ import traceback
 import datetime
 import multiprocessing as mp
 
-from path import path
 
 from argparse import RawTextHelpFormatter
 from collections import OrderedDict
 
-CURDIR = path(os.path.abspath(os.curdir))
-if os.path.exists(CURDIR / 'edx2bigquery_config.py'):
+CURDIR = os.path.abspath(os.curdir)
+if os.path.exists(os.path.join(CURDIR, 'edx2bigquery_config.py')):
     sys.path.append(CURDIR)
     import edx2bigquery_config			# user's configuration parameters
 else:
