@@ -24,7 +24,10 @@ from oauth2client.client import flow_from_clientsecrets, Credentials
 try: 
   from oauth2client.service_account import ServiceAccountCredentials
 except ImportError:
-  pass
+  try:
+    from oauth2client.client import SignedJwtAssertionCredentials
+  except ImportError:
+    pass
 
 from oauth2client import tools
 from oauth2client.file import Storage
@@ -45,10 +48,7 @@ def get_creds(verbose=False):
   and regular user credentials if the file is not found.
   ''' 
   if os.path.exists(KEY_FILE):
-    if verbose:
-      print "using key file"
-      print "service_acct=%s, key_file=%s" % (SERVICE_ACCT, KEY_FILE)
-    return get_service_acct_creds(KEY_FILE)
+    return get_service_acct_creds(KEY_FILE, verbose=verbose)
   elif KEY_FILE=='USE_GCLOUD_AUTH':
     return get_gcloud_oauth2_creds()
   else:
@@ -84,17 +84,28 @@ def get_oauth2_creds():
     credentials.refresh(httplib2.Http())
   return credentials
 
-def get_service_acct_creds(key_file):
+def get_service_acct_creds(key_file, verbose=False):
   '''Generate service account credentials using the given key file.
     key_file: path to file containing private key.
   '''
   ### backcompatability for .p12 keyfiles
   if key_file.endswith('.p12'):
     from edx2bigquery_config import auth_service_acct as SERVICE_ACCT
-    creds = ServiceAccountCredentials.from_p12_keyfile(
-      SERVICE_ACCT,
-      key_file,
-      scopes=BIGQUERY_SCOPE)
+    if verbose:
+      print "using key file"
+      print "service_acct=%s, key_file=%s" % (SERVICE_ACCT, KEY_FILE)
+    try:
+      creds = ServiceAccountCredentials.from_p12_keyfile(
+        SERVICE_ACCT,
+        key_file,
+        scopes=BIGQUERY_SCOPE)
+    except Exception as err:			# fallback to old google SignedJwtAssertionCredentials call
+      with open (key_file, 'rb') as f:
+        key = f.read();
+        creds = SignedJwtAssertionCredentials(
+          SERVICE_ACCT, 
+          key,
+          BIGQUERY_SCOPE)
     return creds
   ###
   creds = ServiceAccountCredentials.from_json_keyfile_name(
