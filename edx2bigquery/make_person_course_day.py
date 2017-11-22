@@ -57,7 +57,7 @@ import sys
 import json
 import bqutil
 import datetime
-from path import path
+from path import Path as path
 from gsutil import get_gs_file_list
 
 import process_tracking_logs

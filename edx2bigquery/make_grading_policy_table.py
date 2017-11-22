@@ -4,7 +4,7 @@ import re
 import tarfile
 
 import unicodecsv as csv
-from path import path
+from path import Path as path
 
 import bqutil
 import gsutil

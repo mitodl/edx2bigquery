@@ -23,7 +23,7 @@ import glob
 
 from lxml import etree
 from lxml.html.soupparser import fromstring as fsbs
-from path import path	# needs path.py
+from path import Path as path	# needs path.py
 
 #-----------------------------------------------------------------------------
 

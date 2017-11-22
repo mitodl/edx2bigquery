@@ -11,7 +11,7 @@ import json
 import re
 
 from jinja2 import Template
-from path import path
+from path import Path as path
 
 def run_external_script(extcmd, param, ecinfo, course_id):
     """

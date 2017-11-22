@@ -2,7 +2,7 @@ import os, sys, glob
 import re
 import gzip
 
-from path import path
+from path import Path as path
 
 #-----------------------------------------------------------------------------
 
