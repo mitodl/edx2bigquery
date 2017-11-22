@@ -263,6 +263,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                              ['roles'],				# 06sep2017 rp
                              ['environment'],			# 06sep2017 rp
                              ['minion_id'],			# 06sep2017 rp
+                             ['event_struct', 'duration'],	# 22nov2017 ic
                          ])
 
     #----------------------------------------
