@@ -50,7 +50,7 @@ def remove_nulls_from_row(row_dict, column):
     return row_dict
 
 
-def cleanup_rows_from_grade_persistent(csvfn, tempfn):
+def cleanup_rows_from_grade_persistent(csvfn, tempfn, field_to_fix="passed_timestamp"):
     """
     Removes the null values from grades_persistentcoursegrade.csv.gz.
     The function also fixes course ids by changing them from their
@@ -70,7 +70,7 @@ def cleanup_rows_from_grade_persistent(csvfn, tempfn):
             write_csv = csv.DictWriter(write_csv_file, fieldnames=csv_dict.fieldnames)
             write_csv.writeheader()
             for row in csv_dict:
-                row_dict = remove_nulls_from_row(row, "passed_timestamp")
+                row_dict = remove_nulls_from_row(row, field_to_fix)
                 row_dict = fix_course_ids(row_dict)
                 write_csv.writerow(row_dict)
     os.rename(tempfn, csvfn)
@@ -122,6 +122,8 @@ def upload_grades_persistent_data(cid, basedir, datedir, use_dataset_latest=Fals
 
     if not subsection:
         cleanup_rows_from_grade_persistent(csvfn, tempfn)
+    else:
+        cleanup_rows_from_grade_persistent(csvfn, tempfn, field_to_fix="first_attempted")
 
     gsutil.upload_file_to_gs(csvfn, gsdir, options="-z csv", verbose=True)
 
