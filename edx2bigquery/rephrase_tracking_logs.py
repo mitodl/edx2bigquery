@@ -56,8 +56,8 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                 event = json.loads(event)
             event_js = True
         except Exception as err:
+            # note - do not erase event even if it can't be loaded as JSON: see how it becomes JSONified below
             event_js = False
-            event = ""
             
         data['event'] = event
         data['event_js'] = event_js
