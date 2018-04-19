@@ -1579,7 +1579,7 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
       where (event_type = "problem_check" or event_type = "save_problem_check" or event_type = "show_answer" or event_type = "showanswer")
         and event_source = "server"
         -- and time > TIMESTAMP("2010-10-01 01:02:03")
-        and HASH(username) % {num_partitions} = {partition}
+        and ABS(HASH(username)) % {num_partitions} = {partition}
       order by time
       """.format(tracking_log_dataset=tracking_log_dataset,start=start,end=end,num_partitions=num_partitions, partition = i)
       sql.append(item)
@@ -1902,8 +1902,8 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
           dt_std_dev, percentile90_dt_seconds, percentile75_dt_seconds, modal_ip, CH_modal_ip,
 
           # Remove NULL from resultant features
-          CASE WHEN sa_ca_dt_corr_ordered IS NULL THEN INTEGER(0) ELSE INTEGER(sa_ca_dt_corr_ordered) END AS sa_ca_dt_corr_ordered,
-          CASE WHEN sa_ca_dt_correlation IS NULL THEN INTEGER(0) ELSE INTEGER(sa_ca_dt_correlation) END AS sa_ca_dt_correlation,
+          CASE WHEN sa_ca_dt_corr_ordered IS NULL THEN 0.0 ELSE sa_ca_dt_corr_ordered END AS sa_ca_dt_corr_ordered,
+          CASE WHEN sa_ca_dt_correlation IS NULL THEN 0.0 ELSE sa_ca_dt_correlation END AS sa_ca_dt_correlation,
           CASE WHEN norm_pearson_corr IS NULL THEN 0.0 ELSE norm_pearson_corr END AS norm_pearson_corr,
           CASE WHEN unnormalized_pearson_corr IS NULL THEN 0.0 ELSE unnormalized_pearson_corr END AS unnormalized_pearson_corr,
           CASE WHEN CH_mcfr_cnt IS NULL THEN INTEGER(0) ELSE INTEGER(CH_mcfr_cnt) END AS CH_mcfr_cnt,
