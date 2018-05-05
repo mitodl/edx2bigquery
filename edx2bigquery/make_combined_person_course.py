@@ -11,6 +11,7 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
                output_project_id=None, output_dataset_id=None, output_bucket=None,
                use_dataset_latest=False,
                extract_subset_tables=True,
+               static_only=False,
                ):
     '''
     Combine individual person_course tables (from the set of specified course_id's) to create one single large
@@ -33,6 +34,9 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
     outdir = path(outdir)
     if not outdir.exists():
         os.mkdir(outdir)
+
+    # Ensure unique list
+    course_id_set = list(set( course_id_set ))
         
     ofnset = []
     cnt = 0
@@ -71,7 +75,10 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
 
     org = course_id_set[0].split('/',1)[0]
 
-    ofn = "person_course_%s_%s.csv" % (org, datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S'))
+    if static_only:
+        ofn = "person_course_%s.csv" % ( org )
+    else:
+        ofn = "person_course_%s_%s.csv" % (org, datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S'))
 
     print "="*77
     print "Combining CSV files to produce %s" % ofn
@@ -104,7 +111,7 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
     print "="*77
     print "Uploading combined CSV file to google cloud storage in bucket: %s" % gb
     sys.stdout.flush()
-    cmd = "TMPDIR=/var/tmp gsutil cp -z csv %s %s/" % (ofn, gb)
+    cmd = "gsutil cp -z csv %s %s/" % (ofn, gb)
     print cmd
     os.system(cmd)
 

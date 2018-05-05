@@ -1620,6 +1620,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--tlfn", type=str, help="path to daily tracking log file to import, e.g. 'DAILY/mitx-edx-events-2014-10-14.log.gz'")
     parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
     parser.add_argument("--parallel", help="run separate course_id's in parallel", action="store_true")
+    parser.add_argument("--static-only", help="only update the current static dataset", action="store_true")
     parser.add_argument("--year2", help="increase output verbosity", action="store_true")
     parser.add_argument("--clist", type=str, help="specify name of list of courses to iterate command over")
     parser.add_argument("--clist-from-missing-table", type=str, help="iterate command over list of course_id's missing specified table")
@@ -2186,6 +2187,7 @@ check_for_duplicates        : check list of courses for duplicates
                                                output_dataset_id=args.output_dataset_id,
                                                output_bucket=args.output_bucket or edx2bigquery_config.GS_BUCKET,
                                                use_dataset_latest=param.use_dataset_latest,
+                                               static_only=args.static_only,
                                                )
 
     else:
