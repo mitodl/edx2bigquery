@@ -829,6 +829,20 @@ def person_day(param, courses, args, check_dates=True, stop_on_error=True):
             sys.stdout.flush()
             if stop_on_error:
                 raise
+
+def pcday_brwsrlang(param, courses, args):
+    import make_person_course_day
+    for course_id in get_course_ids(courses):
+        try:
+            make_person_course_day.compute_person_course_day_brwsrlang_table(course_id, force_recompute=args.force_recompute,
+                                                                             use_dataset_latest=param.use_dataset_latest,
+                                                                             end_date=args.end_date,
+                                                                            )
+        except Exception as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+
         
 def pcday_trlang(param, courses, args):
     import make_person_course_day
@@ -933,6 +947,7 @@ def doall(param, course_id, args, stdout=None):
             daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
         pcday_ip(param, course_id, args)	# needed for modal IP
         pcday_trlang(param, course_id, args)
+        pcday_brwsrlang(param, course_id, args)
         person_day(param, course_id, args, stop_on_error=False)
         enrollment_day(param, course_id, args)
 	enrollment_events_table(param, course_id, args)
@@ -993,6 +1008,7 @@ def run_nightly_single(param, course_id, args=None):
 	enrollment_events_table(param, course_id, args)
         pcday_ip(param, course_id, args)	# needed for modal IP
         pcday_trlang(param, course_id, args)
+        pcday_brwsrlang(param, course_id, args)
         person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
         problem_check(param, course_id, args)
         show_answer_table(param, course_id, args)
@@ -1803,6 +1819,7 @@ check_for_duplicates        : check list of courses for duplicates
                 enrollment_events_table(param, course_id, args)
                 pcday_ip(param, course_id, args)	# needed for modal IP
                 pcday_trlang(param, course_id, args)
+                pcday_brwsrlang(param, course_id, args)
                 person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
                 problem_check(param, course_id, args)
                 analyze_ora(param, course_id, args)
@@ -2123,6 +2140,10 @@ check_for_duplicates        : check list of courses for duplicates
 
     elif (args.command=='pcday_trlang'):
         pcday_trlang(param, args, args)
+
+    elif (args.command=='pcday_brwsrlang'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(pcday_brwsrlang, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='person_day'):
         # person_day(param, args, args)

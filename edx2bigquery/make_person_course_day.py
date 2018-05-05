@@ -537,6 +537,95 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
         
 #-----------------------------------------------------------------------------
 
+
+def compute_person_course_day_brwsrlang_table(course_id, force_recompute=False, use_dataset_latest=False, end_date=None):
+    '''
+    make pcday_trlang_counts for specified course_id
+    
+    This couse table holds all the (username, course_id, date, transcript_language, count)
+    data for a course.
+
+    This is used in computing the modal video transcript language of users
+
+    '''
+    table = 'pcday_brwsrlang_counts'
+
+    SQL = '''
+          ## pcday_brwsrlang_counts
+
+		SELECT
+		  username,
+		  course_id,
+		  DATE(time) AS date,
+		  LAST(time) AS last_time,
+		  resource,
+		  resource_event_type,
+		  concat(string("{{"),
+			 '"brwsr_language_pri_code1": ', concat(string('"'), ifnull(primary_lang_1, ''), string('"')), string(", "), 
+			 '"brwsr_language_pri_code2": ', concat(string('"'), ifnull(primary_lang_2, ''), string('"')), string(", "), 
+			 '"brwsr_language_sec_code1": ', concat(string('"'), ifnull(secondary_lang_1, ''), string('"')), string(", "), 
+			 '"brwsr_language_sec_code2": ', concat(string('"'), ifnull(secondary_lang_2, ''), string('"')),
+			 string("}}")
+			 ) as resource_event_data,
+		  COUNT(*) AS langcount,
+		FROM (
+		    ### Log Parsing ###
+		  SELECT
+		    time,
+		    course_id,
+		    username,
+		    resource,
+		    resource_event_type,
+		    FIRST(SPLIT(primary_lang, '-')) AS primary_lang_1,
+		    UPPER(LAST(SPLIT(primary_lang, '-'))) AS primary_lang_2,
+		    (CASE
+			WHEN secondary_lang IS NOT NULL AND secondary_lang CONTAINS '-' THEN FIRST(SPLIT(secondary_lang, '-'))
+			ELSE secondary_lang END) AS secondary_lang_1,
+		    (CASE
+			WHEN secondary_lang IS NOT NULL AND secondary_lang CONTAINS '-' THEN UPPER(LAST(SPLIT(secondary_lang, '-')))
+			ELSE NULL END) AS secondary_lang_2,
+		  FROM (
+		    SELECT
+		      time,
+		      course_id,
+		      username,
+		      'browser' AS resource,
+		      mongoid,
+		      JSON_EXTRACT(mongoid, '$.accept_language') AS aclang,
+		      FIRST(SPLIT(FIRST(SPLIT(REPLACE(STRING(JSON_EXTRACT(mongoid, '$.accept_language')), '"', ''), ';')), ',')) AS primary_lang,
+		      (NTH(2,(SPLIT(NTH(2,SPLIT(REPLACE(STRING(JSON_EXTRACT(mongoid, '$.accept_language')), '"', ''), ';')), ',')))) AS secondary_lang,
+		      'event_source' AS resource_event_type,
+		    FROM {DATASETS}
+		    WHERE
+		      time > TIMESTAMP("2010-10-01 01:02:03")
+		      AND username != ""
+		      AND event_source='browser'
+		      ### End Log Parsing ###
+		      ) )
+		GROUP BY
+		  username,
+		  course_id,
+		  date,
+		  resource,
+		  resource_event_type,
+		  resource_event_data,
+		ORDER BY
+		  date ASC,
+		  username ASC
+		  ### END pc_brwsrlang_counts
+
+          '''
+
+    def gdf(row):
+        return datetime.datetime.strptime(row['date'], '%Y-%m-%d')
+
+    process_tracking_logs.run_query_on_tracking_logs(SQL, table, course_id, force_recompute=force_recompute,
+                                                     use_dataset_latest=use_dataset_latest,
+                                                     end_date=end_date,
+                                                     get_date_function=gdf)
+
+
+
 def compute_person_course_day_trlang_table(course_id, force_recompute=False, use_dataset_latest=False, end_date=None):
     '''
     make pcday_trlang_counts for specified course_id

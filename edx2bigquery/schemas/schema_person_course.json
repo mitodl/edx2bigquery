@@ -272,6 +272,56 @@
         },
         {
             "type": "STRING",
+            "name": "language_brwsr",
+            "description": "Primary Modal Browser Language in Text Format based on 2 letter code language code"
+        },
+        {
+            "type": "STRING",
+            "name": "language_brwsr_country",
+            "description": "Primary Modal Browser Language Country (based on 2 letter sub code)"
+        },
+        {
+            "type": "STRING",
+            "name": "language_brwsr_sec",
+            "description": "Secondary Modal Browser Language in Text Format based on 2 letter code language code"
+        },
+        {
+            "type": "STRING",
+            "name": "language_brwsr_sec_country",
+            "description": "Secondary Modal Browser Language Country (based on sub code)"
+        },
+        {
+            "type": "STRING",
+            "name": "language_brwsr_code",
+            "description": "Primary Modal Browser Language Code (2 letter code language code)"
+        },
+        {
+            "type": "STRING",
+            "name": "language_brwsr_subcode",
+            "description": "Primary Modal Browser Language SubCode (2 letter code country code)"
+        },
+        {
+            "type": "STRING",
+            "name": "language_brwsr_sec_code",
+            "description": "Secondary Modal Browser Language Code (2 letter code language code)"
+        },
+        {
+            "type": "STRING",
+            "name": "language_brwsr_sec_subcode",
+            "description": "Primary Modal Browser Language SubCode (2 letter code country code)"
+        },
+        {
+            "type": "INTEGER",
+            "name": "language_brwsr_nevents",
+            "description": "# of events with event_source = “Browser” based on different event types"
+        },
+        {
+            "type": "INTEGER",
+            "name": "language_brwsr_ndiff",
+            "description": "# of unique browser language configurations (only looking at primary and secondary)"
+        },
+        {
+            "type": "STRING",
             "name": "language",
             "description": "modal transcript language"
         },

@@ -361,7 +361,7 @@ class PersonCourse(object):
 	        passing_grade = self.grading_policy['data_by_key'].items()[0][1].get(overall_cutoff, None)
 	        if passing_grade is not None:
  	            passing_grade = float(passing_grade)
-            print 'Passing grade = %s' % passing_grade
+            self.log( "Passing grade = %s" % passing_grade )
 
         except Exception as err:
             self.log("Error %s getting passing grade!" % str(err))
@@ -456,7 +456,7 @@ class PersonCourse(object):
             pcent['email_domain'] = uicent.get('email').split('@')[1]
 
         # Grades Summary
-        print "%s Grades loaded from Certificates file, %s Grades loaded from edX instructor Dashboard" % (grade_cert_cnt, grade_dash_cnt)
+        self.log( "%s Grades loaded from Certificates file, %s Grades loaded from edX instructor Dashboard" % (grade_cert_cnt, grade_dash_cnt) )
 
     def compute_second_phase(self):
     
@@ -555,18 +555,35 @@ class PersonCourse(object):
                       'nseek_video', 'npause_video', 'avg_dt', 'sdv_dt', 'max_dt', 'n_dt', 'sum_dt']
 
         pc_lang_fields = ['language', 'language_download', 'language_nevents', 'language_ndiff']
+        pc_lang_brwsr_fields = ['language_brwsr',
+				'language_brwsr_country',
+				'language_brwsr_sec',
+				'language_brwsr_sec_country',
+                                'language_brwsr_code', 
+				'language_brwsr_subcode', 
+				'language_brwsr_sec_code',
+				'language_brwsr_sec_subcode',
+				'language_brwsr_nevents',
+				'language_brwsr_ndiff',
+			       ]
 
         nmissing_ip = 0
         nmissing_ip_cert = 0
 	langadded = 0
 	nmissing_lang = 0
+	brwsrlangadded = 0
+	nmissing_brwsrlang = 0
         for key, pcent in self.pctab.iteritems():
             uid = str(pcent['user_id'])
             username = pcent['username']
 
+            # Initialize Transcript languages
 	    for pcdl in pc_lang_fields:
 	        pcent[ pcdl ] = None
-            # pcent['nevents'] = self.pc_nevents['data_by_key'].get(username, {}).get('nevents', None)
+
+            # Initialize Browser Languages
+            for pcdl in pc_lang_brwsr_fields:
+	        pcent[ pcdl ] = None
 
             if not skip_last_event:
                 # le = self.pc_last_event['data_by_key'].get(username, {}).get('last_event', None)
@@ -597,7 +614,7 @@ class PersonCourse(object):
 	        self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'fract_total_videos_watched', new_field='nvideos_total_watched')
 
             except Exception as err:
-                continue
+                pass
 
 	    # Copy Modal IP data
             if not skip_modal_ip:
@@ -607,21 +624,47 @@ class PersonCourse(object):
                     if pcent.get('certified'):
                         nmissing_ip_cert += 1
 
+            # Load up Transcript Languages
 	    try:
 	        for pcdl in pc_lang_fields:
 	            pcent[ pcdl ] = self.course_modal_language['data_by_key'].get(username, {}).get( pcdl, None)
-	        langadded += 1
+                if pcent[ 'language' ] is not None:
+	            langadded += 1
+                else:
+	            nmissing_lang += 1
 	    except Exception as err:
 	        nmissing_lang += 1
-		continue
+		pass
+
+            # Load up Browser Languages
+	    try:
+	        for pcdl in pc_lang_brwsr_fields:
+	            pcent[ pcdl ] = self.course_modal_language_brwsr['data_by_key'].get(username, {}).get( pcdl, None)
+                if pcent[ 'language_brwsr' ] is not None:
+	            brwsrlangadded += 1
+                else:
+	            nmissing_brwsrlang += 1
+	    except Exception as err:
+	        nmissing_brwsrlang += 1
+		pass
+
+
+            # Copy Modal Language data to Person Course
+            for pcdf in pcd_fields:
+                self.copy_from_bq_table(self.pc_day_totals, pcent, username, pcdf)
 
         if not skip_modal_ip:
             self.log("--> modal_ip's number missing = %d" % nmissing_ip)
             if nmissing_ip_cert:
                 self.log("==> WARNING: missing %d ip addresses for users with certified=True!" % nmissing_ip_cert)
 
-        self.log("Languages added: %s" % ( langadded ))
-        self.log("Languages not added: %s" % ( nmissing_lang ))
+        # Transcript Language
+        self.log("Count of Users whose Video Transcript Languages were Identified: %s" % ( langadded ))
+        self.log("Count of Users whose Video Transcript Languages were not Identified: %s" % ( nmissing_lang ))
+
+        # Browser Languages
+        self.log("Count of Users whose Browser Languages were Identified: %s" % ( brwsrlangadded ))
+        self.log("Count of Users whose Browser Languages were not Identified: %s" % ( nmissing_brwsrlang ))
 
     def compute_fourth_phase(self):
     
@@ -1229,6 +1272,9 @@ class PersonCourse(object):
         self.make_course_specific_multilang_table()	# make course-specific mult-language table
         self.make_course_specific_modallang_table()	# make course-specific modal language table
 
+        self.make_course_specific_multilang_brwsr_table()	# make course-specific multi browser language table
+        self.make_course_specific_modallang_table_brwsr()	# make course-specific modal browser language table
+
     def load_modal_ip(self):
         '''
         Compute the modal IP (the IP address most used by the learner), based on the tracking logs.
@@ -1347,6 +1393,77 @@ class PersonCourse(object):
                                                      newer_than=datetime.datetime(2015, 1, 18, 0, 0),
                                                      force_query=self.force_recompute_from_logs, logger=self.log))
 
+
+    def make_course_specific_modallang_table_brwsr(self):
+        '''
+	Make course-specific modal browser language table, based on browser language table => language_multi_browser
+        This data will be joined with Person Course, where 'language_brwsr' indicates the modal
+        or most frequently used primary browser language used
+        This table should contain users and language, showing up once per course
+        '''
+        tablename = 'course_modal_language_brwsr'
+        SQL = '''
+		### Modal
+		SELECT
+		  browser_language.username AS username,
+		  browser_language.course_id AS course_id,
+		  browser_language.resource AS resource,
+		  browser_language.resource_event_type as resource_event_type,
+		  browser_language.brwsr_language_pri_code1 as language_brwsr_code,
+		  browser_language.brwsr_language_pri_code2 as language_brwsr_subcode,
+		  browser_language.brwsr_language_sec_code1 as language_brwsr_sec_code,
+		  browser_language.brwsr_language_sec_code2 as language_brwsr_sec_subcode,
+		  lcodes.English AS language_brwsr,
+		  geo.name AS language_brwsr_country,
+		  lcodes2.English AS language_brwsr_sec,
+		  geo2.name AS language_brwsr_sec_country,
+		  n_events as language_brwsr_nevents,
+		  n_diff_lang as language_brwsr_ndiff
+		FROM (
+		  SELECT # Get Rank = 1
+		    username,
+		    course_id,
+		    resource,
+		    resource_event_type,
+		    CASE WHEN REPLACE(JSON_EXTRACT(resource_event_data, '$.brwsr_language_pri_code1'), '"', '') = '' THEN null ELSE REPLACE(JSON_EXTRACT(resource_event_data, '$.brwsr_language_pri_code1'), '"', '') END AS brwsr_language_pri_code1,
+		    CASE WHEN REPLACE(JSON_EXTRACT(resource_event_data, '$.brwsr_language_pri_code2'), '"', '') = '' THEN null ELSE REPLACE(JSON_EXTRACT(resource_event_data, '$.brwsr_language_pri_code2'), '"', '') END AS brwsr_language_pri_code2,
+		    CASE WHEN REPLACE(JSON_EXTRACT(resource_event_data, '$.brwsr_language_sec_code1'), '"', '') = '' THEN null ELSE REPLACE(JSON_EXTRACT(resource_event_data, '$.brwsr_language_sec_code1'), '"', '') END AS brwsr_language_sec_code1,
+		    CASE WHEN REPLACE(JSON_EXTRACT(resource_event_data, '$.brwsr_language_sec_code2'), '"', '') = '' THEN null ELSE REPLACE(JSON_EXTRACT(resource_event_data, '$.brwsr_language_sec_code2'), '"', '') END AS brwsr_language_sec_code2,  
+		    n_events,
+		    n_diff_lang
+		  FROM [{dataset}.language_multi_browser]
+		  WHERE
+		    rank=1
+		  ORDER BY
+		    username ## END Rank = 1
+		    ) AS browser_language
+		LEFT JOIN
+		  [languages.language_codes] AS lcodes
+		ON
+		  lcodes.alpha2 = browser_language.brwsr_language_pri_code1
+
+		LEFT JOIN
+		  [languages.language_codes] AS lcodes2
+		ON
+		  lcodes2.alpha2 = browser_language.brwsr_language_sec_code1 
+		  
+		LEFT JOIN[geocode.geographic_regions_by_country] AS geo
+		ON
+		  geo.cc = browser_language.brwsr_language_pri_code2
+		  
+		LEFT JOIN[geocode.geographic_regions_by_country] AS geo2
+		ON
+		  geo2.cc = browser_language.brwsr_language_sec_code2
+              '''.format(**self.sql_parameters)
+
+
+        self.log("Loading %s from BigQuery" % tablename)
+        setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, SQL, key={'name': 'username'},
+                                                     force_query=self.force_recompute_from_logs, 
+                                                     depends_on=[ '%s.language_multi_browser' % self.dataset ],
+                                                     logger=self.log))
+
+
     def make_course_specific_modallang_table(self):
         '''
 	Make course-specific modal transcript language table, based on local multi transcript language table => language_multi_transcripts
@@ -1391,6 +1508,51 @@ class PersonCourse(object):
         setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, SQL, key={'name': 'username'},
                                                      force_query=self.force_recompute_from_logs, 
                                                      depends_on=[ '%s.language_multi_transcripts' % self.dataset ],
+                                                     logger=self.log))
+
+
+    def make_course_specific_multilang_brwsr_table(self):
+        '''
+	Make a course-specific multi browser language table, based on local pcday_brwsrlang_counts table
+        This table can be used to find out what browser languages configurations a user has based on their activity
+        '''
+        tablename = 'language_multi_browser'
+
+        SQL = '''
+		    SELECT
+		      username,
+		      course_id,
+		      resource,
+		      resource_event_type,
+		      resource_event_data,
+		      n_events,
+		      RANK() OVER (PARTITION BY username ORDER BY n_events ASC) n_diff_lang,
+		      RANK() OVER (PARTITION BY username ORDER BY n_events DESC) rank,
+		    FROM (
+		      SELECT ## Collapse per user
+			username,
+			course_id,
+			resource,
+			resource_event_type,
+			resource_event_data,
+			SUM(langcount) AS n_events
+		      FROM [{dataset}.pcday_brwsrlang_counts]
+		      GROUP BY ##### Collapse per user
+			username,
+			course_id,
+			resource,
+			resource_event_type,
+			resource_event_data,
+			)  ### END Multi-Language Table
+
+              '''.format(**self.sql_parameters)
+
+
+        self.log("Loading %s from BigQuery" % tablename)
+        setattr(self, tablename, bqutil.get_bq_table(self.dataset, tablename, SQL, key={'name': 'username'},
+                                                     force_query=self.force_recompute_from_logs, 
+                                                     depends_on=[ '%s.pcday_brwsrlang_counts' % self.dataset ],
+                                                     newer_than=datetime.datetime(2017, 3, 16, 11, 40),
                                                      logger=self.log))
 
 
