@@ -843,6 +843,16 @@ def make_grading_policy(param, courses, args):
             print "--> course tarfile for %s being pinned to data from dump date %s" % (course_id, pin_date)
         make_grading_policy_table.make_gp_table(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose, pin_date)
 
+def make_user_partitions_table(param, courses, args):
+    import load_user_part
+
+    for course_id in get_course_ids(courses):
+        if args.skip_if_exists and load_user_part.already_exists(course_id, use_dataset_latest=param.use_dataset_latest):
+            print "--> user_partitions for %s already exists, skipping" % course_id
+            sys.stdout.flush()
+            continue
+        load_user_part.do_user_part_csv(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose)
+
 def research(param, courses, args, check_dates=True, stop_on_error=False):
 
     import make_research_data_tables
@@ -1450,6 +1460,10 @@ irt_report <coure_id> ...   : Compute the item_response_theory_report table, whi
                               already have been computed.
 
 staff2bq <staff.csv>        : load staff.csv file into BigQuery; put it in the "courses" dataset.
+
+user_part <course_id>       : Load user partition table (user_api_usercoursetag.csv.gz) for a course; this table defines which users
+                              were in which partitions for a randomized assignment split-test experiment.  The table includes
+                              id,user_id,key,course_id,value fields.  May use --skip-if-exists to skip loading if table already exists.
 
 mongo2user_info <course_id> : dump users, profiles, enrollment, certificates CSV files from mongodb for specified course_id's.
                               Use this to address missing users issue in pre-early-2014 edX course dumps, which had the problem
@@ -2205,6 +2219,10 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='staff2bq'):
         import load_staff
         load_staff.do_staff_csv(args.courses[0])
+
+    elif (args.command=='user_part'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(make_user_partitions_table, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='make_cinfo'):
         import make_cinfo
