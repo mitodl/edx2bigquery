@@ -62,6 +62,9 @@ class CourseReport(object):
         self.all_ca_tables = OrderedDict()
         self.all_va_tables = OrderedDict()
         self.all_tott_tables = OrderedDict()
+        self.all_pev_tables = OrderedDict()
+        self.all_pcdtotals_tables = OrderedDict()
+
         for cd in course_datasets:
             try:
                 table = bqutil.get_bq_table_info(cd, 'person_course')
@@ -110,6 +113,20 @@ class CourseReport(object):
                 self.all_uic_tables[cd] = table
 
             try:
+                table = bqutil.get_bq_table_info(cd, 'person_enrollment_verified')
+            except Exception as err:
+                table = None
+            if table is not None:
+                self.all_pev_tables[cd] = table
+
+            try:
+                table = bqutil.get_bq_table_info(cd, 'pc_day_totals')
+            except Exception as err:
+                table = None
+            if table is not None:
+                self.all_pcdtotals_tables[cd] = table
+
+            try:
                 table = bqutil.get_bq_table_info(cd, 'time_on_task_totals')
             except Exception as err:
                 print "[make-course_report_tables] Err: %s" % str(err)
@@ -125,6 +142,8 @@ class CourseReport(object):
         ca_tables = ',\n'.join(['[%s.course_axis]' % x for x in self.all_ca_tables])
         va_tables = ',\n'.join(['[%s.video_axis]' % x for x in self.all_va_tables])
         tott_tables = ',\n'.join(['[%s.time_on_task_totals]' % x for x in self.all_tott_tables])
+        all_pev_tables = ',\n'.join(['[%s.person_enrollment_verified]' % x for x in self.all_pev_tables])
+        all_pcdtotals_tables = ',\n'.join(['[%s.pc_day_totals]' % x for x in self.all_pcdtotals_tables])
 
         print "%d time_on_task tables: %s" % (len(self.all_tott_tables), tott_tables)
         sys.stdout.flush()
@@ -144,6 +163,8 @@ class CourseReport(object):
                            'ca_tables': ca_tables,
                            'va_tables': va_tables,
                            'tott_tables': tott_tables,
+                           'all_pev_tables': all_pev_tables,
+                           'all_pcdtotals_tables': all_pcdtotals_tables,
                            'pcday_ip_counts_tables': pcday_ip_counts_tables,
                            'pcday_trlang_counts_tables': pcday_trlang_counts_tables,
                            'combined_person_course': the_cpc_table,
@@ -164,6 +185,7 @@ class CourseReport(object):
             self.make_totals_by_course()
             self.make_course_axis_table()
             self.make_video_axis_table()
+	    self.make_delta_timestamp_table()
             self.make_person_course_day_table() 
             self.make_medians_by_course()
             self.make_table_of_email_addresses()
@@ -519,6 +541,128 @@ order by course_id;
             FROM {ca_tables}
         '''.format(**self.parameters)
         self.do_table(the_sql, 'course_axis')
+
+    def make_delta_timestamp_table(self):
+
+        the_sql = '''
+
+		SELECT
+		  *
+		FROM (
+		  SELECT
+		    uic.username AS username,
+		    pev.course_id AS course_id,
+		    pev.time_stamp AS time_stamp,
+		    pev.event_type AS event_type
+		  FROM (
+		    SELECT
+		      user_id,
+		      course_id,
+		      verified_unenroll_time AS time_stamp,
+		      'verified_unenroll_time' AS event_type
+		    FROM
+		      {all_pev_tables}
+		    WHERE
+		      ( DATE(verified_unenroll_time) >= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -7, "DAY")) AND
+		        DATE(verified_unenroll_time) <= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -1, "DAY")) )
+                    ) AS pev
+		  LEFT JOIN (
+		    SELECT
+		      *
+		    FROM
+		      {uic_tables}) AS uic
+		  ON
+		    pev.user_id = uic.user_id
+		  WHERE
+		    uic.username IS NOT NULL),
+		  (
+		  SELECT
+		    uic.username AS username,
+		    pev.course_id AS course_id,
+		    pev.time_stamp AS time_stamp,
+		    pev.event_type AS event_type
+		  FROM (
+		    SELECT
+		      user_id,
+		      course_id,
+		      verified_enroll_time AS time_stamp,
+		      'verified_enroll_time' AS event_type
+		    FROM
+		      {all_pev_tables}
+		    WHERE
+		      ( DATE(verified_enroll_time) >= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -7, "DAY")) AND
+		      DATE(verified_enroll_time) <= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -1, "DAY")) )
+		    ) AS pev
+		  LEFT JOIN (
+		    SELECT
+		      *
+		    FROM
+		      {uic_tables} ) AS uic
+		  ON
+		    pev.user_id = uic.user_id
+		  WHERE
+		    uic.username IS NOT NULL ),
+		  # Get 'last_event'
+		  # pc_day_totals, last_event
+		  (
+		  SELECT
+		    username,
+		    course_id,
+		    last_event AS time_stamp,
+		    'last_event' AS event_type
+		  FROM
+		    {all_pcdtotals_tables}
+		  WHERE
+		    ( DATE(last_event) >= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -7, "DAY")) AND
+		      DATE(last_event) <= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -1, "DAY")) )
+ 		  ),
+		  # Get 'first_event'
+		  # pc_day_totals, first_event
+		  (
+		  SELECT
+		    username,
+		    course_id,
+		    first_event AS time_stamp,
+		    'first_event' AS event_type,
+		  FROM
+		    {all_pcdtotals_tables}
+		  WHERE
+		    ( DATE(first_event) >= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -7, "DAY")) AND
+		      DATE(first_event) <= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -1, "DAY")) )
+		  ),
+		  # get 'cert_created_date'
+		  # certificate_created_date
+		  (
+		  SELECT
+		    username,
+		    enrollment_course_id AS course_id,
+		    certificate_created_date AS time_stamp,
+		    'cert_created_date' AS event_type
+		  FROM
+		    {uic_tables}
+		  WHERE
+		    ( DATE(certificate_created_date) >= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -7, "DAY")) AND
+		      DATE(certificate_created_date) <= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -1, "DAY")) )
+		  ),
+		  # get 'start_time'
+		  # enrollment_created
+		  (
+		  SELECT
+		    username,
+		    enrollment_course_id AS course_id,
+		    enrollment_created AS time_stamp,
+		    'start_time' AS event_type
+		  FROM
+		    {uic_tables}
+		  WHERE
+		    ( DATE(enrollment_created) >= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -7, "DAY")) AND
+		      DATE(enrollment_created) <= DATE(DATE_ADD(CURRENT_TIMESTAMP(), -1, "DAY")) )
+		  )
+		  GROUP EACH BY username, course_id, time_stamp, event_type
+
+        '''.format(**self.parameters)
+        self.do_table(the_sql, 'delta_timestamp' )
+        pass
 
     def make_video_axis_table(self):
 
