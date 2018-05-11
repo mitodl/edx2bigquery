@@ -1,0 +1,44 @@
+{
+    "grades_persistent": [
+        {
+            "type": "STRING",
+            "name": "course_id",
+	    "description": "Course key of the containing course. In the format course-v1:org+course+run for courses created after DATE and in the format org/course/run for older courses."
+        },
+        {
+            "type": "INTEGER",
+            "name": "user_id",
+	    "description": "The learner’s ID in auth_user.id."
+        },
+        {
+            "type": "STRING",
+            "name": "grading_policy_hash",
+	    "description": "A SHA-1 digest of the course grading policy that allows edX to detect and update grades whenever the policy changes. For example, NiGhcAFSrpyijXbow/XKE1Cp1GA=."
+        },
+        {
+            "type": "FLOAT",
+            "name": "percent_grade",
+          "description": "The learner’s calculated course grade as a decimal percentage, per grading policy. For example, 0.91 (meaning 91%)."
+        },
+        {
+            "type": "STRING",
+            "name": "letter_grade",
+          "description": "The learner’s calculated course grade as a letter value, per grading policy. If the learner’s grade is Fail or F, this cell value is empty. For example, Pass or A."
+        },
+              {
+            "type": "TIMESTAMP",
+            "name": "passed_timestamp",
+          "description": "Time when the learner first passed the course. If this cell value is empty, the learner never passed the course. If this cell value is non-empty but the letter_grade value is empty, the learner transitioned from passing to not passing."
+        },
+              {
+            "type": "TIMESTAMP",
+            "name": "created",
+	    "description": "Time the course grade was first calculated for this user for this course."
+        },
+              {
+            "type": "TIMESTAMP",
+            "name": "modified",
+	    "description": "Time the course grade was last updated for this user for this course."
+        }
+      ]
+}

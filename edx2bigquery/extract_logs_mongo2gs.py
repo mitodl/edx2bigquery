@@ -6,7 +6,7 @@
 
 import os, sys
 import datetime
-from path import path
+from path import Path as path
 from gsutil import get_gs_file_list, gs_path_from_course_id, path_from_course_id, upload_file_to_gs
 
 DBNAME = 'harvardxdb'

@@ -12,7 +12,7 @@ import bqutil
 import datetime
 import process_tracking_logs
 
-from path import path
+from path import Path as path
 from collections import OrderedDict
 from collections import defaultdict
 from check_schema_tracking_log import schema2dict, check_schema
@@ -354,7 +354,8 @@ def createPersonCourseVideo( course_id, force_recompute=False, use_dataset_lates
                           SELECT count(*) as n_total_videos
                           FROM [{dataset}.video_axis]
                       ) NV
-                      WHERE PC.roles = 'Student'
+                      WHERE ((PC.roles = 'Student') OR (PC.roles is NULL))	# accommodate case when roles.csv is missing
+                      # WHERE PC.roles = 'Student'
                   )
                   GROUP BY user_id, certified, viewed, verified, n_total_videos
                   order by user_id

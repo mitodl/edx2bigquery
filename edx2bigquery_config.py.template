@@ -48,7 +48,7 @@ extra_external_commands = {}
 # Instuctor level access is required 
 #-------------------------------------------
 import os, sys
-from path import path
+from path import Path as path
 
 # Store username and password in a protected, private path
 # create new file called edx_private_config.py 

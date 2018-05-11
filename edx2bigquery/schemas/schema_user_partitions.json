@@ -1,0 +1,29 @@
+{
+    "user_partitions": [
+        {
+            "type": "INTEGER",
+            "name": "id",
+	    "description": "user_parition table entry ID"
+        },
+        {
+            "type": "INTEGER",
+            "name": "user_id",
+	    "description": "user_id"
+        },
+        {
+            "type": "STRING",
+            "name": "key",
+	    "description": "partition key"
+        },
+        {
+            "type": "STRING",
+            "name": "course_id",
+	    "description": "course_id"
+        },
+        {
+            "type": "INTEGER",
+            "name": "value",
+	    "description": "partition assignment value (which partition the user is assigned to)"
+        }
+    ]
+}

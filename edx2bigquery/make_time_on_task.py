@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# File:   make_times_on_task.py
+# File:   make_time_on_task.py
 # Date:   05-Mar-2015
 # Author: I. Chuang <ichuang@mit.edu>
 #
@@ -28,7 +28,7 @@ import bqutil
 import datetime
 import process_tracking_logs
 
-from path import path
+from path import Path as path
 from gsutil import get_gs_file_list
         
 #-----------------------------------------------------------------------------

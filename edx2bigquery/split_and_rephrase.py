@@ -109,6 +109,9 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
         data['course_id'] = cid
 
     if cid is None or not cid:
+        if not 'event_source' in data:
+            print "[split_and_rephrase] Badly formatted log line, skipping: %s" % data
+            return
         cid = guess_course_id(data, org=org)
 
     if run_rephrase:

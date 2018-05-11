@@ -1,13 +1,13 @@
-import os
 import json
-import tarfile
+import os
 import re
-import gsutil
-import bqutil
+import tarfile
 
 import unicodecsv as csv
+from path import Path as path
 
-from path import path
+import bqutil
+import gsutil
 import load_course_sql
 
 gpfn = 'grading_policy.json'
@@ -176,9 +176,7 @@ def load_grading_policy(gpstr, verbose=False, gpfn=None):
 
 # load_grading_policy(gpfn)
 
-def already_exists(course_id, use_dataset_latest):
-    table = "grading_policy"
+def already_exists(course_id, use_dataset_latest, table="grading_policy"):
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
     tables = bqutil.get_list_of_table_ids(dataset)
     return table in tables
-

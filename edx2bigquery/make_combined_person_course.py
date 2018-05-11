@@ -3,7 +3,7 @@
 import os, sys
 import json
 import datetime
-from path import path
+from path import Path as path
 import gsutil
 import bqutil
 

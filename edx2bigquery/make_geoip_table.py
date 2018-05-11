@@ -216,7 +216,10 @@ class GeoIPData(object):
         
         print "--> Importing %s to %s" % (gsp, self.giptable)
         sys.stdout.flush()
-        bqutil.create_dataset_if_nonexistent(self.gipdataset)
+        try:
+            bqutil.create_dataset_if_nonexistent(self.gipdataset)
+        except Exception as err:
+            print "--> Warning: failed to create %s, err=%s" % (gsp, err)
         try:
             bqutil.load_data_to_table(self.gipdataset, self.giptable, gsp, the_schema)
         except Exception as err:

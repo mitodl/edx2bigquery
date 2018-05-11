@@ -5,7 +5,7 @@
 import gzip
 import glob
 import gsutil
-from path import path
+from path import Path as path
 
 def course_key_version(course_id, logs_dir="TRACKING_LOGS", verbose=False):
 

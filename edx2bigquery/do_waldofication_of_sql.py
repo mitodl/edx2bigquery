@@ -2,7 +2,7 @@ import os, sys, glob
 import re
 import gzip
 
-from path import path
+from path import Path as path
 
 #-----------------------------------------------------------------------------
 
@@ -26,12 +26,20 @@ def guess_course_id(name, known_course_ids):
     org, num, semester with the same separator.  
     
     For example, name ="MITx-6.00.1-x-1T2014..." should be turned into "MITx/6.00.1-x/1T2014"
+    Also, MITx-6.00.1x-2T2017_2 should be turned into MITx/6.00.1x/2T2017_2, so use the longest
+    possible match
     '''
-    for course in known_course_ids:
-        cstr = course.replace('/','-')
+    nlen = 0
+    match = None
+    for course_id in known_course_ids:
+        cstr = course_id.replace('/','-')
         if name.startswith(cstr):
             # print course
-            return course, name[len(cstr)+1:]
+            if len(course_id) > nlen:
+                match = course_id, name[len(cstr)+1:]
+                nlen = len(course_id)
+    if match:
+        return match
     return None, None
 
 

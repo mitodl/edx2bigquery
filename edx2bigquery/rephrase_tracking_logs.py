@@ -32,7 +32,7 @@ import string
 import datetime
 import traceback
 from math import isnan
-from path import path
+from path import Path as path
 from addmoduleid import add_module_id
 from check_schema_tracking_log import check_schema
 
@@ -56,6 +56,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                 event = json.loads(event)
             event_js = True
         except Exception as err:
+            # note - do not erase event even if it can't be loaded as JSON: see how it becomes JSONified below
             event_js = False
             
         data['event'] = event
@@ -258,6 +259,11 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                              ['event_struct', 'current_tab'],	# 08may16
                              ['event_struct', 'target_tab'],	# 08may16
                              ['event_struct', 'state', 'has_saved_answers'],	# 06dec2016
+                             ['context', 'label'],	 		# 24aug15
+                             ['roles'],				# 06sep2017 rp
+                             ['environment'],			# 06sep2017 rp
+                             ['minion_id'],			# 06sep2017 rp
+                             ['event_struct', 'duration'],	# 22nov2017 ic
                          ])
 
     #----------------------------------------
@@ -299,7 +305,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
         except ValueError:
             return False
 
-    if data['event_type']=='speed_change_video':
+    if data.get('event_type')=='speed_change_video':
         if 'event_struct' in data and 'new_speed' in data['event_struct']:
             # First check if string is float
             if string_is_float(data['event_struct']['new_speed']):

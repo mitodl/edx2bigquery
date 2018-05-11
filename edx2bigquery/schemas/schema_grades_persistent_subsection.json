@@ -1,0 +1,54 @@
+{
+    "grades_persistent_subsection": [
+        {
+            "type": "STRING",
+            "name": "course_id",
+	    "description": "Course key of the containing course. In the format course-v1:org+course+run for courses created after DATE and in the format org/course/run for older courses."
+        },
+        {
+            "type": "INTEGER",
+            "name": "user_id",
+	    "description": "unique user ID, matching user_info_combo and users tables"
+        },
+        {
+            "type": "STRING",
+            "name": "usage_key",
+	    "description": "Usage key of the subsection. (This is sometimes known as module_id or location. In the format `` block-v1:org+course+run+type@sequential+block@1234`` for courses created after DATE and in the format i4x://org/course/sequential/1234 for older courses."
+        },
+        {
+            "type": "FLOAT",
+            "name": "earned_all",
+          "description": "The user’s aggregated total_weighted_earned score in the subsection, calculated by summing all weighted_earned values of all problems in the subsection."
+        },
+        {
+            "type": "FLOAT",
+            "name": "possible_all",
+          "description": "The aggregated total_weighted_possible score in the subsection, calculated by summing all weighted_possible values of all problems in the subsection."
+        },
+              {
+            "type": "FLOAT",
+            "name": "earned_graded",
+          "description": "The user’s aggregated total_weighted_earned score in the subsection, calculated by summing all weighted_earned values of all graded problems in the subsection."
+        },
+              {
+            "type": "FLOAT",
+            "name": "possible_graded",
+	    "description": "The aggregated total_weighted_possible score in the subsection, calculated by summing all weighted_possible values of all graded problems in the subsection."
+        },
+              {
+            "type": "TIMESTAMP",
+            "name": "first_attempted",
+	    "description": "Time of the user’s first attempt at a problem in the subsection. If the user has not attempted a subsection, the entry for that subsection will be absent."
+        },
+              {
+            "type": "TIMESTAMP",
+            "name": "created",
+	    "description": "Time the subsection grade was first calculated for this user for this subsection."
+        },
+              {
+            "type": "TIMESTAMP",
+            "name": "modified",
+	    "description": "Time the subsection grade was last updated for this user for this subsection."
+        }
+      ]
+}

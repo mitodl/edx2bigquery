@@ -72,18 +72,33 @@ def create_dataset_if_nonexistent(dataset, project_id=DEFAULT_PROJECT_ID):
       dataset_ref = {'datasetId': dataset,
                      'projectId': project_id}
       dataset = {'datasetReference': dataset_ref}
-      dataset = datasets.insert(body=dataset, projectId=project_id).execute()
+      try:
+          dataset = datasets.insert(body=dataset, projectId=project_id).execute()
+      except Exception as err:
+          if 'Already Exists' in str(err):
+              return dataset
+          else:
+              raise
       return dataset
 
 def get_list_of_datasets(project_id=DEFAULT_PROJECT_ID):
-  dataset_list = datasets.list(projectId=project_id, maxResults=1000).execute()
-
-  if 'datasets' in dataset_list:
-      dsets = {x['datasetReference']['datasetId']: x for x in dataset_list['datasets']}
-      return dsets
-  else:
-      print "no datasets?"
-  return {}
+    cnt = 0
+    dsets = {}
+    pageToken = None
+    while cnt < 10:
+        cnt += 1
+        dataset_list = datasets.list(projectId=project_id, maxResults=4000, pageToken=pageToken).execute()
+        if 'datasets' in dataset_list:
+            new_dsets = {x['datasetReference']['datasetId']: x for x in dataset_list['datasets']}
+            dsets.update(new_dsets)
+        else:
+            print "no datasets?"
+            return {}
+        if 'nextPageToken' in dataset_list:
+            pageToken = dataset_list['nextPageToken']
+        else:
+            return dsets
+    return dsets
 
 def get_projects(project_id=DEFAULT_PROJECT_ID):
     for project in projects.list().execute()['projects']:
