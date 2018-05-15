@@ -33,7 +33,10 @@ import gzip
 import bqutil
 import gsutil
 import unicodecsv as csv
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 from gsutil import get_gs_file_list
 
 #-----------------------------------------------------------------------------

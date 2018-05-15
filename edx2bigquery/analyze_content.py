@@ -10,7 +10,10 @@ import datetime
 
 from collections import defaultdict, OrderedDict
 from lxml import etree
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 from load_course_sql import find_course_sql_dir
 from make_geoip_table import lock_file
 

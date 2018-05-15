@@ -37,7 +37,10 @@ import json
 import gsutil
 import pandas as pd
 
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 from collections import defaultdict, OrderedDict
 from check_schema_tracking_log import schema2dict, check_schema
 from load_course_sql import find_course_sql_dir

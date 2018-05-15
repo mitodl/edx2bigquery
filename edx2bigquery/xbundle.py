@@ -23,7 +23,10 @@ import glob
 
 from lxml import etree
 from lxml.html.soupparser import fromstring as fsbs
-from path import Path as path	# needs path.py
+try:
+	from path import Path as path	# needs path.py
+except:
+	from path import path
 
 #-----------------------------------------------------------------------------
 

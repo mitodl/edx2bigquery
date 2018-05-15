@@ -64,7 +64,10 @@ import bqutil
 import gsutil
 import datetime
 import copy
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 from collections import OrderedDict, defaultdict
 from check_schema_tracking_log import schema2dict, check_schema
 from load_course_sql import find_course_sql_dir, get_course_sql_dirdate

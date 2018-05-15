@@ -46,7 +46,10 @@ import xbundle
 import tempfile
 from collections import namedtuple, defaultdict
 from lxml import etree,html
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 from fix_unicode import fix_bad_unicode
 
 DO_SAVE_TO_MONGO = False

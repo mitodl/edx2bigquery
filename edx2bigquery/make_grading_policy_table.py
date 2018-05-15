@@ -4,7 +4,10 @@ import re
 import tarfile
 
 import unicodecsv as csv
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 
 import bqutil
 import gsutil

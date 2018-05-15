@@ -11,7 +11,10 @@ import json
 import re
 
 from jinja2 import Template
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 
 def run_external_script(extcmd, param, ecinfo, course_id):
     """

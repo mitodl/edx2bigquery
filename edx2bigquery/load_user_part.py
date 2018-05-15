@@ -5,7 +5,10 @@ import gsutil
 import bqutil
 import gzip
 import json
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 import unicodecsv as csv
 
 from load_course_sql import find_course_sql_dir

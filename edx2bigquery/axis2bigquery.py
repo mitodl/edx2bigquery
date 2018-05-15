@@ -10,7 +10,10 @@ import gsutil
 import bqutil
 import copy
 import datetime
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 from check_schema_tracking_log import check_schema, schema2dict
 
 def already_exists(course_id, use_dataset_latest=False):

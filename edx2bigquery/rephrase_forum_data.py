@@ -22,7 +22,10 @@ import traceback
 from addmoduleid import add_module_id
 from check_schema_tracking_log import check_schema, schema2dict
 from load_course_sql import find_course_sql_dir
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 from edx2course_axis import date_parse
 import bqutil
 import gsutil

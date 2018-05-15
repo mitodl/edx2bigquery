@@ -23,7 +23,10 @@ import glob
 import datetime
 import pytz
 import dateutil.parser
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 import gsutil
 
 def process_dir(course_id, gspath='gs://x-data', logs_directory="TRACKING_LOGS", verbose=True):

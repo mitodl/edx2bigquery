@@ -13,7 +13,10 @@ import traceback
 import datetime
 import multiprocessing as mp
 
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 
 from argparse import RawTextHelpFormatter
 from collections import OrderedDict

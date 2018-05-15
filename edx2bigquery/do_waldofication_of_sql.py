@@ -2,7 +2,10 @@ import os, sys, glob
 import re
 import gzip
 
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 
 #-----------------------------------------------------------------------------
 

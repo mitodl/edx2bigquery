@@ -11,7 +11,10 @@ import bqutil
 import gsutil
 import datetime
 import json
-import path
+try:
+	from path import Path as path
+except:
+	from path import path
 import collections
 import gzip
 from load_course_sql import find_course_sql_dir

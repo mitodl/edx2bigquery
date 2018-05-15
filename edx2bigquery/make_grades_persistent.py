@@ -13,7 +13,10 @@ import bqutil
 
 import unicodecsv as csv
 
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 import load_course_sql
 
 

@@ -3,7 +3,10 @@
 import os, sys
 import json
 import datetime
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 import gsutil
 import bqutil
 

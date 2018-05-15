@@ -23,7 +23,10 @@ import bqutil
 import datetime
 import process_tracking_logs
 
-from path import Path as path
+try:
+	from path import Path as path
+except:
+	from path import path
 from gsutil import get_gs_file_list
 
 
