@@ -59,7 +59,7 @@ from check_schema_tracking_log import schema2dict, check_schema
 from load_course_sql import find_course_sql_dir
 
 #csv.field_size_limit(sys.maxsize)
-csv.field_size_limit(13107200)
+csv.field_size_limit(1310720)
 
 def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False):
 
@@ -253,7 +253,10 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         nadded = 0
         print fp
         for line in csv.DictReader(fp):
-            uid = int(line['Student ID'])
+	    try:
+                uid = int(line['Student ID'])
+            except:
+		uid = int(line['\xc3\xaf\xc2\xbb\xc2\xbfStudent ID'])
             fields = [ 'Grade', 'Grade_timestamp' ]
                      #['course_id','Student ID','Email','Username','Grade' ]
                      #'Enrollment Track',' Verification Status','Certificate Eligible','Certificate Delivered','Certificate Type' ]
