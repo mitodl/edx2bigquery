@@ -59,6 +59,7 @@ class CourseReport(object):
         self.all_pcday_ip_counts_tables = OrderedDict()
         self.all_pcday_trlang_counts_tables = OrderedDict()
         self.all_uic_tables = OrderedDict()
+        self.all_gradeperst_tables = OrderedDict()
         self.all_ca_tables = OrderedDict()
         self.all_va_tables = OrderedDict()
         self.all_tott_tables = OrderedDict()
@@ -113,6 +114,13 @@ class CourseReport(object):
                 self.all_uic_tables[cd] = table
 
             try:
+                table = bqutil.get_bq_table_info(cd, 'grades_persistent')
+            except Exception as err:
+                table = None
+            if table is not None:
+                self.all_gradeperst_tables[cd] = table
+
+            try:
                 table = bqutil.get_bq_table_info(cd, 'person_enrollment_verified')
             except Exception as err:
                 table = None
@@ -139,6 +147,7 @@ class CourseReport(object):
         pcday_ip_counts_tables = ',\n'.join(['[%s.pcday_ip_counts]' % x for x in self.all_pcday_ip_counts_tables])
         pcday_trlang_counts_tables = ',\n'.join(['[%s.pcday_trlang_counts]' % x for x in self.all_pcday_trlang_counts_tables])
         uic_tables = ',\n'.join(['[%s.user_info_combo]' % x for x in self.all_uic_tables])
+        gradeperst_tables = ',\n'.join(['[%s.grades_persistent]' % x for x in self.all_gradeperst_tables])
         ca_tables = ',\n'.join(['[%s.course_axis]' % x for x in self.all_ca_tables])
         va_tables = ',\n'.join(['[%s.video_axis]' % x for x in self.all_va_tables])
         tott_tables = ',\n'.join(['[%s.time_on_task_totals]' % x for x in self.all_tott_tables])
@@ -160,6 +169,7 @@ class CourseReport(object):
                            'pc_tables': pc_tables,
                            'pcday_tables': pcday_tables,
                            'uic_tables': uic_tables,
+                           'gradeperst_tables': gradeperst_tables,
                            'ca_tables': ca_tables,
                            'va_tables': va_tables,
                            'tott_tables': tott_tables,
@@ -181,6 +191,8 @@ class CourseReport(object):
 
         self.nskip = nskip
         if 1:
+	    self.make_grades_persistent_table()
+	    self.make_user_info_combo_table()
             self.combine_show_answer_stats_by_course()
             self.make_totals_by_course()
             self.make_course_axis_table()
@@ -545,6 +557,22 @@ order by course_id;
             FROM {ca_tables}
         '''.format(**self.parameters)
         self.do_table(the_sql, 'course_axis')
+
+    def make_grades_persistent_table(self):
+
+	the_sql = '''
+	    SELECT *
+	    FROM {gradeperst_tables}
+	'''.format(**self.parameters)
+	self.do_table(the_sql, tablename='grades_persistent', allowLargeResults=True )
+
+    def make_user_info_combo_table(self):
+
+	the_sql = '''
+	    SELECT *
+	    FROM {uic_tables}
+	'''.format(**self.parameters)
+	self.do_table(the_sql, tablename='user_info_combo', allowLargeResults=True )
 
     def make_delta_timestamp_table(self):
 
