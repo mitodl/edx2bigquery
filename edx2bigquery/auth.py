@@ -58,10 +58,19 @@ def get_gcloud_oauth2_creds():
   gcfp = '~/.config/gcloud/credentials'
   credfn = os.path.expanduser(gcfp)
   if not os.path.exists(credfn):
+    credfn = os.path.expanduser('~/.config/gcloud/legacy_credentials')
+    if os.path.exists(credfn):
+      cdirs = os.listdir(credfn)
+      if cdirs:
+        credfn = "%s/%s/multistore.json" % (credfn, cdirs[0])	# just take the first one for now
+
+  if not os.path.exists(credfn):
     msg = "[edx2bigquery] Authentication error!  You have specified USE_GCLOUD_AUTH in the configuration, but do not have gcloud authentication available.\n"
-    msg += "               Please authenticate using 'gcloud auth login' before running this."
+    msg += "              Please authenticate using 'gcloud auth login' before running this."
+    msg += "              Missing file %s" % credfn
     print msg
     raise Exception(msg)
+    
   gcloud_cred = json.loads(open(credfn).read())['data'][0]['credential']
   credentials = Credentials.new_from_json(json.dumps(gcloud_cred))
   return credentials
