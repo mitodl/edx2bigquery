@@ -156,6 +156,7 @@ def load_grading_policy(gpstr, verbose=False, gpfn=None):
     # make schema
     string_fields = ["category", "show_only_average", "section_type", "assignment_type"]
     schema = []
+    schema_names = {}
     for field in fields:
         field = field.replace('.','_').replace(' ', '_')
         field = field.replace('+', '_').replace('-', '__')	# for very old, circa 2012 course grading policies
@@ -167,9 +168,18 @@ def load_grading_policy(gpstr, verbose=False, gpfn=None):
             ftype = 'STRING'
         else:
             ftype = 'FLOAT'
-        schema.append({'name': field,
-                       'type': ftype,
-                   })
+
+	# ensure unique names
+        if field not in schema_names:
+	    schema_names[ field ] = 1
+            schema.append({'name': field,
+                           'type': ftype,
+                         })
+        else:
+	    schema_names[ field ] += 1
+	    schema.append({'name': field+str( schema_names[ field ] ),
+                           'type': ftype,
+                         })
 
     if verbose:
         print "schema = ", json.dumps(schema, indent=4)
