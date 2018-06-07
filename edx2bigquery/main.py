@@ -536,6 +536,25 @@ def analyze_problems(param, courses, args, do_show_answer=True, do_problem_analy
             raise
 
 
+def analyze_grades(param, courses, args):
+    import make_grades_analysis
+    for course_id in get_course_ids(courses):
+        try:
+            make_grades_analysis.analyze_grades( course_id,
+                                                 basedir=param.the_basedir,
+                                                 datedir=param.the_datedir,
+                                                 force_recompute=args.force_recompute,
+                                                 use_dataset_latest=param.use_dataset_latest,
+                                                 use_latest_sql_dir=param.latest_sql_dir,
+                                               )
+
+        except (AssertionError, Exception) as err:
+            print err
+            traceback.print_exc()
+            sys.stdout.flush()
+            raise
+
+
 def analyze_videos(param, courses, args):
     import make_video_analysis
     for course_id in get_course_ids(courses):
@@ -1448,6 +1467,12 @@ analyze_problems <c_id> ... : Analyze capa problem data in studentmodule table, 
 analyze_videos <course_id>  : Analyze videos viewed and videos watched, generating tables video_axis (based on course axis),
                               and video_stats_day and video_stats, based on daily tracking logs, for specified course.
 
+analyze_grades <course_id>  : Analyze grades from three currently known sources:
+			      1) Certificate Grades
+			      2) Persistent Grades
+			      3) EdX Instructor Dashboards
+			      Generate Latest Grades based on known timestamps
+
 analyze_forum <course_id>   : Analyze forum events, generating the forum_events table from the daily tracking logs, for specified course.
 
 analyze_ora <course_id> ... : Analyze openassessment response problem data in tracking logs, generating the ora_events table as a result.
@@ -2182,6 +2207,10 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='analyze_videos'):
         courses = get_course_ids(args)
         run_parallel_or_serial(analyze_videos, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='analyze_grades'):
+        courses = get_course_ids(args)
+        run_parallel_or_serial(analyze_grades, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='problem_events'):
         courses = get_course_ids(args)
