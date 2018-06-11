@@ -1,0 +1,89 @@
+{
+    "grades_analysis": [
+        {
+            "type": "INTEGER",
+            "name": "user_id",
+	    "description": "The learner’s ID in auth_user.id."
+        },
+        {
+            "type": "STRING",
+            "name": "course_id",
+	    "description": "Course key of the containing course. In the format course-v1:org+course+run for courses created after DATE and in the format org/course/run for older courses."
+        },
+        {
+            "type": "FLOAT",
+            "name": "grade_overall_cutoff_for_pass",
+	    "description": "From the grading_policy table (parsed from course.tar.gz), the 'overall_cutoff_*' passing grade for the course"
+        },
+        {
+            "type": "BOOLEAN",
+            "name": "grade_latest_pass",
+            "description": "True if the user's latest grade is greater than the passing grade from the grading policy table"
+        },
+        {
+            "type": "FLOAT",
+            "name": "grade_latest",
+            "description": "Latest generated grade from all known grade sources (certificates, grade persistent, edx instructor dashboards)"
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "grade_latest_timestamp",
+            "description": "Latest generated grade timestamp from all known grade sources (certificates, grade persistent, edx instructor dashboards)"
+        },
+        {
+            "type": "STRING",
+            "name": "grade_latest_source",
+            "description": "Latest generated grade source when comparing timestamps from all grade sources (certificates, grade persistent, edx instructor dashboards)"
+        },
+        {
+            "type": "FLOAT",
+            "name": "grade_cert",
+            "description": "Certificate 'grade' column from edX 'certificates_generatedcertificate' table. The grade computed the last time certificate generation ran. If the course, learner state, or grading_policy change, the value in this column can be different than the grade shown on a learner's Progress page"
+        },
+        {
+            "type": "FLOAT",
+            "name": "grade_persistent",
+            "description": "Grade persistent 'percent_grade' column from edX 'grades_persistentcoursegrade' table. The learner's calculated course grade as a decimal percentage, per grading policy. For example, 0.91 (meaning 91%)."
+        },
+        {
+            "type": "FLOAT",
+            "name": "grade_edxdash",
+            "description": "edX instructor dashboard grade downloaded from grade report, if 'grade_reports' command has been run to programmatically download grades from edX instructor dashboards grade report"
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "grade_cert_created_date",
+            "description": "Certificate 'created' column from edX 'certificates_generatedcertificate' table. Date this row in the database was created."
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "grade_cert_modified_date",
+            "description": "Certificate 'modified' column from edX 'certificates_generatedcertificate' table. Date this row in the database was modified."
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "grade_persistent_created",
+            "description": "Grade Persistent, Time the course grade was first calculated for this user for this course"
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "grade_persistent_modified",
+            "description": "Grade Persistent, Time the course grade was last updated for this user for this course"
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "grade_persistent_passed_timestamp",
+            "description": "Grade Persitent, Time when the leraner first passed the course. If this cell value is empty, the learner never passed the course. If this cell value is non-empty but the letter_grade value is empty, the learner transitioned from passing to not passing"
+        },
+        {
+            "type": "TIMESTAMP",
+            "name": "grade_persistent_first_attempted_problem_subsection",
+            "description": "Grade Persistent Subsection, Time of the user's first attempt at a problem in the subsection. If the user has not attempted a subsection, the entry for that subsection will be absent."
+        },
+        {
+            "type": "STRING",
+            "name": "grade_edxdash_timestamp",
+            "description": "EdX Instructor dashboard date string when 'grade_reports' command has been run to programmatically download grades from edX Instructor dashboards grade report"
+        }
+      ]
+}
