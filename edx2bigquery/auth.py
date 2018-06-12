@@ -98,7 +98,7 @@ def get_service_acct_creds(key_file, verbose=False):
     key_file: path to file containing private key.
   '''
   ### backcompatability for .p12 keyfiles
-  if key_file.endswith('.p12'):
+  if key_file.endswith('.p12') or key_file.endswith('.pem'):
     from edx2bigquery_config import auth_service_acct as SERVICE_ACCT
     if verbose:
       print "using key file"
