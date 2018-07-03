@@ -85,6 +85,10 @@
         {
             "type": "BOOLEAN", 
             "name": "anonymous"
+        },
+	{
+            "type": "STRING",
+            "name": "retired_username"
         }, 
         {
             "type": "STRING", 
