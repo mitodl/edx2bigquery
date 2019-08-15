@@ -135,6 +135,9 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
     if 'depth' in data:
         data.pop('depth')	# 11jan16: remove key
 
+    if 'retired_username' in data:
+        data.pop('retired_username')	# 15aug19: remove key
+
     try:
         check_schema(linecnt, data, the_ds=SCHEMA_DICT, coerce=True)
     except Exception as err:
