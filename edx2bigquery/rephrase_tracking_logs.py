@@ -48,10 +48,13 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
     if 'module_id' not in data:
         add_module_id(data)
 
+    if not "event" in data:
+        data['evant'] = ""
+
     # ensure event is dict when possible
     if not 'event_js' in data:
+        event = data.get('event')
         try:
-            event = data['event']
             if not type(event)==dict:
                 event = json.loads(event)
             event_js = True
