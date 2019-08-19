@@ -2175,7 +2175,8 @@ check_for_duplicates        : check list of courses for duplicates
         run_parallel_or_serial(analyze_idv, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='problem_check'):
-        problem_check(param, args, args)
+        courses = get_course_ids(args)
+        run_parallel_or_serial(problem_check, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='show_answer'):
         courses = get_course_ids(args)
