@@ -173,17 +173,20 @@ def do_file(fn, logs_dir=LOGS_DIR, dynamic_dates=False, timezone=None, logfn_kee
         the_date = None
 
     cnt = 0
-    for line in fp:
-        cnt += 1
-        try:
-            newline = do_split(line, linecnt=cnt, run_rephrase=True, date=the_date, do_zip=True, logs_dir=logs_dir,
-                               dynamic_dates=dynamic_dates, timezone=timezone)
-        except Exception as err:
-            print "[split_and_rephrase] ===> OOPS, failed err=%s in parsing line %s" % (str(err), line)
-            raise
-        if ((cnt % 10000)==0):
-            sys.stdout.write('.')
-            sys.stdout.flush()
+    try:
+        for line in fp:
+            cnt += 1
+            try:
+                newline = do_split(line, linecnt=cnt, run_rephrase=True, date=the_date, do_zip=True, logs_dir=logs_dir,
+                                   dynamic_dates=dynamic_dates, timezone=timezone)
+            except Exception as err:
+                print "[split_and_rephrase] ===> OOPS, failed err=%s in parsing line %s" % (str(err), line)
+                raise
+            if ((cnt % 10000)==0):
+                sys.stdout.write('.')
+                sys.stdout.flush()
+    except Exception as err:
+        print("[split_and_rephrase] =====> ERROR, failed in parsing line=%s, file=%s, err=%s" % (cnt, fn, str(err)))
     print
 
     mdir = '%s/META' % logs_dir
