@@ -189,16 +189,28 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     extra_fields = ['roles'] # To be used to create custom mapping based on existing course and discussion forum roles
     fields = base_fields + known_roles_disc.keys()
     print "  Cleaning %s" % ROLE_FORUM_ACCESS
-    wide_rolediscdata = cleanRoles( rolediscdata, 'uid', 'name', 'value', known_roles_disc.keys(), fields )
+    if len(rolediscdata)==0:
+        print("    No forum roles data!")
+    else:
+        wide_rolediscdata = cleanRoles( rolediscdata, 'uid', 'name', 'value', known_roles_disc.keys(), fields )
     
     # Compile
-    fields_all = base_fields + known_roles_course.keys() + known_roles_disc.keys() + extra_fields
+    if len(rolediscdata)==0:
+        fields_all = base_fields + known_roles_course.keys() + extra_fields
+    else:
+        fields_all = base_fields + known_roles_course.keys() + known_roles_disc.keys() + extra_fields
     rename_dict = dict(known_roles_course, **known_roles_disc)
-    wideData = pd.merge( wide_roledata, wide_rolediscdata, how='outer', on=["user_id", "course_id"], suffixes=['', '_disc'] )
+    if len(rolediscdata)==0:
+        wideData = wide_roledata
+    else:
+        wideData = pd.merge( wide_roledata, wide_rolediscdata, how='outer', on=["user_id", "course_id"], suffixes=['', '_disc'] )
 
     # Create Roles var
-    all_roles = known_roles_disc.keys() + known_roles_course.keys()
-    all_roles.remove('Student')
+    if len(rolediscdata)==0:
+        all_roles = known_roles_course.keys()
+    else:
+        all_roles = known_roles_disc.keys() + known_roles_course.keys()
+        all_roles.remove('Student')
     wideData['roles'] = wideData.apply( createRoleVar, args=[all_roles], axis=1 )
 
     # Rename columns
