@@ -17,7 +17,7 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
     person_course table.  Do this by downloading each file, checking to make sure they all have the same
     fields, concatenating, and uploading back to bigquery.  This is cheaper than doing a select *, and also
     uncovers person_course files which have the wrong schema (and it works around BQ's limitation on large
-    result sizes).  The result is stored in the course_report_latest dataset (if use_dataset_latest), else 
+    result sizes).  The result is stored in the course_report_latest dataset (if use_dataset_latest), else
     in course_report_ORG, where ORG is the configured organization name.
 
     If extract_subset_tables is True, then the subset of those who viewed (ie "participants"), and the subset
@@ -33,20 +33,21 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
     outdir = path(outdir)
     if not outdir.exists():
         os.mkdir(outdir)
-        
+
     ofnset = []
     cnt = 0
     for course_id in course_id_set:
         gb = gsutil.gs_path_from_course_id(course_id, use_dataset_latest=use_dataset_latest)
         ofn = outdir / ('person_course_%s.csv.gz' % (course_id.replace('/', '__')))
-        ofnset.append(ofn)
 
         if (nskip>0) and ofn.exists():
+            ofnset.append(ofn)
             print "%s already exists, not downloading" % ofn
             sys.stdout.flush()
             continue
 
         if ofn.exists():
+            ofnset.append(ofn)
             fnset = gsutil.get_gs_file_list(gb)
             local_dt = gsutil.get_local_file_mtime_in_utc(ofn)
             fnb = 'person_course.csv.gz'
@@ -117,7 +118,7 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
         crname = 'course_report_latest'
     dataset = output_dataset_id or crname
     table = ofn[:-4].replace('-','_')
-    
+
     print "Importing into BigQuery as %s:%s.%s" % (project_id, dataset, table)
     sys.stdout.flush()
     mypath = os.path.dirname(os.path.realpath(__file__))
@@ -134,7 +135,7 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
     msg += "CSV download link: %s" % gsutil.gs_download_link(gsfn)
 
     bqutil.add_description_to_table(dataset, table, msg, append=True, project_id=output_project_id)
-    
+
     # copy the new table (which has a specific date in its name) to a generically named "person_course_latest"
     # so that future SQL queries can simply use this as the latest person course table
     print "-> Copying %s to %s.person_course_latest" % (table, dataset)
@@ -156,7 +157,7 @@ def do_extract_subset_person_course_tables(the_dataset, pc_table):
     tablename = "person_course_viewed"
 
     try:
-        ret = bqutil.create_bq_table(the_dataset, tablename, the_sql, 
+        ret = bqutil.create_bq_table(the_dataset, tablename, the_sql,
                                      overwrite=True,
                                      allowLargeResults=True,
         )
@@ -170,7 +171,7 @@ def do_extract_subset_person_course_tables(the_dataset, pc_table):
     tablename = "person_course_idv"
 
     try:
-        ret = bqutil.create_bq_table(the_dataset, tablename, the_sql, 
+        ret = bqutil.create_bq_table(the_dataset, tablename, the_sql,
                                      overwrite=True,
                                      allowLargeResults=True,
         )
@@ -178,5 +179,5 @@ def do_extract_subset_person_course_tables(the_dataset, pc_table):
         print "ERROR! Failed on SQL="
         print the_sql
         raise
-    
+
     print "  --> created %s" % tablename
