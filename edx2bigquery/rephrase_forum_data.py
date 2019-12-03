@@ -217,7 +217,7 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data",
 
     cnt = 0
     tmp_fd, tmp_fname = tempfile.mkstemp(dir=mypath, prefix='{p}_'.format(p=os.getpid()), suffix='_tmp.json.gz')
-    os.fchmod(tmp_fd, stat.S_IRWXG | stat.S_IRWXU)
+    os.fchmod(tmp_fd, stat.S_IRWXG | stat.S_IRWXU | stat.S_IROTH)
     ofp = gzip.GzipFile(fileobj=os.fdopen(tmp_fd, 'w'))
     data = OrderedDict()
     for line in fp:
