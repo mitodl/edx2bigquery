@@ -36,7 +36,8 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
 
     ofnset = []
     cnt = 0
-    for course_id in course_id_set:
+    for idx, course_id in enumerate(course_id_set):
+        print("[%s] ---> %s" % (idx, course_id))
         gb = gsutil.gs_path_from_course_id(course_id, use_dataset_latest=use_dataset_latest)
         ofn = outdir / ('person_course_%s.csv.gz' % (course_id.replace('/', '__')))
 
