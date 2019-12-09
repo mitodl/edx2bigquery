@@ -26,7 +26,7 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
     '''
 
     print "="*77
-    print "Concatenating person course datasets from the following courses:"
+    print "Concatenating person course datasets from the following %d courses:" % len(course_id_set)
     print course_id_set
     print "-"*77
 
@@ -66,6 +66,10 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
         print "Retrieving %s via %s" % (course_id, cmd)
         sys.stdout.flush()
         os.system(cmd)
+
+        if ofn.exists():
+            ofnset.append(ofn)
+
         cnt += 1
         #if cnt>2:
         #    break
@@ -78,7 +82,7 @@ def do_combine(course_id_set, project_id, outdir="DATA", nskip=0,
     ofn = "person_course_%s_%s.csv" % (org, datetime.datetime.now().strftime('%Y-%m-%d-%H%M%S'))
 
     print "="*77
-    print "Combining CSV files to produce %s" % ofn
+    print "Combining %d CSV files to produce %s" % (len(ofnset), ofn)
     sys.stdout.flush()
 
     if (nskip>1) and os.path.exists(ofn):
