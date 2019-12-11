@@ -147,7 +147,7 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
             state = json.loads(line['state'].replace('\\\\','\\'))
         except Exception as err:
             print "oops, failed to parse state in studentmodule entry, err=%s" % str(err)
-            print "    %s" % repr(line)
+            print "    %s" % repr(line)[:100]
             continue
         
         if 'correct_map' not in state:
