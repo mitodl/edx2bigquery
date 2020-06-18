@@ -193,6 +193,10 @@
                             "name": "done"
                         }, 
                         {
+                            "type": "BOOLEAN", 
+                            "name": "has_saved_answers"
+                        }, 
+                        {
                             "type": "STRING", 
                             "name": "correct_map"
                         }, 
