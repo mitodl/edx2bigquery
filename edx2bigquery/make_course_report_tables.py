@@ -7,8 +7,8 @@
 # compute tables for annual course report
 
 import sys
-import bqutil
-import gsutil
+from . import bqutil
+from . import gsutil
 import datetime
 import json
 from collections import OrderedDict
@@ -35,7 +35,7 @@ class CourseReport(object):
         self.end_date = end_date;
 
         if not course_id_set:
-            print "ERROR! Must specify list of course_id's for report.  Aborting."
+            print("ERROR! Must specify list of course_id's for report.  Aborting.")
             return
 
         org = course_id_set[0].split('/',1)[0]	# extract org from first course_id
@@ -66,7 +66,7 @@ class CourseReport(object):
             try:
                 table = bqutil.get_bq_table_info(cd, 'person_course')
             except Exception as err:
-                print "[make-course_report_tables] Err: %s" % str(err)
+                print("[make-course_report_tables] Err: %s" % str(err))
                 table = None
             if table is not None:
                 self.all_pc_tables[cd] = table
@@ -75,7 +75,7 @@ class CourseReport(object):
             try:
                 table = bqutil.get_bq_table_info(cd, 'course_axis')
             except Exception as err:
-                print "[make_course_axis_tables] Err: %s" % str(err)
+                print("[make_course_axis_tables] Err: %s" % str(err))
                 table = None
             if table is not None:
                 self.all_ca_tables[cd] = table
@@ -83,7 +83,7 @@ class CourseReport(object):
             try:
                 table = bqutil.get_bq_table_info(cd, 'video_axis')
             except Exception as err:
-                print "[make_video_axis_tables] Err: %s" % str(err)
+                print("[make_video_axis_tables] Err: %s" % str(err))
                 table = None
             if table is not None:
                 self.all_va_tables[cd] = table
@@ -112,7 +112,7 @@ class CourseReport(object):
             try:
                 table = bqutil.get_bq_table_info(cd, 'time_on_task_totals')
             except Exception as err:
-                print "[make-course_report_tables] Err: %s" % str(err)
+                print("[make-course_report_tables] Err: %s" % str(err))
                 table = None
             if table is not None:
                 self.all_tott_tables[cd] = table
@@ -126,7 +126,7 @@ class CourseReport(object):
         va_tables = ',\n'.join(['[%s.video_axis]' % x for x in self.all_va_tables])
         tott_tables = ',\n'.join(['[%s.time_on_task_totals]' % x for x in self.all_tott_tables])
 
-        print "%d time_on_task tables: %s" % (len(self.all_tott_tables), tott_tables)
+        print("%d time_on_task tables: %s" % (len(self.all_tott_tables), tott_tables))
         sys.stdout.flush()
 
         # find latest combined person_course table
@@ -135,7 +135,7 @@ class CourseReport(object):
             the_cpc_table = "[%s.%s]" % (self.dataset, max(cpc_tables))
         else:
             the_cpc_table = None
-        print "[make_course_report_tables] ==> Using %s as the latest combined person_course table" % the_cpc_table
+        print("[make_course_report_tables] ==> Using %s as the latest combined person_course table" % the_cpc_table)
 
         self.parameters = {'dataset': self.dataset,
                            'pc_tables': pc_tables,
@@ -148,12 +148,12 @@ class CourseReport(object):
                            'pcday_trlang_counts_tables': pcday_trlang_counts_tables,
                            'combined_person_course': the_cpc_table,
                            }
-        print "[make_course_report_tables] ==> Using these datasets (with person_course tables): %s" % datasets_with_pc
+        print("[make_course_report_tables] ==> Using these datasets (with person_course tables): %s" % datasets_with_pc)
 
         self.course_datasets = course_datasets
     
-        print "="*100
-        print "Generating course report tables -> dataset=%s, project=%s" % (self.dataset, self.output_project_id)
+        print("="*100)
+        print("Generating course report tables -> dataset=%s, project=%s" % (self.dataset, self.output_project_id))
         sys.stdout.flush()
 
         bqutil.create_dataset_if_nonexistent(self.dataset, project_id=output_project_id)
@@ -174,32 +174,32 @@ class CourseReport(object):
             try:
                 self.make_time_on_task_stats_by_course()
             except Exception as err:
-                print "====> ERROR: Failed in make_time_on_task_stats_by_course(), err %s" % str(err)
-                print "====> Continuing anyway"
+                print("====> ERROR: Failed in make_time_on_task_stats_by_course(), err %s" % str(err))
+                print("====> Continuing anyway")
             self.make_total_populations_by_course()
             self.make_table_of_n_courses_registered()
             self.make_geographic_distributions()
             ## self.count_tracking_log_events()
             self.make_overall_totals()
     
-        print "="*100
-        print "Done with course report tables"
+        print("="*100)
+        print("Done with course report tables")
         sys.stdout.flush()
 
     def skip_or_do_step(self, tablename):
         if self.nskip:
             self.nskip += -1
-            print "Skipping %s" % tablename
+            print("Skipping %s" % tablename)
             return -1
 
         if self.only_step:
             if type(self.only_step)==list:
                 if tablename not in self.only_step:
-                    print "Skipping %s because not specified in only_step" % tablename
+                    print("Skipping %s because not specified in only_step" % tablename)
                     return -1
             else:
                 if not self.only_step == tablename:
-                    print "Skipping %s because not specified in only_step" % tablename
+                    print("Skipping %s because not specified in only_step" % tablename)
                     return -1
         return 0
 
@@ -213,7 +213,7 @@ class CourseReport(object):
         if the_dataset is None:
             the_dataset = self.dataset
 
-        print("Computing %s in BigQuery" % tablename)
+        print(("Computing %s in BigQuery" % tablename))
         sys.stdout.flush()
         try:
             ret = bqutil.create_bq_table(the_dataset, tablename, the_sql, 
@@ -224,8 +224,8 @@ class CourseReport(object):
                                          maximumBillingTier=maximumBillingTier,
                                      )
         except Exception as err:
-            print "ERROR! Failed on SQL="
-            print the_sql
+            print("ERROR! Failed on SQL=")
+            print(the_sql)
             raise
 
         gsfn = "%s/%s.csv" % (self.gsbucket, tablename)
@@ -235,7 +235,7 @@ class CourseReport(object):
                                    wait=False)
 
         msg = "CSV download link: %s" % gsutil.gs_download_link(gsfn)
-        print msg
+        print(msg)
         bqutil.add_description_to_table(the_dataset, tablename, msg, append=True, project_id=self.output_project_id)
 
 
@@ -362,7 +362,7 @@ class CourseReport(object):
     def make_time_on_task_stats_by_course(self):
 
         if not self.parameters['combined_person_course']:
-            print "Need combined person_course table for make_time_on_task_stats_by_course, skipping..."
+            print("Need combined person_course table for make_time_on_task_stats_by_course, skipping...")
             return
 
         if self.skip_or_do_step("time_on_task_stats_by_course") < 0:
@@ -623,11 +623,11 @@ order by course_id;
         # check creation dates on all the person course tables
         recent_pc_tables = []
         old_pc_tables = []
-        for cd, table in self.all_pc_tables.items():
+        for cd, table in list(self.all_pc_tables.items()):
             try:
                 cdt = table['lastModifiedTime']
             except Exception as err:
-                print "Error getting %s person_course table creation time, table info = %s" % (cd, table)
+                print("Error getting %s person_course table creation time, table info = %s" % (cd, table))
                 raise
             # print "--> %s: %s" % (cd, cdt)
             if cdt > datetime.datetime(2014, 11, 8):
@@ -637,12 +637,12 @@ order by course_id;
 
         if not recent_pc_tables:
             msg = "[make_course_report_tables] ==> enrollday_sql ERROR! no recent person_course tables found!"
-            print msg
+            print(msg)
             raise Exception(msg)
             
         the_pc_tables = ',\n'.join(recent_pc_tables)
-        print "[make_course_report_tables] ==> enrollday_sql being computed on these tables: %s" % the_pc_tables
-        print "==> old person_course tables which should be updated: %s" % json.dumps(old_pc_tables, indent=4)
+        print("[make_course_report_tables] ==> enrollday_sql being computed on these tables: %s" % the_pc_tables)
+        print("==> old person_course tables which should be updated: %s" % json.dumps(old_pc_tables, indent=4))
 
         the_sql = '''
             SELECT course_id,
@@ -725,7 +725,7 @@ order by course_id;
             inst = cid.split("__", 1)[0]
             uic_by_inst[inst].append('[%s.user_info_combo]' % cid)
 
-        for inst, uicset in uic_by_inst.items():
+        for inst, uicset in list(uic_by_inst.items()):
             the_sql = '''
                 SELECT username, email, count (*) as ncourses
                 FROM 
@@ -800,7 +800,7 @@ order by course_id;
         '''
         ntables = len(self.all_pcday_ip_counts_tables)
         if (ntables > 30):
-            print "--> Too many pcday_ip_counts tables (%d): using hash for computing global modal_ip" % ntables
+            print("--> Too many pcday_ip_counts tables (%d): using hash for computing global modal_ip" % ntables)
             sys.stdout.flush()
             return self.make_global_modal_ip_table_with_hash()
 
@@ -930,23 +930,23 @@ order by course_id;
 
             log_tables_todo = [x for x in log_tables if x[9:] <= tlend]
             log_tables_todo.sort()
-            print "[count_tracking_log_events] for course %s using %d tracking log tables, from %s to %s" % (course_id, 
+            print("[count_tracking_log_events] for course %s using %d tracking log tables, from %s to %s" % (course_id, 
                                                                                                              len(log_tables_todo),
                                                                                                              log_tables_todo[0], 
-                                                                                                             log_tables_todo[-1])
+                                                                                                             log_tables_todo[-1]))
             sys.stdout.flush()
 
             # go through all log files and get size on each
             row_sizes = [ bqutil.get_bq_table_size_rows(log_dataset, x) for x in log_tables_todo ]
             
             log_event_counts[course_id] = sum(row_sizes)
-            print "                         For %s found %d total tracking log events" % (course_id, log_event_counts[course_id])
+            print("                         For %s found %d total tracking log events" % (course_id, log_event_counts[course_id]))
             sys.stdout.flush()
 
         self.log_event_counts = log_event_counts
         
         self.total_events = sum(log_event_counts.values())
-        print "--> Total number of events for %s = %d" % (self.org, self.total_events)
+        print("--> Total number of events for %s = %d" % (self.org, self.total_events))
         
     def combine_show_answer_stats_by_course(self):
         '''
@@ -964,16 +964,16 @@ order by course_id;
             try:
                 table = bqutil.get_bq_table_info(cd, tablename)
             except Exception as err:
-                print "[make-course_report_tables] Err: %s" % str(err)
+                print("[make-course_report_tables] Err: %s" % str(err))
                 continue
             if table is None:
                 continue
             datasets_with_sasbc.append(cd)
         
         if not datasets_with_sasbc:
-            print '[make_course_report_tables] combine_show_answer_stats_by_course: no datasets have show_answer_stats_by_course!'
-            print '--> Aborting creation of %s' %  show_answer_stats_by_course
-            print '--> This may cause problems with report creation.  Run analyze_problems on at least one course to resolve'
+            print('[make_course_report_tables] combine_show_answer_stats_by_course: no datasets have show_answer_stats_by_course!')
+            print('--> Aborting creation of %s' %  show_answer_stats_by_course)
+            print('--> This may cause problems with report creation.  Run analyze_problems on at least one course to resolve')
 
         sasbc_tables = ',\n'.join(['[%s.%s]' % (x, tablename) for x in datasets_with_sasbc])
 

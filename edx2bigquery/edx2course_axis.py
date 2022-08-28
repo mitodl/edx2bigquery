@@ -42,12 +42,12 @@ import codecs
 import json
 import glob
 import datetime
-import xbundle
+from . import xbundle
 import tempfile
 from collections import namedtuple, defaultdict
 from lxml import etree,html
 from path import Path as path
-from fix_unicode import fix_bad_unicode
+from .fix_unicode import fix_bad_unicode
 
 DO_SAVE_TO_MONGO = False
 DO_SAVE_TO_BIGQUERY = True
@@ -77,7 +77,7 @@ class Policy(object):
         pfn = policy file name
         '''
         self.pfn = path(pfn)
-        print "loading policy file %s" % pfn
+        print("loading policy file %s" % pfn)
         self.policy = json.loads(open(pfn).read())
         
         gfn = self.pfn.dirname() / 'grading_policy.json'
@@ -88,7 +88,7 @@ class Policy(object):
     @property
     def semester(self):
         # print "semester: policy keys = %s" % self.policy.keys()
-        semester = [t[1] for t in [k.split('/',1) for k in self.policy.keys()] if t[0]=='course'][0]
+        semester = [t[1] for t in [k.split('/',1) for k in list(self.policy.keys())] if t[0]=='course'][0]
         return semester
 
     def get_metadata(self, xml, setting, default=None, parent=False):
@@ -164,7 +164,7 @@ def date_parse(datestr, retbad=False):
         except Exception as err:
             continue
 
-    print "Date %s unparsable" % datestr
+    print("Date %s unparsable" % datestr)
     if retbad:
         return "Bad"
     return None
@@ -189,7 +189,7 @@ class CourseInfo(object):
             if os.path.exists(pfn):
                 self.load_policy(pfn)
             else:
-                print "==================== ERROR!  Missing policy file %s" % pfn
+                print("==================== ERROR!  Missing policy file %s" % pfn)
 
     def load_policy(self, pfn):
         self.policy = Policy(pfn)
@@ -211,7 +211,7 @@ def make_axis(dir):
     def logit(msg, nolog=False):
         if not nolog:
             log_msg.append(msg)
-        print msg
+        print(msg)
 
     dir = path(dir)
 
@@ -420,7 +420,7 @@ def make_axis(dir):
                 dn = x.get('display_name', url_name)
                 try:
                     #dn = dn.decode('utf-8')
-                    dn = unicode(dn)
+                    dn = str(dn)
                     dn = fix_bad_unicode(dn)
                 except Exception as err:
                     logit('unicode error, type(dn)=%s'  % type(dn))
@@ -451,7 +451,7 @@ def make_axis(dir):
                     logit( "gformat for hw0 = %s" % gformat)
 
                 graded = x.get('graded', policy.get_metadata(x, 'graded', ''))
-                if not (type(graded) in [unicode, str]):
+                if not (type(graded) in [str, str]):
                     graded = str(graded)
 
                 # compute path
@@ -547,7 +547,7 @@ def save_data_to_bigquery(cid, cdat, caset, xbundle=None, datadir=None, log_msg=
     caset = list of course axis data in dict format
     xbundle = XML bundle of course (everything except static files)
     '''
-    import axis2bigquery
+    from . import axis2bigquery
     axis2bigquery.do_save(cid, caset, xbundle, datadir, log_msg, use_dataset_latest=use_dataset_latest)
 
 # <codecell>
@@ -567,17 +567,17 @@ def fix_duplicate_url_name_vertical(axis):
         ael = axis[idx]
         axis_by_url_name[ael.url_name].append(idx)
     
-    for url_name, idxset in axis_by_url_name.items():
+    for url_name, idxset in list(axis_by_url_name.items()):
         if len(idxset)==1:
             continue
-        print "--> Duplicate url_name %s shared by:" % url_name
+        print("--> Duplicate url_name %s shared by:" % url_name)
         vert = None
         for idx in idxset:
             ael = axis[idx]
-            print "       %s" % str(ael)
+            print("       %s" % str(ael))
             if ael.category=='vertical':
                 nun = "%s_vertical" % url_name
-                print "          --> renaming url_name to become %s" % nun
+                print("          --> renaming url_name to become %s" % nun)
                 new_ael = ael._replace(url_name=nun)
                 axis[idx] = new_ael
 
@@ -590,11 +590,11 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
     ret = make_axis(dir)
 
     # save data as csv and txt: loop through each course (multiple policies can exist withing a given course dir)
-    for default_cid, cdat in ret.iteritems():
+    for default_cid, cdat in ret.items():
 
         cid = force_course_id or default_cid
 
-        print "================================================== (%s)" % cid
+        print("================================================== (%s)" % cid)
 
         log_msg = cdat['log_msg']
 
@@ -604,7 +604,7 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
         bundle_out = bundle_out.replace('<!------>', '')	# workaround improper XML
         codecs.open(bfn,'w',encoding='utf8').write(bundle_out)
 
-        print "Writing out xbundle to %s (len=%s)" % (bfn, len(bundle_out))
+        print("Writing out xbundle to %s (len=%s)" % (bfn, len(bundle_out)))
         
         # clean up xml file with xmllint if available
         if 1:
@@ -613,7 +613,7 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
                 if xlret==0:
                     os.system('mv %s.new %s' % (bfn, bfn))
 
-        print "saving data for %s" % cid
+        print("saving data for %s" % cid)
 
         fix_duplicate_url_name_vertical(cdat['axis'])
 
@@ -649,13 +649,13 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
                 data = [ ('%s' % ca[k]).encode('utf8') for k in header]
                 writer.writerow(data)
             except Exception as err:
-                print "Failed to write row %s" % data
-                print "Error=%s" % err
+                print("Failed to write row %s" % data)
+                print("Error=%s" % err)
         fp.close()
         os.system('cp %s %s' % (csvfn, csvca ) ) # Make an extra copy named course_axis.csv
         os.system('gzip -9 -f %s' % csvca )
-        print "Saved course axis to %s" % csvfn
-        print "Saved course axis to %s" % csvca+'.gz'
+        print("Saved course axis to %s" % csvfn)
+        print("Saved course axis to %s" % csvca+'.gz')
 
 # <codecell>
 
@@ -667,12 +667,12 @@ def process_xml_tar_gz_file(fndir, use_dataset_latest=False, force_course_id=Non
     fnabs = os.path.abspath(fndir)
     tdir = tempfile.mkdtemp()
     cmd = "cd %s; tar xzf %s" % (tdir, fnabs)
-    print "running %s" % cmd
+    print("running %s" % cmd)
     os.system(cmd)
     newfn = glob.glob('%s/*' % tdir)[0]
-    print "Using %s as the course xml directory" % newfn
+    print("Using %s as the course xml directory" % newfn)
     process_course(newfn, use_dataset_latest=use_dataset_latest, force_course_id=force_course_id)
-    print "removing temporary files %s" % tdir
+    print("removing temporary files %s" % tdir)
     os.system('rm -rf %s' % tdir)
 
 # <codecell>
@@ -680,14 +680,14 @@ def process_xml_tar_gz_file(fndir, use_dataset_latest=False, force_course_id=Non
 if __name__=='__main__':
     if sys.argv[1]=='-mongo':
         DO_SAVE_TO_MONGO = True
-        print "============================================================ Enabling Save to Mongo"
+        print("============================================================ Enabling Save to Mongo")
         sys.argv.pop(1)
 
     if sys.argv[1]=='-datadir':
         sys.argv.pop(1)
         DATADIR = sys.argv[1]
         sys.argv.pop(1)
-        print "==> using %s as DATADIR" % DATADIR
+        print("==> using %s as DATADIR" % DATADIR)
 
     if not os.path.exists(DATADIR):
         os.mkdir(DATADIR)

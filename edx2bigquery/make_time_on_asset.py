@@ -5,9 +5,9 @@ Make table of time spent on a given asset (anything with a unique module_id aka 
 import os
 import sys
 import json
-import bqutil
+from . import bqutil
 import datetime
-import process_tracking_logs
+from . import process_tracking_logs
 
         
 #-----------------------------------------------------------------------------
@@ -200,7 +200,7 @@ def process_time_on_asset_totals(course_id, force_recompute=False, use_dataset_l
 
     tablename = 'time_on_asset_totals'
 
-    print "Computing %s for %s" % (tablename, dataset)
+    print("Computing %s for %s" % (tablename, dataset))
     sys.stdout.flush()
 
     bqdat = bqutil.get_bq_table(dataset, tablename, the_sql,

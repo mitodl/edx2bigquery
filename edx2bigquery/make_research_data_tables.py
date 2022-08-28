@@ -7,14 +7,14 @@
 # extract/create research data tables from BQ
 
 import sys
-import bqutil
-import gsutil
+from . import bqutil
+from . import gsutil
 import datetime
 import json
 import path
 import collections
 import gzip
-from load_course_sql import find_course_sql_dir
+from .load_course_sql import find_course_sql_dir
 
 
 #-----------------------------------------------------------------------------
@@ -119,7 +119,7 @@ class ResearchDataProducts(object):
         self.end_date = end_date;
 
         if not course_id_set:
-            print "ERROR! Must specify list of course_id's for report.  Aborting."
+            print("ERROR! Must specify list of course_id's for report.  Aborting.")
             return
 
         org = course_id_set[0].split('/',1)[0]	# extract org from first course_id
@@ -143,15 +143,15 @@ class ResearchDataProducts(object):
 	self.rdp_matrix = collections.OrderedDict()
         #for course_id in course_datasets_dict.keys():
 
-	print "[researchData] Processing data for course %s" % ( course_id )
+	print("[researchData] Processing data for course %s" % ( course_id ))
 	sys.stdout.flush()
-	for rdp in RESEARCH_DATA_PRODUCTS.keys():
+	for rdp in list(RESEARCH_DATA_PRODUCTS.keys()):
 		try:
 			table = bqutil.get_bq_table_info( course_dataset, rdp )
 			#table = bqutil.get_bq_table_info( course_id, rdp )
 			if table is not None:
 				#[print "[researchData] %s found for %s dataset" % ( rdp, course_datasets_dict[ course_id ] )
-				print "[researchData] %s found" % ( rdp )
+				print("[researchData] %s found" % ( rdp ))
 				sys.stdout.flush()
 				if rdp not in self.rdp_matrix:
 					#self.rdp_matrix[ str(rdp) ] = cd
@@ -163,7 +163,7 @@ class ResearchDataProducts(object):
 
 		except Exception as err:
 			#print str(err)
-			print "[researchData] Err: %s not found for %s dataset" % ( rdp, course_id )
+			print("[researchData] Err: %s not found for %s dataset" % ( rdp, course_id ))
 
 	# Extract to archival storage
 	for researchDataProduct in self.rdp_matrix:
@@ -172,9 +172,9 @@ class ResearchDataProducts(object):
 		course_id = self.rdp_matrix[ researchDataProduct ][0] #the_dataset.replace( '__', '/' )
 		self.extractResearchData( course_id=course_id, tablename=researchDataProduct, the_dataset=the_dataset, rdp=researchDataProduct, rdp_format='csv', output_bucket=output_bucket, basedir=basedir, datedir=datedir )
 
-        print "="*100
-        print "Done extracting Research Data tables -> %s" % RESEARCH_DATA_PRODUCTS.keys()
-        print "="*100
+        print("="*100)
+        print("Done extracting Research Data tables -> %s" % list(RESEARCH_DATA_PRODUCTS.keys()))
+        print("="*100)
         sys.stdout.flush()
 
     def extractResearchData( self, course_id, tablename, the_dataset=None, rdp=None, rdp_format='csv', output_bucket=None, basedir='', datedir='', do_gzip=True):
@@ -189,33 +189,33 @@ class ResearchDataProducts(object):
 		gsfilename  = "%s/%s" % ( self.gsp, RESEARCH_DATA_PRODUCTS[ rdp ] )
 
 	else: 
-		print "ERROR! Must specify course_id's.  Aborting."
+		print("ERROR! Must specify course_id's.  Aborting.")
 		return
 
 	try:
 		# Copy to Google Storage
 		msg = "[researchData]: Copying Research Data table %s to %s" % ( tablename, gsfilename )
-		print msg
+		print(msg)
 		#gsfilename  = "%s/%s-*.csv.gz" % ( self.gsp, tablename ) # temp
 		gsfilename  = "%s/%s.csv.gz" % ( self.gsp, tablename ) # temp
 		ret = bqutil.extract_table_to_gs( the_dataset, tablename, gsfilename, format=rdp_format, do_gzip=True, wait=True)
 		msg = "[researchData]: CSV download link: %s" % gsutil.gs_download_link( gsfilename )
-		print msg
+		print(msg)
 		sys.stdout.flush()
 	
 	except Exception as err:
 
-		print str(err)
+		print(str(err))
 		if ('BQ Error creating table' in str(err) ):
 			msg = "[researchData]: Retrying... by sharding."
-			print msg
+			print(msg)
 			sys.stdout.flush()
 			gsfilename  = "%s/%s-*.csv.gz" % ( self.gsp, tablename )
-			print gsfilename
+			print(gsfilename)
 			sys.stdout.flush()
 			ret = bqutil.extract_table_to_gs( the_dataset, tablename, gsfilename, format=rdp_format, do_gzip=True, wait=True)
 			msg = "[researchData]: CSV download link: %s" % gsutil.gs_download_link( gsfilename )
-			print msg
+			print(msg)
 			sys.stdout.flush()
 	
 
@@ -223,7 +223,7 @@ class ResearchDataProducts(object):
 	archiveLocation = find_course_sql_dir(course_id=course_id, basedir=basedir, datedir=datedir, use_dataset_latest=True)
 	#time.sleep( CFG.TIME_TO_WAIT_30s ) # delay needed to allow for GS to upload file fully (This should be size dependent, and may not be enough time)
 	msg = "[researchData]: Archiving Research Data table %s from %s to %s" % ( tablename, gsfilename, archiveLocation )
-	print msg
+	print(msg)
         sys.stdout.flush()
 	gsutil.upload_file_to_gs(src=gsfilename, dst=archiveLocation, verbose=True)
 

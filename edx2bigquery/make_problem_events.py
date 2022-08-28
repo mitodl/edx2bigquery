@@ -7,10 +7,10 @@ import os, sys
 import csv
 import re
 import json
-import gsutil
-import bqutil
+from . import gsutil
+from . import bqutil
 import datetime
-import process_tracking_logs
+from . import process_tracking_logs
 
 #-----------------------------------------------------------------------------
 # CONSTANTS
@@ -58,17 +58,17 @@ order by user_id, time
         tinfo = bqutil.get_bq_table_info(dataset, table )
         assert tinfo is not None, "[make_problem_events] Creating %s.%s table for %s" % (dataset, table, course_id)
 
-        print "[make_problem_events] Appending latest data to %s.%s table for %s" % (dataset, table, course_id)
+        print("[make_problem_events] Appending latest data to %s.%s table for %s" % (dataset, table, course_id))
         sys.stdout.flush()
 
     except (AssertionError, Exception) as err:
-        print str(err)
+        print(str(err))
         sys.stdout.flush()
-        print " --> Missing %s.%s?  Attempting to create..." % ( dataset, table )
+        print(" --> Missing %s.%s?  Attempting to create..." % ( dataset, table ))
         sys.stdout.flush()
         pass
 
-    print "=== Processing Forum Events for %s (start %s)"  % (course_id, datetime.datetime.now())
+    print("=== Processing Forum Events for %s (start %s)"  % (course_id, datetime.datetime.now()))
     sys.stdout.flush()
 
     def gdf(row):
@@ -82,6 +82,6 @@ order by user_id, time
                                                      skip_last_day=skip_last_day
                                                     )
 
-    print "Done with Problem Events for %s (end %s)"  % (course_id, datetime.datetime.now())
-    print "="*77
+    print("Done with Problem Events for %s (end %s)"  % (course_id, datetime.datetime.now()))
+    print("="*77)
     sys.stdout.flush()

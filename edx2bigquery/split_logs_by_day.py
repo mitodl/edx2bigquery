@@ -40,5 +40,5 @@ def do_file(fn):
 if __name__=="__main__":
     
     fn = sys.argv[1]
-    print "Processing %s" % fn
+    print("Processing %s" % fn)
     do_file(fn)

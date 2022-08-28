@@ -1,14 +1,14 @@
 
 import os
 import sys
-import gsutil
-import bqutil
+from . import gsutil
+from . import bqutil
 import gzip
 import json
 from path import Path as path
 import unicodecsv as csv
 
-from load_course_sql import find_course_sql_dir
+from .load_course_sql import find_course_sql_dir
 
 def do_user_part_csv(course_id, basedir=None, datedir=None, 
                   use_dataset_latest=False,
@@ -23,18 +23,18 @@ def do_user_part_csv(course_id, basedir=None, datedir=None,
     dfn = sdir / "user_api_usercoursetag.csv.gz"
 
     if not os.path.exists(dfn):
-        print("[load_user_part] Missing %s, skipping" % dfn)
+        print(("[load_user_part] Missing %s, skipping" % dfn))
         return
 
     # reformat True / False to 1/0 for "value" field
     if verbose:
-        print("[load_user_part] extracting user partition data from %s" % dfn)
+        print(("[load_user_part] extracting user partition data from %s" % dfn))
         sys.stdout.flush()
 
     cdr = csv.DictReader(gzip.GzipFile(dfn))
     fields = cdr.fieldnames
     if verbose:
-        print("fieldnames = %s" % fields)
+        print(("fieldnames = %s" % fields))
     fixed_data = []
     bmap = {'true': 1, 'false': 0}
     for row in cdr:
@@ -49,7 +49,7 @@ def do_user_part_csv(course_id, basedir=None, datedir=None,
         cdw.writeheader()
         cdw.writerows(fixed_data)
     if verbose:
-        print("[load_user_part] Wrote %d rows of user partition data to %s" % (len(fixed_data), odfn))
+        print(("[load_user_part] Wrote %d rows of user partition data to %s" % (len(fixed_data), odfn)))
         sys.stdout.flush()
 
     gsdir = path(gsutil.gs_path_from_course_id(course_id, use_dataset_latest=use_dataset_latest))

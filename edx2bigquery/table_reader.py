@@ -26,7 +26,7 @@ import time
 from apiclient.errors import HttpError
 
 # Imports from files in this directory:
-import auth
+from . import auth
 
 READ_CHUNK_SIZE= 64 * 1024
 
@@ -59,8 +59,8 @@ class TableReader:
         tableId=self.table_id).execute()
     last_modified = int(table.get('lastModifiedTime', 0))
     row_count = int(table.get('numRows', 0))
-    print '%s last modified at %d' % (
-      table['id'], last_modified)
+    print('%s last modified at %d' % (
+      table['id'], last_modified))
     return (last_modified, row_count)
 
   def advance(self, rows, page_token):
@@ -69,7 +69,7 @@ class TableReader:
     done = page_token is None
     if self.rows_left is not None:
       self.rows_left -= len(rows)
-      if self.rows_left < 0: print 'Error: Read too many rows!'
+      if self.rows_left < 0: print('Error: Read too many rows!')
       if self.rows_left <= 0: done = True
 
     if self.next_index is not None:
@@ -97,7 +97,7 @@ class TableReader:
       read_msg = '%s at %s' % (read_msg, self.next_page_token)
     else:
       read_msg = '%s from start' % (read_msg,)
-    if max_results <> row_count:
+    if max_results != row_count:
        read_msg = '%s [max %d]' % (read_msg, max_results)
     return read_msg
 
@@ -118,15 +118,15 @@ class TableReader:
             maxResults=max_results).execute()
         next_page_token = data.get('pageToken', None)
         rows = data.get('rows', [])
-        print self.make_read_message(len(rows), max_results)
+        print(self.make_read_message(len(rows), max_results))
         is_done = self.advance(rows, next_page_token)
         return (is_done, rows)
-      except HttpError, err:
+      except HttpError as err:
         # If the error is a rate limit or connection error, wait and
         # try again.
         if err.resp.status in [403, 500, 503]:
-          print '%s: Retryable error %s, waiting' % (
-              self.thread_id, err.resp.status,)
+          print('%s: Retryable error %s, waiting' % (
+              self.thread_id, err.resp.status,))
           time.sleep(5)
         else: raise
 
@@ -151,7 +151,7 @@ class FileResultHandler(ResultHandler):
 
   def __init__(self, output_file_name):
     self.output_file_name = output_file_name
-    print 'Writing results to %s' % (output_file_name,)
+    print('Writing results to %s' % (output_file_name,))
 
   def __enter__(self):
     self.make_output_dir()
@@ -188,7 +188,7 @@ class TableReadThread (threading.Thread):
     self.thread_id = thread_id
 
   def run(self):
-    print 'Reading %s' % (self.thread_id,)
+    print('Reading %s' % (self.thread_id,))
     with FileResultHandler(self.output_file_name) as result_handler:
       self.table_reader.read(result_handler)
 
@@ -206,8 +206,8 @@ def main(argv):
                  '<dataset_id>',
                  '<table_id>',
                  '<output_directory>']
-    print 'Usage: %s' % (' '.join(arg_names))
-    print 'Got: %s' % (argv,)
+    print('Usage: %s' % (' '.join(arg_names)))
+    print('Got: %s' % (argv,))
     return
 
   table_reader = TableReader(project_id=argv[0],

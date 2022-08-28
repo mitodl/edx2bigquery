@@ -7,20 +7,20 @@ import os, sys
 import csv
 import re
 import json
-import gsutil
-import bqutil
+from . import gsutil
+from . import bqutil
 import datetime
-import process_tracking_logs
+from . import process_tracking_logs
 
 from path import Path as path
 from collections import OrderedDict
 from collections import defaultdict
-from check_schema_tracking_log import schema2dict, check_schema
-from load_course_sql import find_course_sql_dir, openfile
+from .check_schema_tracking_log import schema2dict, check_schema
+from .load_course_sql import find_course_sql_dir, openfile
 
 import re
 from time import sleep
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import json
 import os
 import datetime
@@ -184,7 +184,7 @@ def CreateForumPosts( course_id, force_recompute=True, use_dataset_latest=False,
                         ) as NA
               """.format( dataset=dataset, course_id=course_id, forum=TABLE_FORUM, post_preview_char_count=POST_PREVIEW_CHAR_COUNT )
 
-    print "[make_forum_analysis] Creating %s.%s table for %s" % ( dataset, TABLE_FORUM_POSTS, course_id )
+    print("[make_forum_analysis] Creating %s.%s table for %s" % ( dataset, TABLE_FORUM_POSTS, course_id ))
     sys.stdout.flush()
 
     try:
@@ -192,7 +192,7 @@ def CreateForumPosts( course_id, force_recompute=True, use_dataset_latest=False,
         assert tinfo is not None, "[make_forum_analysis] %s table depends on %s, which does not exist" % ( TABLE_FORUM_POSTS, TABLE_FORUM )
 
     except (AssertionError, Exception) as err:
-        print " --> Err: missing %s.%s?  Skipping creation of %s" % ( dataset, TABLE_FORUM, TABLE_FORUM_POSTS )
+        print(" --> Err: missing %s.%s?  Skipping creation of %s" % ( dataset, TABLE_FORUM, TABLE_FORUM_POSTS ))
         sys.stdout.flush()
         return
 
@@ -315,24 +315,24 @@ def CreateForumPerson( course_id, force_recompute=False, use_dataset_latest=Fals
 
     the_sql = original_the_sql.format( dataset=dataset, course_id=course_id, forum=TABLE_FORUM, forum_posts=TABLE_FORUM_POSTS, forum_events=TABLE_FORUM_EVENTS, hash_limit_and='', hash_limit_where='' )
 
-    print "[make_forum_analysis] Creating %s.%s table for %s" % (dataset, TABLE_FORUM_PERSON, course_id)
+    print("[make_forum_analysis] Creating %s.%s table for %s" % (dataset, TABLE_FORUM_PERSON, course_id))
     sys.stdout.flush()
 
     try:
 
         tinfo_fe = bqutil.get_bq_table_info( dataset, TABLE_FORUM_EVENTS )
         trows_fe = int(tinfo_fe['numRows'])
-	print "[make_forum_analysis] %s Forum Events found " % trows_fe
+	print("[make_forum_analysis] %s Forum Events found " % trows_fe)
         tinfo_fp = bqutil.get_bq_table_info( dataset, TABLE_FORUM_POSTS )
         trows_fp = int(tinfo_fp['numRows'])
-	print "[make_forum_analysis] %s Forum Posts found " % trows_fp
+	print("[make_forum_analysis] %s Forum Posts found " % trows_fp)
 
         assert tinfo_fe is not None and trows_fe != 0, "[make_forum_analysis] %s table depends on %s, which does not exist" % ( TABLE_FORUM_PERSON, TABLE_FORUM_EVENTS )
         assert tinfo_fp is not None and trows_fp != 0, "[make_forum_analysis] %s table depends on %s, which does not exist" % ( TABLE_FORUM_PERSON, TABLE_FORUM_POSTS ) 
 
     except (AssertionError, Exception) as err:
 
-        print " --> Err: missing %s.%s and/or %s (including 0 rows in table)?  Skipping creation of %s" % ( dataset, TABLE_FORUM_POSTS, TABLE_FORUM_EVENTS, TABLE_FORUM_PERSON )
+        print(" --> Err: missing %s.%s and/or %s (including 0 rows in table)?  Skipping creation of %s" % ( dataset, TABLE_FORUM_POSTS, TABLE_FORUM_EVENTS, TABLE_FORUM_PERSON ))
         sys.stdout.flush()
         return
 
@@ -348,7 +348,7 @@ def CreateForumPerson( course_id, force_recompute=False, use_dataset_latest=Fals
                 hash_limit_and = "and ABS(HASH(username)) %% %d = %d" % ( hash_limit, k )
 
                 retry_the_sql = original_the_sql.format( dataset=dataset, forum=TABLE_FORUM, forum_posts=TABLE_FORUM_POSTS, forum_events=TABLE_FORUM_EVENTS, hash_limit_and=hash_limit_and, hash_limit_where=hash_limit_where )
-                print "[make_forum_analysis] Retrying with this query...", retry_the_sql
+                print("[make_forum_analysis] Retrying with this query...", retry_the_sql)
                 sys.stdout.flush()
                 bqutil.create_bq_table( dataset, table, retry_the_sql, wait=True, overwrite=overwrite, allowLargeResults=True )
                 overwrite = "append"
@@ -366,7 +366,7 @@ def CreateForumPerson( course_id, force_recompute=False, use_dataset_latest=Fals
             # 'Resources exceeded during query execution'
             # try using hash limit on username
             # e.g. WHERE ABS(HASH(username)) % 4 = 0
-            print '[make_forum_analysis] Response too large to return. Attempting to break down into multiple queries and append instead... using hash of %s' % hash_limit
+            print('[make_forum_analysis] Response too large to return. Attempting to break down into multiple queries and append instead... using hash of %s' % hash_limit)
 
             try:
 
@@ -376,7 +376,7 @@ def CreateForumPerson( course_id, force_recompute=False, use_dataset_latest=Fals
 		    hash_limit_and = "and ABS(HASH(username)) %% %d = %d" % ( hash_limit, k )
 
                     retry_the_sql = original_the_sql.format( dataset=dataset, forum=TABLE_FORUM, forum_posts=TABLE_FORUM_POSTS, forum_events=TABLE_FORUM_EVENTS, hash_limit_and=hash_limit_and, hash_limit_where=hash_limit_where )
-                    print "[make_forum_analysis] Retrying with this query...", retry_the_sql
+                    print("[make_forum_analysis] Retrying with this query...", retry_the_sql)
                     sys.stdout.flush()
                     bqutil.create_bq_table( dataset, table, retry_the_sql, wait=True, overwrite=overwrite, allowLargeResults=True )
                     overwrite = "append"
@@ -386,21 +386,21 @@ def CreateForumPerson( course_id, force_recompute=False, use_dataset_latest=Fals
                 if ( (('Response too large to return.' in str(err)) or ('Resources exceeded during query execution' in str(err))) and has_hash_limit ):
 
                     hash_limit = int( hash_limit * 2.0 )
-                    print '[make_forum_analysis] Response too large to return. Attempting to break down into multiple queries and append instead... using hash of %s' % hash_limit
+                    print('[make_forum_analysis] Response too large to return. Attempting to break down into multiple queries and append instead... using hash of %s' % hash_limit)
                     CreateForumPerson( course_id, force_recompute, use_dataset_latest, skip_last_day, end_date, has_hash_limit=True, hash_limit=hash_limit )
 
                 else:
 
-                    print '[make_forum_analysis] An error occurred with this query: %s' % the_sql
+                    print('[make_forum_analysis] An error occurred with this query: %s' % the_sql)
                     raise
 
         else:
 
-	    print '[make_forum_analysis] An error occurred with this query: %s' % the_sql
+	    print('[make_forum_analysis] An error occurred with this query: %s' % the_sql)
             raise
 
-    print "Done with Forum Person for %s (end %s)"  % (course_id, datetime.datetime.now())
-    print "="*77
+    print("Done with Forum Person for %s (end %s)"  % (course_id, datetime.datetime.now()))
+    print("="*77)
     sys.stdout.flush()
 
     return
@@ -502,17 +502,17 @@ def CreateForumEvents( course_id, force_recompute=False, use_dataset_latest=Fals
         tinfo = bqutil.get_bq_table_info(dataset, table )
         assert tinfo is not None, "[make_forum_analysis] Creating %s.%s table for %s" % (dataset, table, course_id)
 
-        print "[make_forum_analysis] Appending latest data to %s.%s table for %s" % (dataset, table, course_id)
+        print("[make_forum_analysis] Appending latest data to %s.%s table for %s" % (dataset, table, course_id))
         sys.stdout.flush()
 
     except (AssertionError, Exception) as err:
-        print str(err)
+        print(str(err))
         sys.stdout.flush()
-        print " --> Missing %s.%s?  Attempting to create..." % ( dataset, table )
+        print(" --> Missing %s.%s?  Attempting to create..." % ( dataset, table ))
         sys.stdout.flush()
         pass
 
-    print "=== Processing Forum Events for %s (start %s)"  % (course_id, datetime.datetime.now())
+    print("=== Processing Forum Events for %s (start %s)"  % (course_id, datetime.datetime.now()))
     sys.stdout.flush()
 
     def gdf(row):
@@ -526,6 +526,6 @@ def CreateForumEvents( course_id, force_recompute=False, use_dataset_latest=Fals
                                                      skip_last_day=skip_last_day
                                                     )
 
-    print "Done with Forum Events for %s (end %s)"  % (course_id, datetime.datetime.now())
-    print "="*77
+    print("Done with Forum Events for %s (end %s)"  % (course_id, datetime.datetime.now()))
+    print("="*77)
     sys.stdout.flush()

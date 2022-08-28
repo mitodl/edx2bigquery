@@ -8,13 +8,13 @@ import gzip
 import os
 import json
 
-import gsutil
-import bqutil
+from . import gsutil
+from . import bqutil
 
 import unicodecsv as csv
 
 from path import Path as path
-import load_course_sql
+from . import load_course_sql
 
 
 def fix_course_ids(row_dict, column="course_id"):
@@ -117,7 +117,7 @@ def upload_grades_persistent_data(cid, basedir, datedir, use_dataset_latest=Fals
     the_schema = json.loads(open('%s/schemas/schema_%s.json' % (mypath, table)).read())[table]
 
     if not os.path.exists(csvfn):
-        print "[edx2bigquery] make_grades_persistent: missing file %s, skipping" % csvfn
+        print("[edx2bigquery] make_grades_persistent: missing file %s, skipping" % csvfn)
         return
 
     if not subsection:

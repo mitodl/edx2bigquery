@@ -20,7 +20,7 @@ def schema_names_unique(the_schema):
     names = []
     for ent in the_schema:
         if ent['name'] in names:
-            print "oops!  duplicate entry %s in %s" % (ent['name'], the_schema)
+            print("oops!  duplicate entry %s in %s" % (ent['name'], the_schema))
             raise
         names.append(ent['name'])
         if ent['type']=='RECORD':
@@ -42,7 +42,7 @@ if True:
     def check_schema(line, data, cur_schema, level=0, seq=None):
         if seq is None:
             seq = []
-        for key, val in data.iteritems():
+        for key, val in data.items():
             if not type(val)==dict:
                 if type(val)==int:
                     the_type = 'INTEGER'
@@ -70,16 +70,16 @@ if True:
                     elif the_type=='INTEGER' and ent['type'] in ['FLOAT', 'STRING']:
                         continue
                     elif the_type=='STRING' and ent['type']=='RECORD':
-                        print "warning!  need %s=%s, but ent=%s" % (key, the_type, ent)
-                        print "record: ", line
+                        print("warning!  need %s=%s, but ent=%s" % (key, the_type, ent))
+                        print("record: ", line)
                         continue
                     else:
-                        print "oops!  need %s=%s, but ent=%s" % (key, the_type, ent)
-                        print "record: ", line
+                        print("oops!  need %s=%s, but ent=%s" % (key, the_type, ent))
+                        print("record: ", line)
                         sys.exit(-1)
                 newent = { 'name': key, 'type': the_type}
                 cur_schema.append(newent)
-                print "%s [%d] <%s> updated schema, added %s" % (' '*level*4, level,  ','.join(seq), newent)
+                print("%s [%d] <%s> updated schema, added %s" % (' '*level*4, level,  ','.join(seq), newent))
                 add_example(line)
                 save_schema()
             else:
@@ -88,14 +88,14 @@ if True:
                     if ent['type']=='RECORD':
                         check_schema(line, val, ent['fields'], level=level+1, seq=seq+[key])
                     else:
-                        print "oops!  need %s=RECORD, but ent=%s" % (key, ent)
-                        print "record: ", line
+                        print("oops!  need %s=RECORD, but ent=%s" % (key, ent))
+                        print("record: ", line)
                         sys.exit(-1)
                 else:
                     subschema = []
                     newent = {'name': key, 'type': 'RECORD', 'fields': subschema}
                     cur_schema.append(newent)
-                    print "%s [%d] <%s> updated schema, added %s" % (' '*level*4, level, ','.join(seq), newent)
+                    print("%s [%d] <%s> updated schema, added %s" % (' '*level*4, level, ','.join(seq), newent))
                     add_example(line)
                     save_schema()
                     check_schema(line, val, subschema, level=level+1, seq=seq+[key])
@@ -105,7 +105,7 @@ if True:
 def process_file(fn):
     cnt = 0
     
-    print "Building schema from file %s" % fn
+    print("Building schema from file %s" % fn)
     
     if fn.endswith('.gz'):
         fp = gzip.GzipFile(fn)
@@ -117,7 +117,7 @@ def process_file(fn):
         try:
             data = json.loads(k)
         except Exception as err:
-            print "Oops, failed to parse line %d: %s" % (cnt, k)
+            print("Oops, failed to parse line %d: %s" % (cnt, k))
             continue
         check_schema(k, data, schema['tracking_log'], level=0)
         # print "schema is now ", json.dumps(schema['tracking_log'], indent=4)

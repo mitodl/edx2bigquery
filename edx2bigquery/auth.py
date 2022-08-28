@@ -68,7 +68,7 @@ def get_gcloud_oauth2_creds():
     msg = "[edx2bigquery] Authentication error!  You have specified USE_GCLOUD_AUTH in the configuration, but do not have gcloud authentication available.\n"
     msg += "              Please authenticate using 'gcloud auth login' before running this."
     msg += "              Missing file %s" % credfn
-    print msg
+    print(msg)
     raise Exception(msg)
     
   gcloud_cred = json.loads(open(credfn).read())['data'][0]['credential']
@@ -101,8 +101,8 @@ def get_service_acct_creds(key_file, verbose=False):
   if key_file.endswith('.p12') or key_file.endswith('.pem'):
     from edx2bigquery_config import auth_service_acct as SERVICE_ACCT
     if verbose:
-      print "using key file"
-      print "service_acct=%s, key_file=%s" % (SERVICE_ACCT, KEY_FILE)
+      print("using key file")
+      print("service_acct=%s, key_file=%s" % (SERVICE_ACCT, KEY_FILE))
     try:
       creds = ServiceAccountCredentials.from_p12_keyfile(
         SERVICE_ACCT,
@@ -132,9 +132,9 @@ def print_creds(credentials=None):
     credentials = get_creds(verbose=True)
   cred_dict = json.loads(credentials.to_json())
   if 'access_token' in cred_dict:
-    print 'Authorization: Bearer %s' % (cred_dict['access_token'],)
+    print('Authorization: Bearer %s' % (cred_dict['access_token'],))
   else:
-    print 'creds: %s' % (cred_dict,)
+    print('creds: %s' % (cred_dict,))
 
 def build_bq_client(**args):
   '''Constructs a bigquery client object.'''

@@ -23,7 +23,7 @@ if os.path.exists(CURDIR / 'edx2bigquery_config.py'):
     sys.path.append(CURDIR)
     import edx2bigquery_config			# user's configuration parameters
 else:
-    print "WARNING: edx2bigquery needs a configuration file, ./edx2bigquery_config.py, to operate properly"
+    print("WARNING: edx2bigquery needs a configuration file, ./edx2bigquery_config.py, to operate properly")
 
 def is_valid_course_id(course_id):
     if not course_id.count('/')==2:
@@ -34,10 +34,10 @@ def get_course_ids(args, do_check=True):
     courses = get_course_ids_no_check(args)
     if do_check:
         if not all(map(is_valid_course_id, courses)):
-            print "Error!  Invalid course_id:"
+            print("Error!  Invalid course_id:")
             for cid in courses:
                 if not is_valid_course_id(cid):
-                    print "  BAD --> %s " % cid
+                    print("  BAD --> %s " % cid)
             sys.exit(-1)
     return courses
 
@@ -45,21 +45,21 @@ def get_course_ids_from_course_list(args):
     '''Look up course list specified by args.clist in edx2bigquery_config.courses'''
     course_dicts = getattr(edx2bigquery_config, 'courses', None)
     if course_dicts is None:
-        print "The --courses argument requires that the 'courses' dict be defined within the edx2bigquery_config.py configuraiton file"
+        print("The --courses argument requires that the 'courses' dict be defined within the edx2bigquery_config.py configuraiton file")
         sys.exit(-1)
     if args.clist not in course_dicts:
-        print "The --courses argument specified a course list of name '%s', but that does not exist in the courses dict in the config file" % args.clist
-        print "The courses dict only has these lists defined: %s" % course_dicts.keys()
+        print("The --courses argument specified a course list of name '%s', but that does not exist in the courses dict in the config file" % args.clist)
+        print("The courses dict only has these lists defined: %s" % list(course_dicts.keys()))
         sys.exit(-1)
     return course_dicts[args.clist]
 
 def get_course_ids_from_subset_missing_table(args):
     '''Take subset of courses from specifid course list (--clist) which are missing the table specified by --clist-from-missing-table'''
-    import bqutil
+    from . import bqutil
     tablename = args.clist_from_missing_table
 
-    print "Constructing list of course_id's from %s using subset of those missing the table %s" % (args.clist, tablename)
-    print "="*60
+    print("Constructing list of course_id's from %s using subset of those missing the table %s" % (args.clist, tablename))
+    print("="*60)
     course_id_by_table = {}
     tables = []
     for course_id in get_course_ids_from_course_list(args):
@@ -70,16 +70,16 @@ def get_course_ids_from_subset_missing_table(args):
 
     ctabinfo = get_data_tables(tables, args, course_id_by_table=course_id_by_table, just_status=True, return_json=True)
     courses = [x['course_id'] for x in ctabinfo if x['modified']==None]
-    print
-    print "="*60
-    print "==> Courses to process: "
+    print()
+    print("="*60)
+    print("==> Courses to process: ")
     for course_id in courses:
-        print "    %s" % course_id
+        print("    %s" % course_id)
     sys.stdout.flush()
     return courses
 
 def get_course_ids_no_check(args):
-    if type(args) in [str, unicode]:		# special case: a single course, already specified
+    if type(args) in [str, str]:		# special case: a single course, already specified
         return [ args ]
     if type(args)==list:
         return args
@@ -136,7 +136,7 @@ def run_parallel_or_serial(function, param, courses, optargs, parallel=False, na
             for course_id in courses:
                 ret = function(param, course_id, optargs)
         except Exception as err:
-            print "===> Error running %s on %s, err=%s" % (name, courses, str(err))
+            print("===> Error running %s on %s, err=%s" % (name, courses, str(err)))
             traceback.print_exc()
             sys.stdout.flush()
             ret = {}
@@ -150,25 +150,25 @@ def run_parallel_or_serial(function, param, courses, optargs, parallel=False, na
         results.append( pool.apply_async(run_capture_stdout, args=(runargs)) )
 
     output = [p.get() for p in results]
-    print "="*100
-    print "="*100
-    print "PARALLEL RUN of %s DONE" % name
-    print "="*100
-    print "="*100
+    print("="*100)
+    print("="*100)
+    print("PARALLEL RUN of %s DONE" % name)
+    print("="*100)
+    print("="*100)
     def output_stats():
         for ret in output:
             ret = ret or {}
-            print '    [%s] success=%s, dt=%s' % (ret.get('name', name), ret.get('success', 'unknown'), ret.get('dt', 'unknown'))
+            print('    [%s] success=%s, dt=%s' % (ret.get('name', name), ret.get('success', 'unknown'), ret.get('dt', 'unknown')))
     output_stats()
-    print "="*100
+    print("="*100)
     for ret in output:
         runname = ret.get('name', name)
-        print "="*100 + " [%s]" % runname
+        print("="*100 + " [%s]" % runname)
         if 'stdout' in ret:
-            print ret['stdout'].output
-    print "="*100
+            print(ret['stdout'].output)
+    print("="*100)
     output_stats()
-    print "="*100
+    print("="*100)
 
 
 def run_capture_stdout(function, args, stdout=None, name="<run>"):
@@ -177,9 +177,9 @@ def run_capture_stdout(function, args, stdout=None, name="<run>"):
     '''
     start = datetime.datetime.now()
     success = False
-    print "-"*100
-    print "[RUN] STARTING %s at %s" % (name, start)
-    print "-"*100
+    print("-"*100)
+    print("[RUN] STARTING %s at %s" % (name, start))
+    print("-"*100)
     if stdout:
         sys.stdout = stdout			# overload for multiprocessing, so that we can unravel output streams
     try:
@@ -191,9 +191,9 @@ def run_capture_stdout(function, args, stdout=None, name="<run>"):
 
     end = datetime.datetime.now()
     ret = {'start': start, 'end': end, 'dt' : end-start, 'success': success, 'name': name, 'stdout': stdout}
-    print "-"*100
-    print "[RUN] DONE WITH %s, success=%s, dt=%s" % (name, ret['success'], ret['dt'])
-    print "-"*100
+    print("-"*100)
+    print("[RUN] DONE WITH %s, success=%s, dt=%s" % (name, ret['success'], ret['dt']))
+    print("-"*100)
     sys.stdout.flush()
     return ret
 
@@ -204,10 +204,10 @@ def run_external_single(param, course_id, args=None):
     '''
     Run a single external script
     '''
-    from run_external import run_external_script
-    print "-"*100
-    print "[%s] Running external command script %s" % (course_id, param.extcmd)
-    print "-"*100
+    from .run_external import run_external_script
+    print("-"*100)
+    print("[%s] Running external command script %s" % (course_id, param.extcmd))
+    print("-"*100)
     sys.stdout.flush()
     run_external_script(param.extcmd, param, param.ecinfo, course_id)
 
@@ -218,19 +218,19 @@ def setup_sql(param, args, steps, course_id=None):
     sqlall = steps=='setup_sql'
     if course_id is None:
         for course_id in get_course_ids(args):
-            print "="*100
-            print "Processing setup_sql for %s" % course_id
+            print("="*100)
+            print("Processing setup_sql for %s" % course_id)
             sys.stdout.flush()
             try:
                 setup_sql(param, args, steps, course_id)
             except Exception as err:
-                print "===> Error completing setup_sql on %s, err=%s" % (course_id, str(err))
+                print("===> Error completing setup_sql on %s, err=%s" % (course_id, str(err)))
                 traceback.print_exc()
                 sys.stdout.flush()
         return
 
     if sqlall or 'make_uic' in steps:
-        import make_user_info_combo
+        from . import make_user_info_combo
         make_user_info_combo.process_file(course_id,
                                           basedir=param.the_basedir,
                                           datedir=param.the_datedir,
@@ -238,7 +238,7 @@ def setup_sql(param, args, steps, course_id=None):
                                           )
 
     if sqlall or 'make_roles' in steps:
-        import make_roles
+        from . import make_roles
         try:
             make_roles.process_file(course_id,
                                     basedir=param.the_basedir,
@@ -246,10 +246,10 @@ def setup_sql(param, args, steps, course_id=None):
                                     use_dataset_latest=param.use_dataset_latest,
                                 )
         except Exception as err:
-            print err
+            print(err)
 
     if sqlall or 'sql2bq' in steps:
-        import load_course_sql
+        from . import load_course_sql
         try:
             load_course_sql.load_sql_for_course(course_id,
                                                 gsbucket=edx2bigquery_config.GS_BUCKET,
@@ -259,10 +259,10 @@ def setup_sql(param, args, steps, course_id=None):
                                                 use_dataset_latest=param.use_dataset_latest,
                                                 )
         except Exception as err:
-            print err
+            print(err)
 
     if sqlall or 'load_forum' in steps:
-        import rephrase_forum_data
+        from . import rephrase_forum_data
         try:
             rephrase_forum_data.rephrase_forum_json_for_course(course_id,
                                                                gsbucket=edx2bigquery_config.GS_BUCKET,
@@ -271,7 +271,7 @@ def setup_sql(param, args, steps, course_id=None):
                                                                use_dataset_latest=param.use_dataset_latest,
                                                                )
         except Exception as err:
-            print err
+            print(err)
 
 
 def setup_sql_single(param, course_id, optargs=None):
@@ -282,25 +282,25 @@ def setup_sql_single(param, course_id, optargs=None):
     course_id = (string) course_id of course to run on
     optargs is ignored
     '''
-    print "="*100
-    print "Processing setup_sql for %s" % course_id
+    print("="*100)
+    print("Processing setup_sql for %s" % course_id)
     sys.stdout.flush()
     try:
         setup_sql(param, {}, "setup_sql", course_id)
     except Exception as err:
-        print "===> Error completing setup_sql on %s, err=%s" % (course_id, str(err))
+        print("===> Error completing setup_sql on %s, err=%s" % (course_id, str(err)))
         traceback.print_exc()
         sys.stdout.flush()
         raise
 
 def fix_gradereport_single(param, course_id, optargs=None):
 
-    print "="*100
-    print "Processing fix_gradereport_single for %s" % course_id
+    print("="*100)
+    print("Processing fix_gradereport_single for %s" % course_id)
     sys.stdout.flush()
 
     try:
-        import fix_missing_grades
+        from . import fix_missing_grades
         fix_missing_grades.fix_missing_grades(course_id,
                                               getGrades=optargs.getGrades,
                                               download_only=optargs.download_only,
@@ -310,7 +310,7 @@ def fix_gradereport_single(param, course_id, optargs=None):
                                               datedir=param.the_datedir,
                                               use_dataset_latest=param.use_dataset_latest)
     except Exception as err:
-        print "===> Error completing fix_gradereport_single on %s, err=%s" % (course_id, str(err))
+        print("===> Error completing fix_gradereport_single on %s, err=%s" % (course_id, str(err)))
         traceback.print_exc()
         sys.stdout.flush()
         raise
@@ -325,11 +325,11 @@ def analyze_course_single(param, course_id, optargs=None):
     course_id = (string) course_id of course to run on
     optargs is ignored
     '''
-    print "="*100
-    print "Processing analyze_course_content for %s" % course_id
+    print("="*100)
+    print("Processing analyze_course_content for %s" % course_id)
     sys.stdout.flush()
 
-    import analyze_content
+    from . import analyze_content
 
     try:
         course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", {})
@@ -340,7 +340,7 @@ def analyze_course_single(param, course_id, optargs=None):
 
     pin_date = course_axis_pin_dates.get(course_id)
     if pin_date:
-        print "--> [analyze_course] course_axis for %s being pinned to data from dump date %s" % (course_id, pin_date)
+        print("--> [analyze_course] course_axis for %s being pinned to data from dump date %s" % (course_id, pin_date))
 
     try:
         analyze_content.analyze_course_content(course_id,
@@ -352,7 +352,7 @@ def analyze_course_single(param, course_id, optargs=None):
                                                pin_date=pin_date,
                                                )
     except Exception as err:
-        print "===> Error completing analyze_course_content on %s, err=%s" % (course_id, str(err))
+        print("===> Error completing analyze_course_content on %s, err=%s" % (course_id, str(err)))
         traceback.print_exc()
         sys.stdout.flush()
         raise
@@ -366,17 +366,17 @@ def time_on_task(param, course_id, optargs=None, skip_totals=False, just_do_tota
     optargs is ignored
     skip_totals typically set to True for nightly runs
     '''
-    print "="*100
-    print "Updating time_task table for %s" % course_id
+    print("="*100)
+    print("Updating time_task table for %s" % course_id)
     sys.stdout.flush()
 
     config_parameter_overrides = None
     if optargs.time_on_task_config:	# e.g. "timeout_short:7,time_on_task_table_name:test_time_on_task_7"
         config_parameter_overrides = {x[0]: x[1] for x in [y.split(':', 1) for y in optargs.time_on_task_config.split(',')]}
-        print "   Overriding default config with: %s" % json.dumps(config_parameter_overrides, indent=4)
+        print("   Overriding default config with: %s" % json.dumps(config_parameter_overrides, indent=4))
         sys.stdout.flush()
 
-    import make_time_on_task
+    from . import make_time_on_task
 
     try:
         make_time_on_task.process_course_time_on_task(course_id,
@@ -391,7 +391,7 @@ def time_on_task(param, course_id, optargs=None, skip_totals=False, just_do_tota
                                                       config_parameter_overrides=config_parameter_overrides,
                                                   )
     except Exception as err:
-        print "===> Error completing process_course_time_on_task on %s, err=%s" % (course_id, str(err))
+        print("===> Error completing process_course_time_on_task on %s, err=%s" % (course_id, str(err)))
         traceback.print_exc()
         sys.stdout.flush()
         if not suppress_errors:
@@ -406,11 +406,11 @@ def time_on_asset(param, course_id, optargs=None, skip_totals=False, just_do_tot
     optargs is ignored
     skip_totals typically set to True for nightly runs
     '''
-    print "="*100
-    print "Updating time_on_asset tables for %s" % course_id
+    print("="*100)
+    print("Updating time_on_asset tables for %s" % course_id)
     sys.stdout.flush()
 
-    import make_time_on_asset
+    from . import make_time_on_asset
 
     try:
         make_time_on_asset.process_course_time_on_asset(course_id,
@@ -424,7 +424,7 @@ def time_on_asset(param, course_id, optargs=None, skip_totals=False, just_do_tot
                                                         skip_totals=skip_totals,
                                                     )
     except Exception as err:
-        print "===> Error completing process_course_time_on_asset on %s, err=%s" % (course_id, str(err))
+        print("===> Error completing process_course_time_on_asset on %s, err=%s" % (course_id, str(err)))
         traceback.print_exc()
         sys.stdout.flush()
         if not suppress_errors:
@@ -454,12 +454,12 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
     if course_id is None:
         do_check = not (steps=='split')
         for course_id in get_course_ids(args, do_check=do_check):
-            print "---> Processing %s on course_id=%s" % (steps, course_id)
+            print("---> Processing %s on course_id=%s" % (steps, course_id))
             daily_logs(param, args, steps, course_id)
         return
 
     if 'split' in steps:
-        import split_and_rephrase
+        from . import split_and_rephrase
         import pytz
         tlfn = course_id		# tracking log filename
         if '*' in tlfn:
@@ -469,19 +469,19 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
         else:
             TODO = [tlfn]
         for the_tlfn in TODO:
-            print "--> Splitting tracking logs in %s" % the_tlfn
+            print("--> Splitting tracking logs in %s" % the_tlfn)
             timezone_string = None
             timezone = None
             try:
                 timezone_string = edx2bigquery_config.TIMEZONE
             except Exception as err:
                 if not str(err)=="'module' object has no attribute 'TIMEZONE'":
-                    print "    no timezone specified, timezone_string=%s, err=%s" % (timezone_string, err)
+                    print("    no timezone specified, timezone_string=%s, err=%s" % (timezone_string, err))
             if timezone_string:
                 try:
                     timezone = pytz.timezone(timezone_string)
                 except Exception as err:
-                    print "  Error!  Cannot parse timezone '%s' err=%s" % (timezone_string, err)
+                    print("  Error!  Cannot parse timezone '%s' err=%s" % (timezone_string, err))
 
             split_and_rephrase.do_file(the_tlfn,
                                        logs_dir=args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY,
@@ -491,7 +491,7 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
             )
 
     if 'logs2gs' in steps:
-        import transfer_logs_to_gs
+        from . import transfer_logs_to_gs
         try:
             transfer_logs_to_gs.process_dir(course_id,
                                             edx2bigquery_config.GS_BUCKET,
@@ -499,21 +499,21 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
                                             verbose=verbose,
                                             )
         except Exception as err:
-            print err
+            print(err)
 
     if 'logs2bq' in steps:
-        import load_daily_tracking_logs
+        from . import load_daily_tracking_logs
         try:
             load_daily_tracking_logs.load_all_daily_logs_for_course(course_id, edx2bigquery_config.GS_BUCKET,
                                                                     verbose=verbose, wait=wait,
                                                                     check_dates= (not wait),
                                                                     )
         except Exception as err:
-            print err
+            print(err)
             raise
 
 def analyze_problems(param, courses, args, do_show_answer=True, do_problem_analysis=True):
-    import make_problem_analysis
+    from . import make_problem_analysis
     for course_id in get_course_ids(courses):
         try:
             make_problem_analysis.analyze_problems(course_id,
@@ -527,14 +527,14 @@ def analyze_problems(param, courses, args, do_show_answer=True, do_problem_analy
                                                    use_latest_sql_dir=param.latest_sql_dir,
                                                    )
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
             raise
 
 
 def analyze_videos(param, courses, args):
-    import make_video_analysis
+    from . import make_video_analysis
     for course_id in get_course_ids(courses):
         try:
             make_video_analysis.analyze_videos(course_id,
@@ -547,13 +547,13 @@ def analyze_videos(param, courses, args):
                                                )
 
         except (AssertionError, Exception) as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
             raise
 
 def analyze_forum(param, courses, args):
-    import make_forum_analysis
+    from . import make_forum_analysis
     for course_id in get_course_ids(courses):
         try:
             make_forum_analysis.AnalyzeForums(course_id,
@@ -564,13 +564,13 @@ def analyze_forum(param, courses, args):
                                           )
 
         except (AssertionError, Exception) as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
             raise
 
 def analyze_idv(param, courses, args):
-    import make_idv_features
+    from . import make_idv_features
     for course_id in get_course_ids(courses):
         try:
             make_idv_features.AnalyzeIDV(course_id,
@@ -579,13 +579,13 @@ def analyze_idv(param, courses, args):
             )
 
         except (AssertionError, Exception) as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
             raise
 
 def problem_events(param, courses, args):
-    import make_problem_events
+    from . import make_problem_events
     for course_id in get_course_ids(courses):
         try:
             make_problem_events.ExtractProblemEvents(course_id,
@@ -596,26 +596,26 @@ def problem_events(param, courses, args):
                                                  )
 
         except (AssertionError, Exception) as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
             raise
 
 def course_key_version(param, courses, args):
-    import check_course_key_version
+    from . import check_course_key_version
     for course_id in get_course_ids(courses):
         try:
             check_course_key_version.course_key_version(course_id,
                                                         logs_dir=args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY,
                                                     )
         except (AssertionError, Exception) as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
             raise
 
 def attempts_correct(param, courses, args):
-    import make_problem_analysis
+    from . import make_problem_analysis
     for course_id in get_course_ids(courses):
         try:
             make_problem_analysis.attempts_correct(course_id,
@@ -623,13 +623,13 @@ def attempts_correct(param, courses, args):
                                                    use_dataset_latest=param.use_dataset_latest,
             )
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
             raise
 
 def ip_sybils(param, courses, args):
-    import make_problem_analysis
+    from . import make_problem_analysis
     for course_id in get_course_ids(courses):
         try:
             if not param.only_step or ("1" in (param.only_step or "").split(',')):
@@ -667,13 +667,13 @@ def ip_sybils(param, courses, args):
                                                                  use_dataset_latest=param.use_dataset_latest,
                                                              )
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
             raise
 
 def temporal_fingerprints(param, courses, args):
-    import make_problem_analysis
+    from . import make_problem_analysis
     for course_id in get_course_ids(courses):
         try:
             make_problem_analysis.compute_temporal_fingerprints(course_id,
@@ -681,26 +681,26 @@ def temporal_fingerprints(param, courses, args):
                                                                 use_dataset_latest=param.use_dataset_latest,
                                                             )
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
             raise
 
 def show_answer_table(param, course_id, args=None):
-    import make_problem_analysis
+    from . import make_problem_analysis
     try:
         make_problem_analysis.make_show_answer_table(course_id,
                                                      force_recompute=param.force_recompute,
                                                      use_dataset_latest=param.use_dataset_latest,
                                                      )
     except Exception as err:
-        print err
+        print(err)
         traceback.print_exc()
         sys.stdout.flush()
         raise
 
 def enrollment_events_table(param, course_id, args=None):
-    import make_enrollment_day
+    from . import make_enrollment_day
     try:
         make_enrollment_day.make_enrollment_events(course_id,
                                                    force_recompute=param.force_recompute,
@@ -713,13 +713,13 @@ def enrollment_events_table(param, course_id, args=None):
                                                    )
 
     except Exception as err:
-        print err
+        print(err)
         traceback.print_exc()
         sys.stdout.flush()
         raise
 
 def analyze_ora(param, courses, args):
-    import make_openassessment_analysis
+    from . import make_openassessment_analysis
     for course_id in get_course_ids(courses):
         try:
             make_openassessment_analysis.get_ora_events(course_id,
@@ -728,12 +728,12 @@ def analyze_ora(param, courses, args):
                                                         end_date=args.end_date,
                                                     )
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
 
 def item_tables(param, courses, args):
-    import make_item_tables
+    from . import make_item_tables
     for course_id in get_course_ids(courses):
         try:
             make_item_tables.make_item_tables(course_id,
@@ -741,12 +741,12 @@ def item_tables(param, courses, args):
                                               use_dataset_latest=param.use_dataset_latest,
                                           )
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
 
 def irt_report(param, courses, args):
-    import make_irt_report
+    from . import make_irt_report
     for course_id in get_course_ids(courses):
         try:
             make_irt_report.make_irt_report(course_id,
@@ -754,12 +754,12 @@ def irt_report(param, courses, args):
                                             use_dataset_latest=param.use_dataset_latest,
                                         )
         except Exception as err:
-            print err
+            print(err)
             sys.stdout.flush()
             raise
 
 def problem_check(param, courses, args):
-    import make_problem_analysis
+    from . import make_problem_analysis
     for course_id in get_course_ids(courses):
         try:
             make_problem_analysis.problem_check_tables(course_id,
@@ -768,12 +768,12 @@ def problem_check(param, courses, args):
                                                        end_date=args.end_date,
                                                        )
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
 
 def axis2bq(param, courses, args, stop_on_error=True):
-    import make_course_axis
+    from . import make_course_axis
 
     try:
         course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", None)
@@ -784,18 +784,18 @@ def axis2bq(param, courses, args, stop_on_error=True):
 
     for course_id in get_course_ids(courses):
         if args.skip_if_exists and make_course_axis.axis2bigquery.already_exists(course_id, use_dataset_latest=param.use_dataset_latest):
-            print "--> course_axis for %s already exists, skipping" % course_id
+            print("--> course_axis for %s already exists, skipping" % course_id)
             sys.stdout.flush()
             continue
         pin_date = course_axis_pin_dates.get(course_id)
         if pin_date:
-            print "--> course_axis for %s being pinned to data from dump date %s" % (course_id, pin_date)
+            print("--> course_axis for %s being pinned to data from dump date %s" % (course_id, pin_date))
         make_course_axis.process_course(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest,
                                         args.verbose, pin_date, stop_on_error=stop_on_error)
 
 
 def grades_persistent(param, courses, args):
-    import make_grades_persistent
+    from . import make_grades_persistent
 
     if param.subsection:
         table = "grades_persistent_subsection"
@@ -807,7 +807,7 @@ def grades_persistent(param, courses, args):
                 make_grading_policy_table.already_exists(course_id,
                     use_dataset_latest=param.use_dataset_latest,
                     table=table):
-            print "--> %s for %s already exists, skipping" % (table, course_id)
+            print("--> %s for %s already exists, skipping" % (table, course_id))
             sys.stdout.flush()
             continue
         if param.subsection:
@@ -824,7 +824,7 @@ def grades_persistent(param, courses, args):
                 subsection=False)
 
 def make_grading_policy(param, courses, args):
-    import make_grading_policy_table
+    from . import make_grading_policy_table
 
     try:
         course_axis_pin_dates = getattr(edx2bigquery_config, "course_axis_pin_dates", None)
@@ -835,28 +835,28 @@ def make_grading_policy(param, courses, args):
 
     for course_id in get_course_ids(courses):
         if args.skip_if_exists and make_grading_policy_table.already_exists(course_id, use_dataset_latest=param.use_dataset_latest):
-            print "--> grading_policy for %s already exists, skipping" % course_id
+            print("--> grading_policy for %s already exists, skipping" % course_id)
             sys.stdout.flush()
             continue
         pin_date = course_axis_pin_dates.get(course_id)
         if pin_date:
-            print "--> course tarfile for %s being pinned to data from dump date %s" % (course_id, pin_date)
+            print("--> course tarfile for %s being pinned to data from dump date %s" % (course_id, pin_date))
         make_grading_policy_table.make_gp_table(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose, pin_date)
 
 def make_user_partitions_table(param, courses, args):
-    import load_user_part
+    from . import load_user_part
 
     for course_id in get_course_ids(courses):
         if args.skip_if_exists and load_user_part.already_exists(course_id, use_dataset_latest=param.use_dataset_latest):
-            print "--> user_partitions for %s already exists, skipping" % course_id
+            print("--> user_partitions for %s already exists, skipping" % course_id)
             sys.stdout.flush()
             continue
         load_user_part.do_user_part_csv(course_id, param.the_basedir, param.the_datedir, param.use_dataset_latest, args.verbose)
 
 def research(param, courses, args, check_dates=True, stop_on_error=False):
 
-    import make_research_data_tables
-    import rephrase_forum_data
+    from . import make_research_data_tables
+    from . import rephrase_forum_data
     for course_id in get_course_ids(courses):
         try:
 	    make_research_data_tables.ResearchDataProducts(course_id,
@@ -879,14 +879,14 @@ def research(param, courses, args, check_dates=True, stop_on_error=False):
                                                                )
 
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
             if stop_on_error:
                 raise
 
 def person_day(param, courses, args, check_dates=True, stop_on_error=True):
-    import make_person_course_day
+    from . import make_person_course_day
     for course_id in get_course_ids(courses):
         try:
             make_person_course_day.process_course(course_id,
@@ -897,14 +897,14 @@ def person_day(param, courses, args, check_dates=True, stop_on_error=True):
                                                   skip_last_day=args.skip_last_day,
                                                   )
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
             if stop_on_error:
                 raise
 
 def pcday_trlang(param, courses, args):
-    import make_person_course_day
+    from . import make_person_course_day
     for course_id in get_course_ids(courses):
         try:
             make_person_course_day.compute_person_course_day_trlang_table(course_id, force_recompute=args.force_recompute,
@@ -912,12 +912,12 @@ def pcday_trlang(param, courses, args):
                                                                       end_date=args.end_date,
                                                                       )
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
 
 def pcday_ip(param, courses, args):
-    import make_person_course_day
+    from . import make_person_course_day
     for course_id in get_course_ids(courses):
         try:
             make_person_course_day.compute_person_course_day_ip_table(course_id, force_recompute=args.force_recompute,
@@ -925,26 +925,26 @@ def pcday_ip(param, courses, args):
                                                                       end_date=args.end_date,
                                                                       )
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
 
 
 def enrollment_day(param, courses, args):
-    import make_enrollment_day
+    from . import make_enrollment_day
     for course_id in get_course_ids(courses):
         try:
             make_enrollment_day.process_course(course_id,
                                                force_recompute=args.force_recompute,
                                                use_dataset_latest=param.use_dataset_latest)
         except Exception as err:
-            print err
+            print(err)
             traceback.print_exc()
             sys.stdout.flush()
 
 def person_course(param, courses, args, just_do_nightly=False, force_recompute=False):
-    import make_person_course
-    print "[person_course]: for end date, using %s" % (args.end_date or param.DEFAULT_END_DATE)
+    from . import make_person_course
+    print("[person_course]: for end date, using %s" % (args.end_date or param.DEFAULT_END_DATE))
     for course_id in get_course_ids(courses):
         try:
             make_person_course.make_person_course(course_id,
@@ -963,7 +963,7 @@ def person_course(param, courses, args, just_do_nightly=False, force_recompute=F
                                                   use_latest_sql_dir=args.latest_sql_dir,
                                                   )
         except Exception as err:
-            print err
+            print(err)
             if ('no user_info_combo' in str(err)) or ('aborting - no dataset' in str(err)):
                 continue
             if ('Internal Error' in str(err)):
@@ -980,28 +980,28 @@ def doall(param, course_id, args, stdout=None):
     if stdout:
         sys.stdout = stdout			# overload for multiprocessing, so that we can unravel output streams
     try:
-        print "-"*100
-        print "DOALL PROCESSING %s" % course_id
-        print "-"*100
+        print("-"*100)
+        print("DOALL PROCESSING %s" % course_id)
+        print("-"*100)
         setup_sql(param, course_id, 'setup_sql')
         try:
             analyze_problems(param, course_id, args)
         except Exception as err:
-            print "--> Failed in analyze_problems with err=%s" % str(err)
-            print "--> continuing with doall anyway"
+            print("--> Failed in analyze_problems with err=%s" % str(err))
+            print("--> continuing with doall anyway")
         try:
             analyze_videos(param, course_id, args)
         except Exception as err:
-            print "--> Failed in analyze_videos with err=%s" % str(err)
-            print "--> continuing with doall anyway"
+            print("--> Failed in analyze_videos with err=%s" % str(err))
+            print("--> continuing with doall anyway")
         try:
             analyze_forum(param, course_id, args)
         except Exception as err:
-            print "--> Failed in analyze_forum with err=%s" % str(err)
-            print "--> continuing with doall anyway"
+            print("--> Failed in analyze_forum with err=%s" % str(err))
+            print("--> continuing with doall anyway")
         axis2bq(param, course_id, args, stop_on_error=False)
         if param.skip_log_loading:
-            print "--> Skipping loading of any new tracking logs"
+            print("--> Skipping loading of any new tracking logs")
         else:
             daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
         pcday_ip(param, course_id, args)	# needed for modal IP
@@ -1026,24 +1026,24 @@ def doall(param, course_id, args, stdout=None):
         success = True
 
     except Exception as err:
-        print "="*100
-        print "ERROR: %s" % str(err)
+        print("="*100)
+        print("ERROR: %s" % str(err))
         traceback.print_exc()
 
     end = datetime.datetime.now()
     ret = {'start': start, 'end': end, 'dt' : end-start, 'success': success, 'course_id': course_id, 'stdout': stdout}
-    print "-"*100
-    print "DOALL DONE WITH %s, success=%s, dt=%s" % (course_id, ret['success'], ret['dt'])
-    print "-"*100
+    print("-"*100)
+    print("DOALL DONE WITH %s, success=%s, dt=%s" % (course_id, ret['success'], ret['dt']))
+    print("-"*100)
     sys.stdout.flush()
     return ret
 
 
 def run_nightly_single(param, course_id, args=None):
 
-    print "-"*100
-    print "NIGHTLY PROCESSING %s" % course_id
-    print "-"*100
+    print("-"*100)
+    print("NIGHTLY PROCESSING %s" % course_id)
+    print("-"*100)
 
 
 
@@ -1054,18 +1054,18 @@ def run_nightly_single(param, course_id, args=None):
         try:
             analyze_problems(param, course_id, args)
         except Exception as err:
-            print "--> Failed in analyze_problems with err=%s" % str(err)
-            print "--> continuing with nightly anyway"
+            print("--> Failed in analyze_problems with err=%s" % str(err))
+            print("--> continuing with nightly anyway")
         try:
             analyze_videos(param, course_id, args)
         except Exception as err:
-            print "--> Failed in analyze_videos with err=%s" % str(err)
-            print "--> continuing with nightly anyway"
+            print("--> Failed in analyze_videos with err=%s" % str(err))
+            print("--> continuing with nightly anyway")
         try:
             analyze_forum(param, course_id, args)
         except Exception as err:
-            print "--> Failed in analyze_forum with err=%s" % str(err)
-            print "--> continuing with nightly anyway"
+            print("--> Failed in analyze_forum with err=%s" % str(err))
+            print("--> continuing with nightly anyway")
 
         person_day(param, course_id, args, check_dates=False, stop_on_error=False)
         enrollment_day(param, course_id, args)
@@ -1079,19 +1079,19 @@ def run_nightly_single(param, course_id, args=None):
         time_on_task(param, course_id, args, skip_totals=True)
 
     except Exception as err:
-        print "="*100
-        print "ERROR: %s" % str(err)
+        print("="*100)
+        print("ERROR: %s" % str(err))
         traceback.print_exc()
         sys.stdout.flush()
         raise
 
 
 def list_tables_in_course_db(param, courses, args):
-    import bqutil
+    from . import bqutil
     for course_id in get_course_ids(courses):
         dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
         table = bqutil.get_list_of_table_ids(dataset)
-        print "Course %s, tables=%s" % (course_id, json.dumps(table, indent=4))
+        print("Course %s, tables=%s" % (course_id, json.dumps(table, indent=4)))
 
 #-----------------------------------------------------------------------------
 # utility commands
@@ -1101,15 +1101,15 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
     used by get_course_data, get_course_table_status, and get_data
     arguments provide options for combing outputs, and for loading output back into BigQuery
     '''
-    import bqutil
-    import gsutil
+    from . import bqutil
+    from . import gsutil
     import gzip
     import codecs
 
     optargs = {}
     if args.project_id:
         optargs['project_id'] = args.project_id
-        print "Using %s as the project ID" % args.project_id
+        print("Using %s as the project ID" % args.project_id)
 
     if args.output_format_json:
         out_fmt = 'json'
@@ -1122,9 +1122,9 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
         if args.gzip and not do_gzip:
             cofn += ".gz"
             do_gzip = True
-        print "Combining outputs into a single merged %s file %s" % (out_fmt, cofn)
+        print("Combining outputs into a single merged %s file %s" % (out_fmt, cofn))
         if do_gzip:
-            print "  output will be gzip compressed"
+            print("  output will be gzip compressed")
             cofp = gzip.GzipFile(cofn, 'w')
         else:
             # cofp = codecs.open(cofn, 'w', encoding='utf8')
@@ -1135,10 +1135,10 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
         # produce output file, load into google storage, then load into BigQuery
         # use schema from one of the source tables
         if not args.combine_into:
-            print "Please specify a file to store the combined data into, using --combine-into <filename>"
+            print("Please specify a file to store the combined data into, using --combine-into <filename>")
             return
         if not args.output_bucket:
-            print "Please also specify a google storage bucket using --output-bucket <bucket_path>; the data are stored there before loading into BQ"
+            print("Please also specify a google storage bucket using --output-bucket <bucket_path>; the data are stored there before loading into BQ")
             return
         output_table = args.combine_into_table
         gspath = "%s/%s" % (args.output_bucket, cofn)
@@ -1172,11 +1172,11 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
             else:
                 nmissing += 1
             if first_table and out_fmt=='csv':
-                print ','.join(datum.keys())
+                print(','.join(list(datum.keys())))
             if out_fmt=='csv':
-                print ','.join(map(str, datum.values()))
+                print(','.join(map(str, list(datum.values()))))
             else:
-                print json.dumps(datum)
+                print(json.dumps(datum))
             sys.stdout.flush()
             if return_json:
                 ret_data.append(datum)
@@ -1184,23 +1184,23 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
             continue
 
         if args.combine_into:
-            print "Retrieving %s.%s for %s" % (dataset, tablename, cofn)
+            print("Retrieving %s.%s for %s" % (dataset, tablename, cofn))
         else:
             ofn = '%s__%s.%s' % (dataset, tablename, out_fmt)
             if has_project_id:
                 ofn = project_id + '__' + ofn
             if args.gzip:
                 ofn += ".gz"
-            print "Retrieving %s as %s" % (table, ofn)
+            print("Retrieving %s as %s" % (table, ofn))
         if args.add_courseid and course_id_by_table:
             optargs['extra_fields'] = {'course_id': course_id_by_table[table]}
-            print "--> Adding %s for %s to each row" % (course_id_by_table[table], 'course_id')
+            print("--> Adding %s for %s to each row" % (course_id_by_table[table], 'course_id'))
         sys.stdout.flush()
 
         if args.just_get_schema:
             tinfo = bqutil.get_bq_table_info(dataset, tablename, **optargs)
             ofn = '%s__%s__schema.json' % (dataset, tablename)
-            print "Saving schema file as %s" % ofn
+            print("Saving schema file as %s" % ofn)
             open(ofn, 'w').write(json.dumps(tinfo['schema']['fields'], indent=4))
             continue
 
@@ -1208,9 +1208,9 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
             mod_dt = bqutil.get_bq_table_last_modified_datetime(dataset, tablename)
             of_dt = gsutil.get_local_file_mtime_in_utc(ofn,make_tz_unaware=True)
             if (mod_dt < of_dt):
-                print "--> only_if_newer specified, and table %s mt=%s, file mt=%s, so skipping" % (tablename,
+                print("--> only_if_newer specified, and table %s mt=%s, file mt=%s, so skipping" % (tablename,
                                                                                                     mod_dt,
-                                                                                                    of_dt)
+                                                                                                    of_dt))
                 continue
 
         try:
@@ -1219,12 +1219,12 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
                                           return_csv=(out_fmt=='csv'), **optargs)
         except Exception as err:
             if args.skip_missing and 'HttpError 404' in str(err):
-                print "--> missing table [%s.%s] Skipping..." % (dataset, tablename)
+                print("--> missing table [%s.%s] Skipping..." % (dataset, tablename))
                 sys.stdout.flush()
                 continue
             raise
         if not bqdat:
-            print "--> No data for [%s.%s]!" % (dataset, tablename)
+            print("--> No data for [%s.%s]!" % (dataset, tablename))
             sys.stdout.flush()
             continue
         elif args.combine_into:
@@ -1235,9 +1235,9 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
                     cofp.write(bqdat)
                 else:
                     if not header==the_header:
-                        print "--> ERROR!  Cannot combine data from %s: CSV file header is different" % table
-                        print "Other courses' table file header: %s" % the_header
-                        print "This courses' table file header: %s" % header
+                        print("--> ERROR!  Cannot combine data from %s: CSV file header is different" % table)
+                        print("Other courses' table file header: %s" % the_header)
+                        print("This courses' table file header: %s" % header)
                         raise Exception("[get_course_data] Mismatched table data format")
                     cofp.write(data_no_header)
             else:
@@ -1258,17 +1258,17 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
 
     if args.combine_into:
         cofp.close()
-        print "Done with output file %s" % cofn
+        print("Done with output file %s" % cofn)
 
     if args.combine_into_table:
-        print "Loading into google storage, to %s" % gspath
+        print("Loading into google storage, to %s" % gspath)
         sys.stdout.flush()
-        import gsutil
+        from . import gsutil
         options = ''
         if not args.gzip:
             options = '-z csv,json'
         gsutil.upload_file_to_gs(cofn, gspath, options=options)
-        print "Getting table schema..."
+        print("Getting table schema...")
         sys.stdout.flush()
         for table in tables:
             dataset, tablename = table.split('.', 1)
@@ -1283,13 +1283,13 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
                 else:
                     raise
             if args.skip_missing and table_info is None:
-                print "--> missing table [%s.%s] Skipping..." % (dataset, tablename)
+                print("--> missing table [%s.%s] Skipping..." % (dataset, tablename))
                 sys.stdout.flush()
                 continue
             if table_info is not None:
                 break
         schema = table_info['schema']['fields']
-        print "Loading into BigQuery %s" % output_table
+        print("Loading into BigQuery %s" % output_table)
         sys.stdout.flush()
         out_dataset, out_table = output_table.split('.', 1)
         optargs = {}
@@ -1302,9 +1302,9 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
         bqutil.load_data_to_table(out_dataset, out_table, gspath, schema, **optargs)
 
     if just_status:
-        print "-"*40
-        print "Number of tables WITH data found: %d" % nfound
-        print "Number of MISSING tables: %d" % nmissing
+        print("-"*40)
+        print("Number of tables WITH data found: %d" % nfound)
+        print("Number of MISSING tables: %d" % nmissing)
         sys.stdout.flush()
     return ret_data
 
@@ -1792,10 +1792,10 @@ check_for_duplicates        : check list of courses for duplicates
             eec = edx2bigquery_config.extra_external_commands	# dict of external commands, with settings
         except:
             eec = {}
-        from config_external import external_commands as ecinfo
+        from .config_external import external_commands as ecinfo
         ecinfo.update(eec)
         if not extcmd in ecinfo:
-            print "Unknown external command %s (must be defined in edx2bigquery_config)" % (extcmd)
+            print("Unknown external command %s (must be defined in edx2bigquery_config)" % (extcmd))
             sys.exit(0)
 
         courses = get_course_ids(args)
@@ -1808,7 +1808,7 @@ check_for_duplicates        : check list of courses for duplicates
     #-----------------------------------------------------------------------------
 
     if (args.command=='mongo2gs'):
-        from extract_logs_mongo2gs import  extract_logs_mongo2gs
+        from .extract_logs_mongo2gs import  extract_logs_mongo2gs
         for course_id in get_course_ids(args):
             extract_logs_mongo2gs(course_id, verbose=args.verbose,
                                   start=(args.start_date or "2012-09-05"),
@@ -1821,12 +1821,12 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='rephrase_logs'):
         if args.courses:
             # if arguments are provided, they are taken as filenames of files to be rephrased IN PLACE
-            from rephrase_tracking_logs import do_rephrase_file
+            from .rephrase_tracking_logs import do_rephrase_file
             files = args.courses
             for fn in files:
                 do_rephrase_file(fn)
         else:
-            from rephrase_tracking_logs import do_rephrase_line
+            from .rephrase_tracking_logs import do_rephrase_line
             for line in sys.stdin:
                 newline = do_rephrase_line(line)
                 sys.stdout.write(newline)
@@ -1842,22 +1842,22 @@ check_for_duplicates        : check list of courses for duplicates
                 stdoutset[course_id] = sq
                 results.append( pool.apply_async(doall, args=(param, course_id, args, sq)) )
             output = [p.get() for p in results]
-            print "="*100
-            print "="*100
-            print "PARALLEL DOALL DONE"
-            print "="*100
-            print "="*100
+            print("="*100)
+            print("="*100)
+            print("PARALLEL DOALL DONE")
+            print("="*100)
+            print("="*100)
             for ret in output:
-                print '    [%s] success=%s, dt=%s' % (ret['course_id'], ret['success'], ret['dt'])
-            print "="*100
+                print('    [%s] success=%s, dt=%s' % (ret['course_id'], ret['success'], ret['dt']))
+            print("="*100)
             for ret in output:
                 course_id = ret['course_id']
-                print "="*100 + " [%s]" % course_id
-                print ret['stdout'].output
-            print "="*100
+                print("="*100 + " [%s]" % course_id)
+                print(ret['stdout'].output)
+            print("="*100)
             for ret in output:	# repeat
-                print '    [%s] success=%s, dt=%s' % (ret['course_id'], ret['success'], ret['dt'])
-            print "="*100
+                print('    [%s] success=%s, dt=%s' % (ret['course_id'], ret['success'], ret['dt']))
+            print("="*100)
         else:
             for course_id in get_course_ids(args):
                 doall(param, course_id, args)
@@ -1868,9 +1868,9 @@ check_for_duplicates        : check list of courses for duplicates
         sys.exit(0)
 
         for course_id in get_course_ids(args):
-            print "-"*100
-            print "NIGHTLY PROCESSING %s" % course_id
-            print "-"*100
+            print("-"*100)
+            print("NIGHTLY PROCESSING %s" % course_id)
+            print("-"*100)
             try:
                 daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
 
@@ -1878,18 +1878,18 @@ check_for_duplicates        : check list of courses for duplicates
                 try:
                     analyze_problems(param, course_id, args)
                 except Exception as err:
-                    print "--> Failed in analyze_problems with err=%s" % str(err)
-                    print "--> continuing with nightly anyway"
+                    print("--> Failed in analyze_problems with err=%s" % str(err))
+                    print("--> continuing with nightly anyway")
                 try:
                     analyze_videos(param, course_id, args)
                 except Exception as err:
-                    print "--> Failed in analyze_videos with err=%s" % str(err)
-                    print "--> continuing with nightly anyway"
+                    print("--> Failed in analyze_videos with err=%s" % str(err))
+                    print("--> continuing with nightly anyway")
                 try:
                     analyze_forum(param, course_id, args)
                 except Exception as err:
-                    print "--> Failed in analyze_forum with err=%s" % str(err)
-                    print "--> continuing with nightly anyway"
+                    print("--> Failed in analyze_forum with err=%s" % str(err))
+                    print("--> continuing with nightly anyway")
 
                 person_day(param, course_id, args, check_dates=False)
                 enrollment_day(param, course_id, args)
@@ -1900,8 +1900,8 @@ check_for_duplicates        : check list of courses for duplicates
                 problem_check(param, course_id, args)
                 analyze_ora(param, course_id, args)
             except Exception as err:
-                print "="*100
-                print "ERROR: %s" % str(err)
+                print("="*100)
+                print("ERROR: %s" % str(err))
                 traceback.print_exc()
 
     elif (args.command=='make_uic'):
@@ -1922,14 +1922,14 @@ check_for_duplicates        : check list of courses for duplicates
         run_parallel_or_serial(setup_sql_single, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='waldofy'):
-        import do_waldofication_of_sql
+        from . import do_waldofication_of_sql
         dirname = args.courses[0]		# directory of unpacked SQL data from edX
         args.courses = args.courses[1:]		# remove first element, which was dirname
         courses = get_course_ids(args)
         do_waldofication_of_sql.process_directory(dirname, courses, param.the_basedir)
 
     elif (args.command=='analyze_course'):
-        import analyze_content
+        from . import analyze_content
         if args.force_recompute:
             analyze_content.analyze_course_content(course_id=None,
                                                    listings_file=param.listings,
@@ -1961,7 +1961,7 @@ check_for_duplicates        : check list of courses for duplicates
 
 
     elif (args.command=='mongo2user_info'):
-        import fix_missing_user_info
+        from . import fix_missing_user_info
         for course_id in get_course_ids(args):
             fix_missing_user_info.mongo_dump_user_info_files(course_id,
                                                              basedir=param.the_basedir,
@@ -1971,7 +1971,7 @@ check_for_duplicates        : check list of courses for duplicates
                                                              )
 
     elif (args.command=='makegeoip'):
-        import make_geoip_table
+        from . import make_geoip_table
         gid = make_geoip_table.GeoIPData()
         gid.make_table(args.table,
                        org=args.org or getattr(edx2bigquery_config, 'ORG'),
@@ -1980,18 +1980,18 @@ check_for_duplicates        : check list of courses for duplicates
 
     elif (args.command=='testbq'):
         # test authentication to bigquery - list databases in project
-        import bqutil
+        from . import bqutil
         bqutil.auth.print_creds()
-        print "="*20
-        print "list of datasets accessible:"
-        print json.dumps(bqutil.get_list_of_datasets().keys(), indent=4)
+        print("="*20)
+        print("list of datasets accessible:")
+        print(json.dumps(list(bqutil.get_list_of_datasets().keys()), indent=4))
 
     elif (args.command=='get_course_tables'):
         courses = get_course_ids(args)
         run_parallel_or_serial(list_tables_in_course_db, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='check_pc_dates'):
-        import bqutil
+        from . import bqutil
         tablename = "person_course"
         for course_id in get_course_ids(args):
             dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
@@ -2002,20 +2002,20 @@ check_for_duplicates        : check list of courses for duplicates
                     table_date = None
                 else:
                     table_date = str(err)
-            print "%s: %s " %  (course_id, table_date)
+            print("%s: %s " %  (course_id, table_date))
             sys.stdout.flush()
 
     elif (args.command=='get_tables'):
-        import bqutil
-        print json.dumps(bqutil.get_tables(args.courses[0]), indent=4)
+        from . import bqutil
+        print(json.dumps(bqutil.get_tables(args.courses[0]), indent=4))
 
     elif (args.command=='get_table_data'):
-        import bqutil
+        from . import bqutil
         dataset = args.courses[0].replace('/', '__').replace('.', '_')
-        print json.dumps(bqutil.get_table_data(dataset,
+        print(json.dumps(bqutil.get_table_data(dataset,
                                                args.courses[1],
                                                convert_timestamps=True,
-                                           ), indent=4)
+                                           ), indent=4))
 
     elif (args.command=='check_for_duplicates'):
         courses = []
@@ -2023,15 +2023,15 @@ check_for_duplicates        : check list of courses for duplicates
         ntot = 0
         for course_id in get_course_ids(args):
             if course_id in courses:
-                print "Duplicate course_id %s" % course_id
+                print("Duplicate course_id %s" % course_id)
                 ndup += 1
             else:
                 courses.append(course_id)
             ntot += 1
-        print "Summary: %d course_id's, with %d duplicates" % (ntot, ndup)
+        print("Summary: %d course_id's, with %d duplicates" % (ntot, ndup))
 
     elif (args.command=='get_course_data'):
-        import bqutil
+        from . import bqutil
         tablename = args.table
         tables = []
         course_id_by_table = {}
@@ -2044,7 +2044,7 @@ check_for_duplicates        : check list of courses for duplicates
         return get_data_tables(tables, args, course_id_by_table=course_id_by_table)
 
     elif (args.command=='get_course_table_status'):
-        import bqutil
+        from . import bqutil
         tablename = args.table
         tables = []
         course_id_by_table = {}
@@ -2061,31 +2061,31 @@ check_for_duplicates        : check list of courses for duplicates
         return get_data_tables(tables, args)
 
     elif (args.command=='get_table_info'):
-        import bqutil
-        print bqutil.get_bq_table_info(args.courses[0], args.courses[1])
+        from . import bqutil
+        print(bqutil.get_bq_table_info(args.courses[0], args.courses[1]))
 
     elif (args.command=='delete_empty_tables'):
-        import bqutil
+        from . import bqutil
         for course_id in get_course_ids(args):
             try:
                 dataset = bqutil.course_id2dataset(course_id, dtype="logs")
                 bqutil.delete_zero_size_tables(dataset, verbose=True)
             except Exception as err:
-                print err
+                print(err)
                 raise
 
     elif (args.command=='delete_stats_tables'):
-        import bqutil
+        from . import bqutil
         for course_id in get_course_ids(args):
             try:
                 dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=param.use_dataset_latest)
                 bqutil.delete_bq_table(dataset, 'stats_activity_by_day')
             except Exception as err:
-                print err
+                print(err)
                 raise
 
     elif (args.command=='delete_tables'):
-        import bqutil
+        from . import bqutil
         tablename = args.table
         for course_id in get_course_ids(args):
             try:
@@ -2093,12 +2093,12 @@ check_for_duplicates        : check list of courses for duplicates
                 the_table = '%s.%s' % (dataset, tablename)
                 tinfo = bqutil.get_bq_table_info(dataset, tablename) or None
                 if tinfo is not None:
-                    print "   Deleting %s.%s" % (dataset, tablename)
+                    print("   Deleting %s.%s" % (dataset, tablename))
                     bqutil.delete_bq_table(dataset, tablename)
                 else:
-                    print "   Missing %s.%s -- skipping" % (dataset, tablename)
+                    print("   Missing %s.%s -- skipping" % (dataset, tablename))
             except Exception as err:
-                print err
+                print(err)
                 raise
 
     elif (args.command=='daily_logs'):
@@ -2106,7 +2106,7 @@ check_for_duplicates        : check list of courses for duplicates
 
     elif (args.command=='split'):
         daily_logs(param, args, args.command)
-        print "==> split done at %s" % datetime.datetime.now()
+        print("==> split done at %s" % datetime.datetime.now())
 
     elif (args.command=='logs2gs'):
         # daily_logs(param, args, args.command)
@@ -2139,12 +2139,12 @@ check_for_duplicates        : check list of courses for duplicates
 
     elif (args.command=='ip_sybils'):
         courses = get_course_ids(args)
-        print "==> courses = ", courses
+        print("==> courses = ", courses)
         run_parallel_or_serial(ip_sybils, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='temporal_fingerprints'):
         courses = get_course_ids(args)
-        print "==> courses = ", courses
+        print("==> courses = ", courses)
         run_parallel_or_serial(temporal_fingerprints, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='time_task'):
@@ -2213,12 +2213,12 @@ check_for_duplicates        : check list of courses for duplicates
         run_parallel_or_serial(irt_report, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='recommend_pin_dates'):
-        import make_axis_pin_dates_from_listings
+        from . import make_axis_pin_dates_from_listings
         courses = get_course_ids(args)
         make_axis_pin_dates_from_listings.process_courses(courses, param.the_basedir, param.listings)
 
     elif (args.command=='staff2bq'):
-        import load_staff
+        from . import load_staff
         load_staff.do_staff_csv(args.courses[0])
 
     elif (args.command=='user_part'):
@@ -2226,7 +2226,7 @@ check_for_duplicates        : check list of courses for duplicates
         run_parallel_or_serial(make_user_partitions_table, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='make_cinfo'):
-        import make_cinfo
+        from . import make_cinfo
         make_cinfo.do_course_listings(args.courses[0])
 
     elif (args.command=='pcday_ip'):
@@ -2251,7 +2251,7 @@ check_for_duplicates        : check list of courses for duplicates
         run_parallel_or_serial(person_course, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='report'):
-        import make_course_report_tables
+        from . import make_course_report_tables
         make_course_report_tables.CourseReport(get_course_ids(args),
                                                nskip=(args.nskip or 0),
                                                output_project_id=args.output_project_id or edx2bigquery_config.PROJECT_ID,
@@ -2268,7 +2268,7 @@ check_for_duplicates        : check list of courses for duplicates
         run_parallel_or_serial(research, param, courses, args, parallel=args.parallel)
 
     elif (args.command=='combinepc'):
-        import make_combined_person_course
+        from . import make_combined_person_course
         make_combined_person_course.do_combine(get_course_ids(args),
                                                edx2bigquery_config.PROJECT_ID,
                                                nskip=(args.nskip or 0),
@@ -2279,7 +2279,7 @@ check_for_duplicates        : check list of courses for duplicates
                                                )
 
     else:
-        print "Unknown command %s!" % args.command
+        print("Unknown command %s!" % args.command)
         sys.exit(-1)
 
 if __name__ == '__main__':

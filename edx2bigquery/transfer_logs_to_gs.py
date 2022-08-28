@@ -24,18 +24,18 @@ import datetime
 import pytz
 import dateutil.parser
 from path import Path as path
-import gsutil
+from . import gsutil
 
 def process_dir(course_id, gspath='gs://x-data', logs_directory="TRACKING_LOGS", verbose=True):
 
     cdir = path(logs_directory) / gsutil.path_from_course_id(course_id)
 
-    print "="*77
-    print "Transferring tracking logs for %s from directory %s (start %s)" % (course_id, cdir, datetime.datetime.now())
-    print "="*77
+    print("="*77)
+    print("Transferring tracking logs for %s from directory %s (start %s)" % (course_id, cdir, datetime.datetime.now()))
+    print("="*77)
 
     if not os.path.exists(cdir):
-        print "Oops!  non-existent course tracking logs directory %s" % cdir
+        print("Oops!  non-existent course tracking logs directory %s" % cdir)
         return
 
     sys.stdout.flush()
@@ -60,15 +60,15 @@ def process_dir(course_id, gspath='gs://x-data', logs_directory="TRACKING_LOGS",
 
         if fnb in filelist and filelist[fnb]['date'] > utc_dt:
             if verbose:
-                print "%s already exists, skipping" % fn
+                print("%s already exists, skipping" % fn)
             continue
         elif fnb in filelist:
-            print "%s already exists, but has date=%s and mtime=%s, re-uploading" % (fn, filelist[fnb]['date'], mt)
+            print("%s already exists, but has date=%s and mtime=%s, re-uploading" % (fn, filelist[fnb]['date'], mt))
         cmd = 'gsutil cp %s %s' % (fn, gp + '/')
-        print cmd
+        print(cmd)
         sys.stdout.flush()
         os.system(cmd)
 
-    print "done with %s (%s)" % (cdir, datetime.datetime.now())
-    print "-"*77
+    print("done with %s (%s)" % (cdir, datetime.datetime.now()))
+    print("-"*77)
 

@@ -3,16 +3,16 @@
 import os
 import sys
 import unicodecsv as csv
-import gsutil
-import bqutil
+from . import gsutil
+from . import bqutil
 import json
 import datetime
 
 from collections import defaultdict, OrderedDict
 from lxml import etree
 from path import Path as path
-from load_course_sql import find_course_sql_dir
-from make_geoip_table import lock_file
+from .load_course_sql import find_course_sql_dir
+from .make_geoip_table import lock_file
 
 CCDATA = "course_content.csv"
 CMINFO = "course_metainfo.csv"
@@ -71,10 +71,10 @@ def get_stats_module_usage(course_id,
                 k['module_id'] = k['module_id'].encode('utf8')
                 cdw.writerow(k)
             except Exception as err:
-                print "Error writing row %s, err=%s" % (k, str(err))
+                print("Error writing row %s, err=%s" % (k, str(err)))
         fp.close()
 
-    print "[analyze_content] got %d lines of studentmodule usage data" % len(data)
+    print("[analyze_content] got %d lines of studentmodule usage data" % len(data))
     return data
 
 
@@ -132,7 +132,7 @@ def analyze_course_content(course_id,
         try:
             the_schema = json.loads(open(SCHEMA_FILE).read())[tableid]
         except Exception as err:
-            print "Oops!  Failed to load schema file for %s.  Error: %s" % (tableid, str(err))
+            print("Oops!  Failed to load schema file for %s.  Error: %s" % (tableid, str(err)))
             raise
 
         if 0:
@@ -142,7 +142,7 @@ def analyze_course_content(course_id,
         table = 'course_metainfo'
         course_tables = ',\n'.join([('[%s.course_metainfo]' % bqutil.course_id2dataset(x)) for x in courses])
         sql = "select * from {course_tables}".format(course_tables=course_tables)
-        print "--> Creating %s.%s using %s" % (dataset, table, sql)
+        print("--> Creating %s.%s using %s" % (dataset, table, sql))
 
         if 1:
             metainfo_dataset = bqutil.get_bq_table(dataset, table, sql=sql, 
@@ -163,7 +163,7 @@ def analyze_course_content(course_id,
         table_list = bqutil.get_list_of_table_ids(dataset)
 
         latest_person_course = max([ x for x in table_list if x.startswith('person_course_')])
-        print "Latest person_course table in %s is %s" % (dataset, latest_person_course)
+        print("Latest person_course table in %s is %s" % (dataset, latest_person_course))
         
         sql = """
                 SELECT pc.course_id as course_id, 
@@ -301,7 +301,7 @@ def analyze_course_content(course_id,
                 order by course_id
         """.format(dataset=dataset, person_course=latest_person_course)
 
-        print "--> Assembling course_summary_stats from %s" % 'stats_cert_rates_by_registration'
+        print("--> Assembling course_summary_stats from %s" % 'stats_cert_rates_by_registration')
         sys.stdout.flush()
         cert_by_reg = bqutil.get_bq_table(dataset, 'stats_cert_rates_by_registration', sql=sql, 
                                           newer_than=datetime.datetime(2015, 1, 16, 3, 0),
@@ -326,7 +326,7 @@ def analyze_course_content(course_id,
             else:
                 cmci['certified_of_nregistered_by_wrap_pct'] = None
             cbr = cert_by_reg['data_by_key'][course_id]
-            for field, value in cbr.items():
+            for field, value in list(cbr.items()):
                 cmci['cbr_%s' % field] = value
 
         # add medians for viewed, explored, and certified
@@ -336,21 +336,21 @@ def analyze_course_content(course_id,
                        'msbc_certified': 'certified_median_stats_by_course',
                        'msbc_verified': 'verified_median_stats_by_course',
                        }
-        for prefix, mtab in msbc_tables.items():
-            print "--> Merging median stats data from %s" % mtab
+        for prefix, mtab in list(msbc_tables.items()):
+            print("--> Merging median stats data from %s" % mtab)
             sys.stdout.flush()
             bqdat = bqutil.get_table_data(dataset, mtab)
             for entry in bqdat['data']:
                 course_id = entry['course_id']
                 cmci = c_sum_stats[course_id]
-                for field, value in entry.items():
+                for field, value in list(entry.items()):
                     cmci['%s_%s' % (prefix, field)] = value
 
         # add time on task data
 
         tot_table = "time_on_task_stats_by_course"
         prefix = "ToT"
-        print "--> Merging time on task data from %s" % tot_table
+        print("--> Merging time on task data from %s" % tot_table)
         sys.stdout.flush()
         try:
             bqdat = bqutil.get_table_data(dataset, tot_table)
@@ -359,7 +359,7 @@ def analyze_course_content(course_id,
         for entry in bqdat['data']:
             course_id = entry['course_id']
             cmci = c_sum_stats[course_id]
-            for field, value in entry.items():
+            for field, value in list(entry.items()):
                 if field=='course_id':
                     continue
                 cmci['%s_%s' % (prefix, field)] = value
@@ -368,7 +368,7 @@ def analyze_course_content(course_id,
 
         tot_table = "time_on_task_serial_stats_by_course"
         prefix = "SToT"
-        print "--> Merging serial time on task data from %s" % tot_table
+        print("--> Merging serial time on task data from %s" % tot_table)
         sys.stdout.flush()
         try:
             bqdat = bqutil.get_table_data(dataset, tot_table)
@@ -377,7 +377,7 @@ def analyze_course_content(course_id,
         for entry in bqdat['data']:
             course_id = entry['course_id']
             cmci = c_sum_stats[course_id]
-            for field, value in entry.items():
+            for field, value in list(entry.items()):
                 if field=='course_id':
                     continue
                 cmci['%s_%s' % (prefix, field)] = value
@@ -386,7 +386,7 @@ def analyze_course_content(course_id,
 
         tot_table = "show_answer_stats_by_course"
         prefix = "SAS"
-        print "--> Merging show_answer stats data from %s" % tot_table
+        print("--> Merging show_answer stats data from %s" % tot_table)
         sys.stdout.flush()
         try:
             bqdat = bqutil.get_table_data(dataset, tot_table)
@@ -395,27 +395,27 @@ def analyze_course_content(course_id,
         for entry in bqdat['data']:
             course_id = entry['course_id']
             cmci = c_sum_stats[course_id]
-            for field, value in entry.items():
+            for field, value in list(entry.items()):
                 if field=='course_id':
                     continue
                 cmci['%s_%s' % (prefix, field)] = value
 
         # setup list of keys, for CSV output
 
-        css_keys = c_sum_stats.values()[0].keys()
+        css_keys = list(c_sum_stats.values())[0].keys()
 
         # retrieve course_metainfo table, pivot, add that to summary_stats
 
-        print "--> Merging course_metainfo from %s" % table
+        print("--> Merging course_metainfo from %s" % table)
         sys.stdout.flush()
         bqdat = bqutil.get_table_data(dataset, table)
 
-        listings_keys = map(make_key, ["Institution", "Semester", "New or Rerun", "Andrew Recodes New/Rerun", 
+        listings_keys = list(map(make_key, ["Institution", "Semester", "New or Rerun", "Andrew Recodes New/Rerun", 
                                        "Course Number", "Short Title", "Andrew's Short Titles", "Title", 
                                        "Instructors", "Registration Open", "Course Launch", "Course Wrap", "course_id",
                                        "Empirical Course Wrap", "Andrew's Order", "certifies", "MinPassGrade",
                                        '4-way Category by name', "4-way (CS, STEM, HSocSciGov, HumHistRel)"
-                                       ])
+                                       ]))
         listings_keys.reverse()
         
         for lk in listings_keys:
@@ -451,12 +451,12 @@ def analyze_course_content(course_id,
                 css_keys.append(thekey)
 
         # compute forum_posts_per_week
-        for course_id, entry in c_sum_stats.items():
+        for course_id, entry in list(c_sum_stats.items()):
             nfps = entry.get('nforum_posts_sum', 0)
             if nfps:
                 fppw = int(nfps) / float(entry['nweeks'])
                 entry['nforum_posts_per_week'] = fppw
-                print "    course: %s, assessments_per_week=%s, forum_posts_per_week=%s" % (course_id, entry['total_assessments_per_week'], fppw)
+                print("    course: %s, assessments_per_week=%s, forum_posts_per_week=%s" % (course_id, entry['total_assessments_per_week'], fppw))
             else:
                 entry['nforum_posts_per_week'] = None
         css_keys.append('nforum_posts_per_week')
@@ -472,12 +472,12 @@ def analyze_course_content(course_id,
                 if course_id not in c_sum_stats:
                     continue
                 cmci = c_sum_stats[course_id]
-                for field, value in entry.items():
+                for field, value in list(entry.items()):
                     lkey = "listings_%s" % make_key(field)
                     if not (lkey in cmci) or (not cmci[lkey]):
                         cmci[lkey] = value
 
-        print "Storing these fields: %s" % css_keys
+        print("Storing these fields: %s" % css_keys)
 
         # get schema
         mypath = os.path.dirname(os.path.realpath(__file__))
@@ -488,13 +488,13 @@ def analyze_course_content(course_id,
         css_table = "course_summary_stats"
         ofn = "%s__%s.csv" % (dataset, css_table)
         ofn2 = "%s__%s.json" % (dataset, css_table)
-        print "Writing data to %s and %s" % (ofn, ofn2)
+        print("Writing data to %s and %s" % (ofn, ofn2))
 
         ofp = open(ofn, 'w')
         ofp2 = open(ofn2, 'w')
         dw = csv.DictWriter(ofp, fieldnames=css_keys)
         dw.writeheader()
-        for cid, entry in c_sum_stats.items():
+        for cid, entry in list(c_sum_stats.items()):
             for ek in entry:
                 if ek not in schema_dict:
                     entry.pop(ek)
@@ -519,33 +519,33 @@ def analyze_course_content(course_id,
         return
 
     
-    print "-"*60 + " %s" % course_id
+    print("-"*60 + " %s" % course_id)
 
     # get nweeks from listings
     lfn = path(listings_file)
     if not lfn.exists():
-        print "[analyze_content] course listings file %s doesn't exist!" % lfn
+        print("[analyze_content] course listings file %s doesn't exist!" % lfn)
         return
 
     data = None
     if listings_file.endswith('.json'):
-        data_feed = map(json.loads, open(lfn))
+        data_feed = list(map(json.loads, open(lfn)))
     else:
         data_feed = csv.DictReader(open(lfn))
     for k in data_feed:
         if not 'course_id' in k:
-            print "Strange course listings row, no course_id in %s" % k
+            print("Strange course listings row, no course_id in %s" % k)
             raise Exception("Missing course_id")
         if k['course_id']==course_id:
             data = k
             break
 
     if not data:
-        print "[analyze_content] no entry for %s found in course listings file %s!" % (course_id, lfn)
+        print("[analyze_content] no entry for %s found in course listings file %s!" % (course_id, lfn))
         return
 
     def date_parse(field):
-        (m, d, y) = map(int, data[field].split('/'))
+        (m, d, y) = list(map(int, data[field].split('/')))
         return datetime.datetime(y, m, d)
 
     launch = date_parse('Course Launch')
@@ -553,7 +553,7 @@ def analyze_course_content(course_id,
     ndays = (wrap - launch).days
     nweeks = ndays / 7.0
 
-    print "Course length = %6.2f weeks (%d days)" % (nweeks, ndays)
+    print("Course length = %6.2f weeks (%d days)" % (nweeks, ndays))
 
     if pin_date:
         datedir = pin_date
@@ -563,7 +563,7 @@ def analyze_course_content(course_id,
     xbfn = course_dir / ("xbundle_%s.xml" % cfn)
     
     if not xbfn.exists():
-        print "[analyze_content] cannot find xbundle file %s for %s!" % (xbfn, course_id)
+        print("[analyze_content] cannot find xbundle file %s for %s!" % (xbfn, course_id))
 
         if use_dataset_latest:
             # try looking in earlier directories for xbundle file
@@ -573,9 +573,9 @@ def analyze_course_content(course_id,
             if files:
                 xbfn = path(files[-1])
             if not xbfn.exists():
-                print "   --> also cannot find any %s ; aborting!" % spath
+                print("   --> also cannot find any %s ; aborting!" % spath)
             else:
-                print "   --> Found and using instead: %s " % xbfn
+                print("   --> Found and using instead: %s " % xbfn)
         if not xbfn.exists():
             raise Exception("[analyze_content] missing xbundle file %s" % xbfn)
 
@@ -583,7 +583,7 @@ def analyze_course_content(course_id,
     if os.path.exists(str(xbfn) + ".fixed"):
         xbfn = path(str(xbfn) + ".fixed")
 
-    print "[analyze_content] For %s using %s" % (course_id, xbfn)
+    print("[analyze_content] For %s using %s" % (course_id, xbfn))
     
     # get module usage data
     mudata = get_stats_module_usage(course_id, basedir, datedir, use_dataset_latest)
@@ -650,18 +650,18 @@ def analyze_course_content(course_id,
                 nexcluded[k.tag] += 1
                 if verbose:
                     try:
-                        print "    -> excluding %s (%s), ncount=%s" % (k.get('display_name', '<no_display_name>').encode('utf8'), 
+                        print("    -> excluding %s (%s), ncount=%s" % (k.get('display_name', '<no_display_name>').encode('utf8'), 
                                                                        midfrag, 
-                                                                       mudata.get(midfrag, {}).get('ncount'))
+                                                                       mudata.get(midfrag, {}).get('ncount')))
                     except Exception as err:
-                        print "    -> excluding ", k
+                        print("    -> excluding ", k)
                 continue
             walk_tree(k, policy.copy())
 
     walk_tree(xml)
-    print "--> Count of individual element tags throughout XML: ", counts
+    print("--> Count of individual element tags throughout XML: ", counts)
     
-    print "--> problem_stats:", json.dumps(problem_stats, indent=4)
+    print("--> problem_stats:", json.dumps(problem_stats, indent=4))
 
     # combine some into "qual_axis" and others into "quant_axis"
     qual_axis = ['openassessment', 'optionresponse', 'multiplechoiceresponse', 
@@ -673,19 +673,19 @@ def analyze_course_content(course_id,
 
     nqual = 0
     nquant = 0
-    for tag, count in counts.items():
+    for tag, count in list(counts.items()):
         if tag in qual_axis:
             nqual += count
         if tag in quant_axis:
             nquant += count
     
-    print "nqual=%d, nquant=%d" % (nqual, nquant)
+    print("nqual=%d, nquant=%d" % (nqual, nquant))
 
     nqual_per_week = nqual / nweeks
     nquant_per_week = nquant / nweeks
     total_per_week = nqual_per_week + nquant_per_week
 
-    print "per week: nqual=%6.2f, nquant=%6.2f total=%6.2f" % (nqual_per_week, nquant_per_week, total_per_week)
+    print("per week: nqual=%6.2f, nquant=%6.2f total=%6.2f" % (nqual_per_week, nquant_per_week, total_per_week))
 
     # save this overall data in CCDATA
     lock_file(CCDATA)
@@ -707,7 +707,7 @@ def analyze_course_content(course_id,
     cfp = open(ccdfn, 'w')
     dw = csv.DictWriter(cfp, fieldnames=fields)
     dw.writeheader()
-    for cid, entry in ccd.items():
+    for cid, entry in list(ccd.items()):
         dw.writerow(entry)
     cfp.close()
     lock_file(CCDATA, release=True)
@@ -718,7 +718,7 @@ def analyze_course_content(course_id,
     cmfields = OrderedDict()
     cmfields['course_id'] = course_id
     cmfields['course_length_days'] = str(ndays)
-    cmfields.update({ make_key('listings_%s' % key) : value for key, value in data.items() })	# from course listings
+    cmfields.update({ make_key('listings_%s' % key) : value for key, value in list(data.items()) })	# from course listings
     cmfields.update(ccd[course_id].copy())
 
     # cmfields.update({ ('count_%s' % key) : str(value) for key, value in counts.items() })	# from content counts
@@ -734,7 +734,7 @@ def analyze_course_content(course_id,
         value = problem_stats[key]
         cmfields['problem_stat_%s' % key] =  str(value)
 
-    cmfields.update({ ('nexcluded_sub_20_%s' % key) : str(value) for key, value in nexcluded.items() })	# from content counts
+    cmfields.update({ ('nexcluded_sub_20_%s' % key) : str(value) for key, value in list(nexcluded.items()) })	# from content counts
 
     course_dir = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest)
     csvfn = course_dir / CMINFO
@@ -744,22 +744,22 @@ def analyze_course_content(course_id,
 
     csvfn_overrides = course_dir / CMINFO_OVERRIDES
     if csvfn_overrides.exists():
-        print "--> Loading manual override information from %s" % csvfn_overrides
+        print("--> Loading manual override information from %s" % csvfn_overrides)
         for ovent in csv.DictReader(open(csvfn_overrides)):
             if not ovent['course_id']==course_id:
-                print "===> ERROR! override file has entry with wrong course_id: %s" % ovent
+                print("===> ERROR! override file has entry with wrong course_id: %s" % ovent)
                 continue
-            print "    overriding key=%s with value=%s" % (ovent['key'], ovent['value'])
+            print("    overriding key=%s with value=%s" % (ovent['key'], ovent['value']))
             cmfields[ovent['key']] = ovent['value']
 
-    print "--> Course metainfo writing to %s" % csvfn
+    print("--> Course metainfo writing to %s" % csvfn)
 
     fp = open(csvfn, 'w')
 
     cdw = csv.DictWriter(fp, fieldnames=['course_id', 'key', 'value'])
     cdw.writeheader()
 
-    for k, v in cmfields.items():
+    for k, v in list(cmfields.items()):
         cdw.writerow({'course_id': course_id, 'key': k, 'value': v})
         
     fp.close()
@@ -782,7 +782,7 @@ def analyze_course_content(course_id,
     open(clm_fn, 'w').write(json.dumps(clm))
 
     gsfnp = gsutil.gs_path_from_course_id(course_id, use_dataset_latest=use_dataset_latest) / clm_fnb
-    print "--> Course listing + metainfo uploading to %s then to %s.%s" % (gsfnp, dataset, clm_table)
+    print("--> Course listing + metainfo uploading to %s then to %s.%s" % (gsfnp, dataset, clm_table))
     sys.stdout.flush()
     gsutil.upload_file_to_gs(clm_fn, gsfnp)
     bqutil.load_data_to_table(dataset, clm_table, gsfnp, clm_schema, wait=True, verbose=False)
@@ -793,7 +793,7 @@ def analyze_course_content(course_id,
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
 
     gsfnp = gsutil.gs_path_from_course_id(course_id, use_dataset_latest=use_dataset_latest) / CMINFO
-    print "--> Course metainfo uploading to %s then to %s.%s" % (gsfnp, dataset, table)
+    print("--> Course metainfo uploading to %s then to %s.%s" % (gsfnp, dataset, table))
     sys.stdout.flush()
 
     gsutil.upload_file_to_gs(csvfn, gsfnp)

@@ -6,12 +6,12 @@
 
 import os
 import json
-import gsutil
-import bqutil
+from . import gsutil
+from . import bqutil
 import copy
 import datetime
 from path import Path as path
-from check_schema_tracking_log import check_schema, schema2dict
+from .check_schema_tracking_log import check_schema, schema2dict
 
 def already_exists(course_id, use_dataset_latest=False):
     '''
@@ -61,7 +61,7 @@ def do_save(cid, caset_in, xbundle, datadir, log_msg, use_dataset_latest=False):
             try:
                 ca['data'] = json.loads(data)	# make it native, for mongo
             except Exception as err:
-                print "failed to create json for %s, error=%s" % (data, err)
+                print("failed to create json for %s, error=%s" % (data, err))
         if ca['start'] is not None:
             ca['start'] = str(ca['start'])	# datetime to string
         if  ca['due'] is not None:
@@ -73,7 +73,7 @@ def do_save(cid, caset_in, xbundle, datadir, log_msg, use_dataset_latest=False):
             # db.course_axis.insert(ca)
             fp.write(json.dumps(ca)+'\n')
         except Exception as err:
-            print "Failed to save!  Error=%s, data=%s" % (err, ca)
+            print("Failed to save!  Error=%s, data=%s" % (err, ca))
     fp.close()
 
     # upload axis.json file and course xbundle
@@ -96,4 +96,4 @@ def do_save(cid, caset_in, xbundle, datadir, log_msg, use_dataset_latest=False):
     
     bqutil.add_description_to_table(dataset, table, msg, append=True)
 
-    print "    Done - inserted %s records into course_axis" % len(caset)
+    print("    Done - inserted %s records into course_axis" % len(caset))

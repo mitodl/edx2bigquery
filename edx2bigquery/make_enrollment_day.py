@@ -19,12 +19,12 @@
 import os
 import sys
 import json
-import bqutil
+from . import bqutil
 import datetime
-import process_tracking_logs
+from . import process_tracking_logs
 
 from path import Path as path
-from gsutil import get_gs_file_list
+from .gsutil import get_gs_file_list
 
 
 #-----------------------------------------------------------------------------
@@ -80,7 +80,7 @@ def old_process_course(course_id, force_recompute=False):
     log_dataset = bqutil.course_id2dataset(course_id, dtype="logs")
     pcd_dataset = bqutil.course_id2dataset(course_id, dtype="pcday")
 
-    print "Processing course %s (start %s)"  % (course_id, datetime.datetime.now())
+    print("Processing course %s (start %s)"  % (course_id, datetime.datetime.now()))
     sys.stdout.flush()
 
     log_tables = bqutil.get_tables(log_dataset)
@@ -88,7 +88,7 @@ def old_process_course(course_id, force_recompute=False):
     try:
         bqutil.create_dataset_if_nonexistent(pcd_dataset)
     except Exception as err:
-        print "Oops, err when creating %s, err=%s" % (pcd_dataset, str(err))
+        print("Oops, err when creating %s, err=%s" % (pcd_dataset, str(err)))
         
     pcday_tables_info = bqutil.get_tables(pcd_dataset)
     pcday_tables = [x['tableReference']['tableId'] for x in pcday_tables_info.get('tables', [])]
@@ -109,16 +109,16 @@ def old_process_course(course_id, force_recompute=False):
         table_out = 'enrollday2_%s' % date
     
         if (table_out in pcday_tables) and not force_recompute:
-            print "%s...already done, skipping" % table_id
+            print("%s...already done, skipping" % table_id)
             sys.stdout.flush()
             continue
 
         if bqutil.get_bq_table_size_rows(log_dataset, table_id)==0:
-            print "...zero size table %s, skipping" % table_id
+            print("...zero size table %s, skipping" % table_id)
             sys.stdout.flush()
             continue
 
-        print ("Creating %s " % table_out), 
+        print(("Creating %s " % table_out), end=' ') 
         
         the_sql = SQL.format(course_id=course_id, 
                              dataset=log_dataset,
@@ -128,8 +128,8 @@ def old_process_course(course_id, force_recompute=False):
     
         bqutil.create_bq_table(pcd_dataset, table_out, the_sql, wait=False)
     
-    print "Done with course %s (end %s)"  % (course_id, datetime.datetime.now())
-    print "="*77
+    print("Done with course %s (end %s)"  % (course_id, datetime.datetime.now()))
+    print("="*77)
     sys.stdout.flush()
         
 #-----------------------------------------------------------------------------

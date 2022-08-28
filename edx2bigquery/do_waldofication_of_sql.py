@@ -15,7 +15,7 @@ filename2collection = {'certificates': 'certificates_generatedcertificate',
                        'roleforum': 'django_comment_client_role_users',
                        }
 
-collection2filename = {v:k for k, v in filename2collection.items()}
+collection2filename = {v:k for k, v in list(filename2collection.items())}
 
 #-----------------------------------------------------------------------------
 
@@ -68,7 +68,7 @@ def fix_course_id(short_cid, date):
     try:
         short_cid = str(short_cid)
     except Exception as err:
-        print "Cannot make short cid - unicode error"
+        print("Cannot make short cid - unicode error")
         return ""
 
     if short_cid.count('/')==0 and '-' in short_cid:
@@ -90,7 +90,7 @@ def fix_course_id(short_cid, date):
             semester = semkey
             break
     if semester is None:
-        print "fix_short_cid failed on scid=%s time=%s" % (short_cid, date)
+        print("fix_short_cid failed on scid=%s time=%s" % (short_cid, date))
         return ''  # no guess
     
     cid = "%s/%s" % (short_cid, semester)
@@ -152,7 +152,7 @@ def processFile(fn, dtstr, basedir, courses):
         if fn.endswith(suffix):
             # print "Skipping %s" % fn
             return
-    print ("  File %s" % fn.basename()), 
+    print(("  File %s" % fn.basename()), end=' ') 
     sys.stdout.flush()
         
     # get course ID
@@ -170,7 +170,7 @@ def processFile(fn, dtstr, basedir, courses):
                 cid = '/'.join(cfnpre.rsplit('-',2))
                 datafn = fn.basename().split(cfnpre,1)[1][1:]
             else:
-                print "could not guess course_id from %s [%s]" % (fn, cfnpre)
+                print("could not guess course_id from %s [%s]" % (fn, cfnpre))
                 return
                 cid_org, cid_num, cid_sem, datafn = fn.basename().split('-',3)
                 cid = '%s/%s/%s' % (cid_org, cid_num, cid_sem)
@@ -183,7 +183,7 @@ def processFile(fn, dtstr, basedir, courses):
         else:
             ofn = datafn
 
-        print "   --> %s" % (cdir / ofn)
+        print("   --> %s" % (cdir / ofn))
         copyFile(fn, cdir, ofn)
         return
 
@@ -211,7 +211,7 @@ def processFile(fn, dtstr, basedir, courses):
         cdir = getCourseDir(cid, dtstr, basedir, courses)
         sqlfn = collection2filename.get(sqlfn, sqlfn)
         csvfn = cdir / (sqlfn + '.csv.gz')
-        print "   --> %s" % csvfn
+        print("   --> %s" % csvfn)
         if not csvfn.exists():
             tsv2csv(fn, csvfn)
             pass
@@ -232,13 +232,13 @@ def process_directory(dirname, courses, basedir):
     m = re.search('.*-(\d\d\d\d-\d\d-\d\d)$', dirname)
     
     if not m:
-        print "="*10 + " Unknown directory name format %s -- skipping" % dirname
+        print("="*10 + " Unknown directory name format %s -- skipping" % dirname)
         return
     
     dtstr = m.group(1)
 
-    print "="*100
-    print "Doing Waldofication of SQL data from edX in %s -> %s/%s" % (dirname, basedir, dtstr)
+    print("="*100)
+    print("Doing Waldofication of SQL data from edX in %s -> %s/%s" % (dirname, basedir, dtstr))
     sys.stdout.flush()
 
     files = glob.glob('%s/*.*' % dirname)

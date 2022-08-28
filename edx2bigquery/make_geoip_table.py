@@ -10,8 +10,8 @@ import json
 import codecs
 import time
 import datetime
-import gsutil
-import bqutil
+from . import gsutil
+from . import bqutil
 import random
 import pygeoip
 import geoip2.database
@@ -27,10 +27,10 @@ def lock_file(fn, release=False):
         try:
             os.rmdir(lockfn)
         except Exception as err:
-            print "[lock_file] in releasing lock %s, err=%s" % (lockfn, err)
+            print("[lock_file] in releasing lock %s, err=%s" % (lockfn, err))
             return False
         if verbose:
-            print "[lock_file] released lock %s" % (lockfn)
+            print("[lock_file] released lock %s" % (lockfn))
             sys.stdout.flush()
         return True
 
@@ -47,22 +47,22 @@ def lock_file(fn, release=False):
                 os.mkdir(lockfn)
                 if cnt:
                     dt = datetime.datetime.now() - start
-                    print "[lock_file] acquired lock %s after cnt=%s, dt=%s" % (lockfn, cnt, dt)
+                    print("[lock_file] acquired lock %s after cnt=%s, dt=%s" % (lockfn, cnt, dt))
                     sys.stdout.flush()
                 return True
             except Exception as err:
-                print "[lock_file] in acquiring lock %s, err=%s" % (lockfn, err)
+                print("[lock_file] in acquiring lock %s, err=%s" % (lockfn, err))
         cnt += 1
         if (cnt > 2000):
-            print "[lock_file] Aborting!"
+            print("[lock_file] Aborting!")
             break
         if (cnt > 18):
             dt = datetime.datetime.now() - start
             if (dt.seconds > timeout):
-                print "[lock_file] timeout after %s seconds waiting for lock" % timeout
+                print("[lock_file] timeout after %s seconds waiting for lock" % timeout)
                 sys.stdout.flush()
                 release_lock(verbose=True)
-        print "[lock_file] waiting for %s, cnt=%d..." % (lockfn, cnt)
+        print("[lock_file] waiting for %s, cnt=%d..." % (lockfn, cnt))
         time.sleep(10)
     if not have_lock:
         msg = "[lock_file] Aborting - could not acquire %s" % lockfn
@@ -89,25 +89,25 @@ class GeoIPData(object):
 
     def load_geoip(self):
         if os.path.exists(self.gipfn):
-            print "Retrieving existing geoipdat from local file %s" % (self.gipfn)
+            print("Retrieving existing geoipdat from local file %s" % (self.gipfn))
             geoipdat = OrderedDict()
             lock_file(self.gipfn)
             for k in open(self.gipfn):
                 try:
                     data = json.loads(k)
                 except Exception as err:
-                    print "[GeoIpData] in loading '%s' from %s err %s" % (k, self.gipfn, err)
+                    print("[GeoIpData] in loading '%s' from %s err %s" % (k, self.gipfn, err))
                 geoipdat[data['ip']] = data
             lock_file(self.gipfn, release=True)
         else:
             try:
-                print "--> Trying to retrieve geoipdat from BigQuery %s.%s" % (self.gipdataset, self.giptable)
+                print("--> Trying to retrieve geoipdat from BigQuery %s.%s" % (self.gipdataset, self.giptable))
                 geoipdat_table_data = bqutil.get_table_data(self.gipdataset, self.giptable, key={'name': 'ip'})
                 self.geoipdat = geoipdat_table_data['data_by_key']
-                print "    Retrieved %d entries" % len(self.geoipdat) 
+                print("    Retrieved %d entries" % len(self.geoipdat)) 
             except Exception as err:
-                print "--> Failed to retrieve existing geoipdat from BigQuery, %s.%s" % (self.gipdataset, self.giptable)
-                print err
+                print("--> Failed to retrieve existing geoipdat from BigQuery, %s.%s" % (self.gipdataset, self.giptable))
+                print(err)
                 geoipdat = OrderedDict()
         self.geoipdat = geoipdat
         return
@@ -121,11 +121,11 @@ class GeoIPData(object):
             else:
                 rec = self.gi.city(ip)
         except Exception as err:
-            print "--> Cannot get geoip for %s, skipping" % ip
+            print("--> Cannot get geoip for %s, skipping" % ip)
             return
     
         if (rec is None) or (not rec):
-            print "--> Cannot get geoip for %s, skipping" % ip
+            print("--> Cannot get geoip for %s, skipping" % ip)
             return
     
         try:
@@ -154,7 +154,7 @@ class GeoIPData(object):
                                      'region': rec.subdivisions.most_specific.iso_code,	# in the US, this is the state
                                      }
         except Exception as err:
-            print "Oops, bad geoip record for ip=%s, error=%s, got rec=%s" % (ip, str(err), rec)
+            print("Oops, bad geoip record for ip=%s, error=%s, got rec=%s" % (ip, str(err), rec))
             return None
     
         # In [3]: gi.record_by_addr('217.212.231.57')
@@ -184,47 +184,47 @@ class GeoIPData(object):
             return
 
         ofn = 'tmp_geoip_%08d.json' % random.uniform(0,100000000)
-        print "--> new entries added to geoipdat, writing to %s" % (ofn)
+        print("--> new entries added to geoipdat, writing to %s" % (ofn))
         sys.stdout.flush()
 
         ofp = codecs.open(ofn, 'w', encoding='utf8')
-        for key, val in self.geoipdat.iteritems():
+        for key, val in self.geoipdat.items():
             try:
                 ofp.write(json.dumps(val)+'\n')
             except Exception as err:
-                print "Error!  %s" % err
+                print("Error!  %s" % err)
                 sys.stdout.write(repr(val))
                 raise
         ofp.close()
 
         lock_file(self.gipfn)
         try:
-            print "--> renaming %s to %s" % (ofn, self.gipfn)
+            print("--> renaming %s to %s" % (ofn, self.gipfn))
             sys.stdout.flush()
             os.rename(ofn, self.gipfn)
         except Exception as err:
-            print "Error %s in renaming gipfn" % str(err)
+            print("Error %s in renaming gipfn" % str(err))
         lock_file(self.gipfn, release=True)
         
         mypath = os.path.dirname(os.path.realpath(__file__))
         the_schema = json.loads(open('%s/schemas/schema_extra_geoip.json' % mypath).read())['extra_geoip']
 
         gsp = gsutil.gs_path_from_course_id(self.gipdataset) / self.gipfn
-        print "--> Uploading %s to %s" % (self.gipfn, gsp)
+        print("--> Uploading %s to %s" % (self.gipfn, gsp))
         sys.stdout.flush()
         gsutil.upload_file_to_gs(self.gipfn, gsp, '-z json')
         
-        print "--> Importing %s to %s" % (gsp, self.giptable)
+        print("--> Importing %s to %s" % (gsp, self.giptable))
         sys.stdout.flush()
         try:
             bqutil.create_dataset_if_nonexistent(self.gipdataset)
         except Exception as err:
-            print "--> Warning: failed to create %s, err=%s" % (gsp, err)
+            print("--> Warning: failed to create %s, err=%s" % (gsp, err))
         try:
             bqutil.load_data_to_table(self.gipdataset, self.giptable, gsp, the_schema)
         except Exception as err:
-            print "---> ERROR: failed to load %s into BigQuery %s.%s, err=%s" % (gsp, self.gipdataset, self.giptable, err)
-            print "---> Continuing anyway"
+            print("---> ERROR: failed to load %s into BigQuery %s.%s, err=%s" % (gsp, self.gipdataset, self.giptable, err))
+            print("---> Continuing anyway")
             sys.stdout.flush()
 
     
@@ -239,7 +239,7 @@ class GeoIPData(object):
         
         if pcds_table is None:
             if org is None:
-                print "Error!  Must specify either --table or --org"
+                print("Error!  Must specify either --table or --org")
                 return
             dataset = 'course_report_' + org
             
@@ -250,13 +250,13 @@ class GeoIPData(object):
                     pctables.append(table)
             pctables.sort()
             if not pctables:
-                print "Error!  No person_course_%s_* tables found in dataset %s!" % (org, dataset)
+                print("Error!  No person_course_%s_* tables found in dataset %s!" % (org, dataset))
                 return
             pctable = pctables[-1]
         else:
             (dataset, pctable) = pcd_table.split('.',1)
     
-        print "[make_geoip_table] Using person course from %s.%s" % (dataset, pctable)
+        print("[make_geoip_table] Using person course from %s.%s" % (dataset, pctable))
     
         if nskip <= 0:
             pimc_table = "%s_ip_no_cc" % pctable
@@ -268,7 +268,7 @@ class GeoIPData(object):
         
             noips = bqutil.get_bq_table(dataset, pimc_table, sql)
             
-            print "%d IP addresses missing geoip information in %s" % (len(noips['data']), pimc_table)
+            print("%d IP addresses missing geoip information in %s" % (len(noips['data']), pimc_table))
             # print noips['data'][:10]
             sys.stdout.flush()
         
@@ -289,12 +289,12 @@ class GeoIPData(object):
                     sys.stdout.flush()
                     break
         
-            print "Added %d new geoip entries" % self.nchanged
+            print("Added %d new geoip entries" % self.nchanged)
             sys.stdout.flush()
         else:
             nskip -= 1
         self.write_geoip_table()
     
-        print "--> Done" 
+        print("--> Done") 
         sys.stdout.flush()
     

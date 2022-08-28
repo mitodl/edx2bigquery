@@ -15,15 +15,15 @@ import csv
 import re
 import json
 import time
-import gsutil
-import bqutil
+from . import gsutil
+from . import bqutil
 import datetime
-import process_tracking_logs
+from . import process_tracking_logs
 
 from path import Path as path
 from collections import defaultdict
-from check_schema_tracking_log import schema2dict, check_schema
-from load_course_sql import find_course_sql_dir, openfile
+from .check_schema_tracking_log import schema2dict, check_schema
+from .load_course_sql import find_course_sql_dir, openfile
 
 csv.field_size_limit(13107200)
 
@@ -88,10 +88,10 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
     smfn = lfp / 'studentmodule.csv'
     smfp = openfile(smfn)
     if smfp is None:
-        print "--> [analyze_problems] oops, missing %s, cannot process course %s" % (smfn, course_id)
+        print("--> [analyze_problems] oops, missing %s, cannot process course %s" % (smfn, course_id))
         return
 
-    print "[analyze_problems] processing %s for course %s to create problem_analysis table" % (smfn, course_id)
+    print("[analyze_problems] processing %s for course %s to create problem_analysis table" % (smfn, course_id))
     sys.stdout.flush()
 
     if smfp.name.endswith('.gz'):
@@ -115,15 +115,15 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
             try:
                 is_up_to_date = table_moddate > sm_moddate
             except Exception as err:
-                print "oops, cannot compare %s with %s to get is_up_to_date" % (table_moddate, sm_moddate)
+                print("oops, cannot compare %s with %s to get is_up_to_date" % (table_moddate, sm_moddate))
                 raise
     
             if is_up_to_date:
-                print "--> %s.%s already exists in BigQuery-date=%s (sm date=%s)...skipping (use --force-recompute to not skip)" % (dataset, 
+                print("--> %s.%s already exists in BigQuery-date=%s (sm date=%s)...skipping (use --force-recompute to not skip)" % (dataset, 
                                                                                                                                     table,
                                                                                                                                     table_moddate,
                                                                                                                                     sm_moddate,
-                                                                                                                                    )
+                                                                                                                                    ))
                 return
 
     data = []
@@ -146,8 +146,8 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
         try:
             state = json.loads(line['state'].replace('\\\\','\\'))
         except Exception as err:
-            print "oops, failed to parse state in studentmodule entry, err=%s" % str(err)
-            print "    %s" % repr(line)[:100]
+            print("oops, failed to parse state in studentmodule entry, err=%s" % str(err))
+            print("    %s" % repr(line)[:100])
             continue
         
         if 'correct_map' not in state:
@@ -162,7 +162,7 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
         answers = state['student_answers']
 
         items = []
-        for aid, cm in state['correct_map'].iteritems():
+        for aid, cm in state['correct_map'].items():
             item = { 'answer_id': aid,
                      'correctness': cm['correctness'],
                      'correct_bool' : cm['correctness']=='correct',
@@ -185,22 +185,22 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
                      'created': line['created'],
                      }
         except Exception as err:
-            print "---> [%d] Oops, error in transcribing entry, err=%s" % (cnt, str(err))
-            print "     state = %s" % state
-            print "     line = %s" % line
+            print("---> [%d] Oops, error in transcribing entry, err=%s" % (cnt, str(err)))
+            print("     state = %s" % state)
+            print("     line = %s" % line)
             if raise_exception_on_parsing_error:
                 raise
             else:
-                print "    skipping line!"
+                print("    skipping line!")
 
         check_schema(cnt, entry, the_ds=the_dict_schema, coerce=True)
         data.append(entry)
         cnt += 1
 
-    print "%d problem lines extracted from %d lines in %s" % (cnt, nlines, smfn)
+    print("%d problem lines extracted from %d lines in %s" % (cnt, nlines, smfn))
 
     if cnt==0:
-        print "--> No final data: not saving or importing into BigQuery"
+        print("--> No final data: not saving or importing into BigQuery")
         return
 
     # write out result
@@ -400,7 +400,7 @@ def make_problem_grades_table(course_id, dataset, force_recompute):
              """.format(dataset=dataset)
 
     pg_table = "problem_grades"
-    print "[analyze_problems] Creating %s.problem_grades table for %s" % (dataset, course_id)
+    print("[analyze_problems] Creating %s.problem_grades table for %s" % (dataset, course_id))
     sys.stdout.flush()
     bqdat = bqutil.get_bq_table(dataset, pg_table, pg_sql, force_query=force_recompute,
                                 depends_on=["%s.studentmodule" % dataset],
@@ -465,14 +465,14 @@ def make_chapter_grades_table(course_id, dataset, force_recompute):
              """.format(dataset=dataset)
 
     cg_table = "chapter_grades"
-    print "[analyze_problems] Creating %s.chapter_grades table for %s" % (dataset, course_id)
+    print("[analyze_problems] Creating %s.chapter_grades table for %s" % (dataset, course_id))
     sys.stdout.flush()
 
     try:
         tinfo = bqutil.get_bq_table_info(dataset, 'course_axis')
         assert tinfo is not None
     except Exception as err:
-        print " --> Err: missing %s.%s?  Skipping creation of chapter_grades" % (dataset, "course_axis")
+        print(" --> Err: missing %s.%s?  Skipping creation of chapter_grades" % (dataset, "course_axis"))
         sys.stdout.flush()
         return
 
@@ -594,17 +594,17 @@ FROM
 ORDER BY user_id
                 """.format(dataset=dataset)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, sasbu_table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, sasbu_table, course_id))
     sys.stdout.flush()
 
     try:
         tinfo = bqutil.get_bq_table_info(dataset, 'show_answer')
         has_show_answer = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, "show_answer")
+        print("Error %s getting %s.%s" % (err, dataset, "show_answer"))
         has_show_answer = False
     if not has_show_answer:
-        print "---> No show_answer table; skipping %s" % sasbu_table
+        print("---> No show_answer table; skipping %s" % sasbu_table)
         return
 
     bqdat = bqutil.get_bq_table(dataset, sasbu_table, sasbu_sql, force_query=force_recompute,
@@ -728,7 +728,7 @@ FROM
 )
           """.format(dataset=dataset, course_id=course_id)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     sasbu = "show_answer_stats_by_user"
@@ -736,10 +736,10 @@ FROM
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
         has_show_answer = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        print("Error %s getting %s.%s" % (err, dataset, sasbu))
         has_show_answer = False
     if not has_show_answer:
-        print "---> No show_answer table; skipping %s" % table
+        print("---> No show_answer table; skipping %s" % table)
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
@@ -753,7 +753,7 @@ FROM
               ]
 
     for fn in fields:
-        print "    %40s = %s" % (fn, bqdat['data'][0][fn])
+        print("    %40s = %s" % (fn, bqdat['data'][0][fn]))
     sys.stdout.flush()
 
 #-----------------------------------------------------------------------------
@@ -835,7 +835,7 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
             order by ip asc, certified desc
           """.format(dataset=dataset, course_id=course_id)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     sasbu = "stats_attempts_correct"
@@ -843,10 +843,10 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        print("Error %s getting %s.%s" % (err, dataset, sasbu))
         has_attempts_correct = False
     if not has_attempts_correct:
-        print "---> No attempts_correct table; skipping %s" % table
+        print("---> No attempts_correct table; skipping %s" % table)
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
@@ -858,7 +858,7 @@ def compute_ip_pair_sybils(course_id, force_recompute=False, use_dataset_latest=
         nfound = 0
     else:
         nfound = len(bqdat['data'])
-    print "--> Found %s records for %s, corresponding to %d master-harvester pairs" % (nfound, table, int(nfound/2))
+    print("--> Found %s records for %s, corresponding to %d master-harvester pairs" % (nfound, table, int(nfound/2)))
     sys.stdout.flush()
 
 
@@ -955,7 +955,7 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
              order by grp asc, certified desc;
           """.format(dataset=dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     sasbu = "stats_attempts_correct"
@@ -963,10 +963,10 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        print("Error %s getting %s.%s" % (err, dataset, sasbu))
         has_attempts_correct = False
     if not has_attempts_correct:
-        print "---> No attempts_correct table; skipping %s" % table
+        print("---> No attempts_correct table; skipping %s" % table)
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
@@ -978,7 +978,7 @@ def compute_ip_pair_sybils2(course_id, force_recompute=False, use_dataset_latest
         nfound = 0
     else:
         nfound = len(bqdat['data'])
-    print "--> [%s] Sybils 2.0 Found %s records for %s" % (course_id, nfound, table)
+    print("--> [%s] Sybils 2.0 Found %s records for %s" % (course_id, nfound, table))
     sys.stdout.flush()
  
 
@@ -1116,7 +1116,7 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
             order by avg_max_dt_seconds asc;
           """.format(dataset=dataset, course_id=course_id)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     sasbu = "show_answer"
@@ -1124,10 +1124,10 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        print("Error %s getting %s.%s" % (err, dataset, sasbu))
         has_attempts_correct = False
     if not has_attempts_correct:
-        print "---> No %s table; skipping %s" % (sasbu, table)
+        print("---> No %s table; skipping %s" % (sasbu, table))
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
@@ -1139,7 +1139,7 @@ def compute_show_ans_before_high_score(course_id, force_recompute=False, use_dat
         nfound = 0
     else:
         nfound = len(bqdat['data'])
-    print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
+    print("--> [%s] Processed %s records for %s" % (course_id, nfound, table))
     sys.stdout.flush()
 
 #-----------------------------------------------------------------------------
@@ -1291,7 +1291,7 @@ def compute_stats_problems_cameod(course_id, use_dataset_latest=True,
     #[c_p,c_d,c_t] = cameo_users_table.replace(':',' ').replace('.',' ').split()
 
     if testing and testing_dataset is None:
-      print "If testing == true, valid testing_dataset must be provided."
+      print("If testing == true, valid testing_dataset must be provided.")
       raise ValueError("When testing == true, valid testing_dataset must be provided.")
       
     if problem_check_show_answer_ip_table is None:
@@ -1390,7 +1390,7 @@ def compute_stats_problems_cameod(course_id, use_dataset_latest=True,
                 problem_check_show_answer_ip_table=problem_check_show_answer_ip_table,
                 cameo_users_table=cameo_users_table)
 
-    print "[compute_stats_problems_cameod] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[compute_stats_problems_cameod] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     bqutil.create_bq_table(testing_dataset if testing else dataset,
@@ -1401,7 +1401,7 @@ def compute_stats_problems_cameod(course_id, use_dataset_latest=True,
     nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset if testing else dataset, 
                                            table_id=dataset+'_'+table if testing else table)
 
-    print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
+    print("--> [%s] Processed %s records for %s" % (course_id, nfound, table))
     sys.stdout.flush()
 
     return ("mitx_research:"+testing_dataset+"."+dataset+'_'+table) if testing else (dataset+"."+table)
@@ -1440,7 +1440,7 @@ def course_started_after_switch_to_verified_only(course_id, use_dataset_latest=T
 
     bqutil.delete_bq_table(dataset_id=dataset, table_id=table_id)
     if result:
-      print "\n", '-' * 80 ,"\n", course_id, "started after December 7,l 2015 when certificates switched to verified only.\n", '-' * 80 ,"\n"
+      print("\n", '-' * 80 ,"\n", course_id, "started after December 7,l 2015 when certificates switched to verified only.\n", '-' * 80 ,"\n")
     return result
 
 #-----------------------------------------------------------------------------
@@ -1529,7 +1529,7 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
     if last_date is None:
       last_date = compute_upper_bound_date_of_cert_activity(course_id, use_dataset_latest, testing, testing_dataset, project_id)
     
-    print "="*80 + "\nComputing problem check and show answer ip table until end date: " + str(last_date) + "\n" + "="*80 
+    print("="*80 + "\nComputing problem check and show answer ip table until end date: " + str(last_date) + "\n" + "="*80) 
     
     cap = str(last_date.year) + ('0'+str(last_date.month))[-2:] + ('0'+str(last_date.day))[-2:] #Formatted as YYYYMMDD
 
@@ -1561,11 +1561,11 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
       """.format(tracking_log_dataset=tracking_log_dataset,cap=cap,num_partitions=num_partitions, partition = i)
       sql.append(item)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     for i in range(num_partitions): 
-      print "--> Running compute_problem_check_show_answer_ip_table SQL for partition %d of %d" % (i + 1, num_partitions)
+      print("--> Running compute_problem_check_show_answer_ip_table SQL for partition %d of %d" % (i + 1, num_partitions))
       sys.stdout.flush()
       tries = 0 #Counts number of times "internal error occurs."
       while(tries < 10):
@@ -1578,13 +1578,13 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
         except Exception as err:
           if 'internal error' in str(err) and tries < 10:
             tries += 1
-            print "---> Internal Error occurred. Sleeping 100 seconds and retrying."
+            print("---> Internal Error occurred. Sleeping 100 seconds and retrying.")
             sys.stdout.flush()
             time.sleep(100) #100 seconds
             continue
-          elif (num_partitions < 20) and ('internal error' in str(err) or 'Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
-            print err
-            print "="*80,"\n==> SQL query failed! Recursively trying compute_problem_check_show_answer_ip_table again, with 50% more many partitions\n", "="*80
+          elif (num_partitions < 20) and ('internal error' in str(err) or 'Response too large' in str(err) or 'Resources exceeded' in str(err) or 'resourcesExceeded' in str(err)):
+            print(err)
+            print("="*80,"\n==> SQL query failed! Recursively trying compute_problem_check_show_answer_ip_table again, with 50% more many partitions\n", "="*80)
             return compute_problem_check_show_answer_ip(course_id, use_dataset_latest=use_dataset_latest, overwrite=overwrite, 
                                                         num_partitions=int(round(num_partitions*1.5)), last_date=last_date,
                                                         testing=testing, testing_dataset=testing_dataset, project_id=project_id)
@@ -1595,7 +1595,7 @@ def compute_problem_check_show_answer_ip(course_id, use_dataset_latest=False, nu
                                            table_id=dataset+'_'+table if testing else table,
                                            project_id='mitx-research')
 
-    print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
+    print("--> [%s] Processed %s records for %s" % (course_id, nfound, table))
     sys.stdout.flush()
 
     return num_partitions
@@ -1715,7 +1715,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
   #Check that course actually contains participants, otherwise this function will recursively keep retrying when it fails.
   if bqutil.get_bq_table_size_rows(dataset_id=dataset, table_id='person_course',
                                    project_id=project_id if testing else 'mitx-research') <= 10:
-            print "Error! --> Course contains no participants; exiting show_ans_before for course", course_id
+            print("Error! --> Course contains no participants; exiting show_ans_before for course", course_id)
             return False
 
   if problem_check_show_answer_ip_table is None:
@@ -1746,7 +1746,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                                                           use_dataset_latest=use_dataset_latest, 
                                                                           testing=testing, 
                                                                           project_id=project_id)
-    print "\n", '-' * 80 ,"\n", course_id, "has", str(n), "certified users. Online status for show_ans_before:", force_online, "\n", '-' * 80 ,"\n"
+    print("\n", '-' * 80 ,"\n", course_id, "has", str(n), "certified users. Online status for show_ans_before:", force_online, "\n", '-' * 80 ,"\n")
 
   #-------------------- partition by nshow_ans_distinct
 
@@ -1789,7 +1789,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
       num_persons = bqutil.get_bq_table_size_rows(dataset, 'person_course', project_id)
   if force_num_partitions:
       num_partitions = force_num_partitions
-      print " --> Force the number of partitions to be %d" % force_num_partitions
+      print(" --> Force the number of partitions to be %d" % force_num_partitions)
   else:
       #Twice the paritions if running in a course that hasn't completed (force_online == True) since we consider more pairs
       if num_persons > 60000:
@@ -1798,7 +1798,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
           num_partitions = min(int(round(num_persons / (10000 if force_online else 15000))), 5)
       else:
           num_partitions = 1
-  print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
+  print(" --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions))
 
   def make_username_partition(nparts, pnum):
       psql = """ABS(HASH(a.username)) %% %d = %d\n""" % (nparts, pnum)
@@ -2604,7 +2604,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                        cameo_master_table=cameo_master_table)
       sql.append(item)
 
-  print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+  print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
   sys.stdout.flush()
 
  # sasbu = "show_answer"
@@ -2656,7 +2656,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
   force_recompute=True #REMOVE ONCE SAB IS STABLE!!!!!!!!!
   if force_recompute:
       for i in range(num_partitions): 
-        print "--> Running SQL for partition %d of %d" % (i + 1, num_partitions)
+        print("--> Running SQL for partition %d of %d" % (i + 1, num_partitions))
         sys.stdout.flush()
         tries = 0 #Counts number of times "internal error occurs."
         while(tries < 10):
@@ -2669,16 +2669,16 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
           except Exception as err:
             if 'internal error' in str(err) and tries < 10:
               tries += 1
-              print "---> Internal Error occurred. Sleeping 2 minutes and retrying."
+              print("---> Internal Error occurred. Sleeping 2 minutes and retrying.")
               sys.stdout.flush()
               time.sleep(120) #2 minutes
               continue
-            elif (num_partitions < 300) and ('internal error' in str(err) or 'Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
-              print "---> Resources exceeded. Sleeping 1 minute and retrying."
+            elif (num_partitions < 300) and ('internal error' in str(err) or 'Response too large' in str(err) or 'Resources exceeded' in str(err) or 'resourcesExceeded' in str(err)):
+              print("---> Resources exceeded. Sleeping 1 minute and retrying.")
               sys.stdout.flush()
               time.sleep(160) #1 minute
-              print err
-              print "="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80
+              print(err)
+              print("="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80)
               return compute_show_ans_before(course_id, force_recompute=force_recompute, 
                                               use_dataset_latest=use_dataset_latest, force_num_partitions=int(round(num_partitions*1.5)), 
                                               testing=testing, testing_dataset= testing_dataset, 
@@ -2689,7 +2689,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
           
 
       if num_partitions > 5:
-        print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
+        print("--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time")
         sys.stdout.flush()
         time.sleep(60)
 
@@ -2698,7 +2698,7 @@ def compute_show_ans_before(course_id, force_recompute=False, use_dataset_latest
                                            project_id='mitx-research')
   if testing:
       nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset, table_id=table, project_id='mitx-research')
-  print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
+  print("--> [%s] Processed %s records for %s" % (course_id, nfound, table))
   sys.stdout.flush()
 
 
@@ -2836,7 +2836,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
             ORDER BY grp ASC, certified DESC
           """.format(dataset=dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     sasbu = "stats_show_ans_before"
@@ -2844,10 +2844,10 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        print("Error %s getting %s.%s" % (err, dataset, sasbu))
         has_attempts_correct = False
     if not has_attempts_correct:
-        print "---> No attempts_correct table; skipping %s" % table
+        print("---> No attempts_correct table; skipping %s" % table)
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
@@ -2859,7 +2859,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
         nfound = 0
     else:
         nfound = len(bqdat['data'])
-    print "--> [%s] Sybils 3.0 Found %s records for %s" % (course_id, nfound, table)
+    print("--> [%s] Sybils 3.0 Found %s records for %s" % (course_id, nfound, table))
     sys.stdout.flush()
     
 
@@ -2981,7 +2981,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
   #Check that course actually contains participants, otherwise this function will recursively keep retrying when it fails.
   if bqutil.get_bq_table_size_rows(dataset_id=dataset, table_id='person_course',
                                    project_id=project_id if testing else 'mitx-research') <= 10:
-            print "Error! --> Course contains no participants; exiting stats_ans_coupling for course", course_id
+            print("Error! --> Course contains no participants; exiting stats_ans_coupling for course", course_id)
             return False
 
   if problem_check_show_answer_ip_table is None:
@@ -3012,7 +3012,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                                                                           use_dataset_latest=use_dataset_latest, 
                                                                           testing=testing, 
                                                                           project_id=project_id)
-    print "\n", '-' * 80 ,"\n", course_id, "has", str(n), "certified users. Online status for show_ans_before:", force_online, "\n", '-' * 80 ,"\n"
+    print("\n", '-' * 80 ,"\n", course_id, "has", str(n), "certified users. Online status for show_ans_before:", force_online, "\n", '-' * 80 ,"\n")
 
   #-------------------- partition by nshow_ans_distinct
 
@@ -3055,7 +3055,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
       num_persons = bqutil.get_bq_table_size_rows(dataset, 'person_course', project_id)
   if force_num_partitions:
       num_partitions = force_num_partitions
-      print " --> Force the number of partitions to be %d" % force_num_partitions
+      print(" --> Force the number of partitions to be %d" % force_num_partitions)
   else:
       #Twice the paritions if running in a course that hasn't completed (force_online == True) since we consider more pairs
       if num_persons > 60000:
@@ -3064,7 +3064,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
           num_partitions = min(int(round(num_persons / (10000 if force_online else 15000))), 5)
       else:
           num_partitions = 1
-  print " --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions)
+  print(" --> number of persons in %s.person_course is %s; splitting query into %d partitions" % (dataset, num_persons, num_partitions))
 
   def make_username_partition(nparts, pnum):
       psql = """ABS(HASH(a.username)) %% %d = %d\n""" % (nparts, pnum)
@@ -3906,7 +3906,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                        problem_check_table=problem_check_table)
       sql.append(item)
 
-  print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+  print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
   sys.stdout.flush()
 
  # sasbu = "show_answer"
@@ -3958,7 +3958,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
   force_recompute=True #REMOVE ONCE SAB IS STABLE!!!!!!!!!
   if force_recompute:
       for i in range(num_partitions): 
-        print "--> Running SQL for partition %d of %d" % (i + 1, num_partitions)
+        print("--> Running SQL for partition %d of %d" % (i + 1, num_partitions))
         sys.stdout.flush()
         tries = 0 #Counts number of times "internal error occurs."
         while(tries < 10):
@@ -3971,16 +3971,16 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
           except Exception as err:
             if 'internal error' in str(err) and tries < 10:
               tries += 1
-              print "---> Internal Error occurred. Sleeping 2 minutes and retrying."
+              print("---> Internal Error occurred. Sleeping 2 minutes and retrying.")
               sys.stdout.flush()
               time.sleep(120) #2 minutes
               continue
-            elif (num_partitions < 300) and ('internal error' in str(err) or 'Response too large' in str(err) or 'Resources exceeded' in str(err) or u'resourcesExceeded' in str(err)):
-              print "---> Resources exceeded. Sleeping 1 minute and retrying."
+            elif (num_partitions < 300) and ('internal error' in str(err) or 'Response too large' in str(err) or 'Resources exceeded' in str(err) or 'resourcesExceeded' in str(err)):
+              print("---> Resources exceeded. Sleeping 1 minute and retrying.")
               sys.stdout.flush()
               time.sleep(160) #1 minute
-              print err
-              print "="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80
+              print(err)
+              print("="*80,"\n==> SQL query failed! Recursively trying again, with 50% more many partitions\n", "="*80)
               return compute_show_ans_before(course_id, force_recompute=force_recompute, 
                                               use_dataset_latest=use_dataset_latest, force_num_partitions=int(round(num_partitions*1.5)), 
                                               testing=testing, testing_dataset= testing_dataset, 
@@ -3991,7 +3991,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
           
 
       if num_partitions > 5:
-        print "--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time"
+        print("--> sleeping for 60 seconds to try avoiding bigquery system error - maybe due to data transfer time")
         sys.stdout.flush()
         time.sleep(60)
 
@@ -4000,7 +4000,7 @@ def compute_ans_coupling(course_id, force_recompute=False, use_dataset_latest=Tr
                                            project_id='mitx-research')
   if testing:
       nfound = bqutil.get_bq_table_size_rows(dataset_id=testing_dataset, table_id=table, project_id='mitx-research')
-  print "--> [%s] Processed %s records for %s" % (course_id, nfound, table)
+  print("--> [%s] Processed %s records for %s" % (course_id, nfound, table))
   sys.stdout.flush()
 
 
@@ -4138,7 +4138,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
             ORDER BY grp ASC, certified DESC
           """.format(dataset=dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     sasbu = "stats_show_ans_before"
@@ -4146,10 +4146,10 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        print("Error %s getting %s.%s" % (err, dataset, sasbu))
         has_attempts_correct = False
     if not has_attempts_correct:
-        print "---> No attempts_correct table; skipping %s" % table
+        print("---> No attempts_correct table; skipping %s" % table)
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
@@ -4161,7 +4161,7 @@ def compute_ip_pair_sybils3(course_id, force_recompute=False, use_dataset_latest
         nfound = 0
     else:
         nfound = len(bqdat['data'])
-    print "--> [%s] Sybils 3.0 Found %s records for %s" % (course_id, nfound, table)
+    print("--> [%s] Sybils 3.0 Found %s records for %s" % (course_id, nfound, table))
     sys.stdout.flush()
     
 
@@ -4413,7 +4413,7 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
             ORDER BY grp ASC, certified DESC
           """.format(dataset=project_dataset if testing else dataset, course_id=course_id, uname_ip_groups_table=uname_ip_groups_table, course_info_table=course_info_table)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     sasbu = "stats_show_ans_before"
@@ -4423,10 +4423,10 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
             tinfo = bqutil.get_bq_table_info(dataset, sasbu, project_id)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        print("Error %s getting %s.%s" % (err, dataset, sasbu))
         has_attempts_correct = False
     if not has_attempts_correct:
-        print "---> No %s table; skipping %s" % (sasbu, table)
+        print("---> No %s table; skipping %s" % (sasbu, table))
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
@@ -4438,7 +4438,7 @@ def compute_ip_pair_sybils3_unfiltered(course_id, force_recompute=False, use_dat
         nfound = 0
     else:
         nfound = len(bqdat['data'])
-    print "--> [%s] Sybils 3.0 Found %s records for %s" % (course_id, nfound, table)
+    print("--> [%s] Sybils 3.0 Found %s records for %s" % (course_id, nfound, table))
     sys.stdout.flush()
     
 #-----------------------------------------------------------------------------
@@ -4556,7 +4556,7 @@ def compute_cameo_demographics(course_id, force_recompute=False, use_dataset_lat
            ORDER BY course_id
           """.format(dataset=dataset, course_id=course_id)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     sasbu = "stats_ip_pair_sybils3"
@@ -4564,10 +4564,10 @@ def compute_cameo_demographics(course_id, force_recompute=False, use_dataset_lat
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        print("Error %s getting %s.%s" % (err, dataset, sasbu))
         has_attempts_correct = False
     if not has_attempts_correct:
-        print "---> No %s table; skipping %s" % (sasbu, table)
+        print("---> No %s table; skipping %s" % (sasbu, table))
         return
 
     try:
@@ -4581,10 +4581,10 @@ def compute_cameo_demographics(course_id, force_recompute=False, use_dataset_lat
             bqutil.create_bq_table(testing_dataset, table, SQL, overwrite=True)
             
     except Exception as err:
-        print "[compute_cameo_demographics] oops, failed in running SQL=%s, err=%s" % (SQL, err)
+        print("[compute_cameo_demographics] oops, failed in running SQL=%s, err=%s" % (SQL, err))
         raise
 
-    print "--> Done with %s, results=%s" % (table, json.dumps(bqdat['data'][0], indent=4))
+    print("--> Done with %s, results=%s" % (table, json.dumps(bqdat['data'][0], indent=4)))
     sys.stdout.flush()
     
 #-----------------------------------------------------------------------------
@@ -4665,7 +4665,7 @@ def compute_problem_check_temporal_fingerprint(course_id, force_recompute=False,
             order by user_id, index
           """.format(dataset=dataset, course_id=course_id)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     sasbu = "problem_check"
@@ -4673,11 +4673,11 @@ def compute_problem_check_temporal_fingerprint(course_id, force_recompute=False,
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        print("Error %s getting %s.%s" % (err, dataset, sasbu))
         has_attempts_correct = False
 
     if not has_attempts_correct:
-        print "---> No problem_check table; skipping %s" % table
+        print("---> No problem_check table; skipping %s" % table)
         return
 
     try:
@@ -4688,10 +4688,10 @@ def compute_problem_check_temporal_fingerprint(course_id, force_recompute=False,
                                     startIndex=-2,
                                 )
     except Exception as err:
-        print "[compute_problem_check_temporal_fingerprint] oops, failed in running SQL=%s, err=%s" % (SQL, err)
+        print("[compute_problem_check_temporal_fingerprint] oops, failed in running SQL=%s, err=%s" % (SQL, err))
         raise
 
-    print "--> Done with %s" % (table)
+    print("--> Done with %s" % (table))
     sys.stdout.flush()
 
 
@@ -4727,7 +4727,7 @@ def compute_show_answer_temporal_fingerprint(course_id, force_recompute=False, u
             order by user_id, index
           """.format(dataset=dataset, course_id=course_id)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     sasbu = "show_answer"
@@ -4735,10 +4735,10 @@ def compute_show_answer_temporal_fingerprint(course_id, force_recompute=False, u
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        print("Error %s getting %s.%s" % (err, dataset, sasbu))
         has_attempts_correct = False
     if not has_attempts_correct:
-        print "---> No show_answer table; skipping %s" % table
+        print("---> No show_answer table; skipping %s" % table)
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
@@ -4748,7 +4748,7 @@ def compute_show_answer_temporal_fingerprint(course_id, force_recompute=False, u
                                 startIndex=-2,
                             )
 
-    print "--> Done with %s" % (table)
+    print("--> Done with %s" % (table))
     sys.stdout.flush()
 
 def compute_temporal_fingerprint_correlations(course_id, force_recompute=False, use_dataset_latest=False):
@@ -4806,7 +4806,7 @@ def compute_temporal_fingerprint_correlations(course_id, force_recompute=False, 
             ON C.CAMEO_uid = SAC.user_id
           """.format(dataset=dataset, course_id=course_id)
 
-    print "[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id)
+    print("[analyze_problems] Creating %s.%s table for %s" % (dataset, table, course_id))
     sys.stdout.flush()
 
     sasbu = "stats_attempts_correct"
@@ -4814,10 +4814,10 @@ def compute_temporal_fingerprint_correlations(course_id, force_recompute=False, 
         tinfo = bqutil.get_bq_table_info(dataset, sasbu)
         has_attempts_correct = (tinfo is not None)
     except Exception as err:
-        print "Error %s getting %s.%s" % (err, dataset, sasbu)
+        print("Error %s getting %s.%s" % (err, dataset, sasbu))
         has_attempts_correct = False
     if not has_attempts_correct:
-        print "---> No %s table; skipping %s" % (sasbu, table)
+        print("---> No %s table; skipping %s" % (sasbu, table))
         return
 
     bqdat = bqutil.get_bq_table(dataset, table, SQL, force_query=force_recompute,
@@ -4830,5 +4830,5 @@ def compute_temporal_fingerprint_correlations(course_id, force_recompute=False, 
         nfound = 0
     else:
         nfound = len(bqdat['data'])
-    print "--> Done with %s, %d entries found" % (table, nfound)
+    print("--> Done with %s, %d entries found" % (table, nfound))
     sys.stdout.flush()

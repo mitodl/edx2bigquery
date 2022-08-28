@@ -3,7 +3,7 @@
 import unicodedata
 
 def fix_bad_unicode(text):
-    u"""
+    """
     Something you will find all over the place, in real-world text, is text
     that's mistakenly encoded as utf-8, decoded in some ugly format like
     latin-1 or even Windows codepage 1252, and encoded as utf-8 again.
@@ -66,7 +66,7 @@ def fix_bad_unicode(text):
         >>> print fix_bad_unicode(u'This text was never Unicode at all\x85')
         This text was never Unicode at all…
     """
-    if not isinstance(text, unicode):
+    if not isinstance(text, str):
         raise TypeError("This isn't even decoded into Unicode yet. "
                         "Decode it first.")
     if len(text) == 0:
@@ -121,7 +121,7 @@ def reinterpret_latin1_as_windows1252(wrongtext):
     return wrongtext.encode('latin-1').decode('WINDOWS_1252', 'replace')
 
 def text_badness(text):
-    u'''
+    '''
     Look for red flags that text is encoded incorrectly:
 
     Obvious problems:
@@ -138,12 +138,12 @@ def text_badness(text):
     - Improbable single-byte characters, such as ƒ or ¬
     - Letters in somewhat rare scripts
     '''
-    assert isinstance(text, unicode)
+    assert isinstance(text, str)
     errors = 0
     very_weird_things = 0
     weird_things = 0
     prev_letter_script = None
-    for pos in xrange(len(text)):
+    for pos in range(len(text)):
         char = text[pos]
         index = ord(char)
         if index < 256:
@@ -231,7 +231,7 @@ WINDOWS_1252_GREMLINS = [
 ]
 
 # a list of Unicode characters that might appear in Windows-1252 text
-WINDOWS_1252_CODEPOINTS = range(256) + WINDOWS_1252_GREMLINS
+WINDOWS_1252_CODEPOINTS = list(range(256)) + WINDOWS_1252_GREMLINS
 
 # Rank the characters typically represented by a single byte -- that is, in
 # Latin-1 or Windows-1252 -- by how weird it would be to see them in running
@@ -275,8 +275,8 @@ SINGLE_BYTE_WEIRDNESS = (
 # Pre-cache the Unicode data saying which of these first 256 characters are
 # letters. We'll need it often.
 SINGLE_BYTE_LETTERS = [
-    unicodedata.category(unichr(i)).startswith('L')
-    for i in xrange(256)
+    unicodedata.category(chr(i)).startswith('L')
+    for i in range(256)
 ]
 
 # A table telling us how to interpret the first word of a letter's Unicode

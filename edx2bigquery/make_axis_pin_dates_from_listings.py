@@ -6,7 +6,7 @@
 
 import json
 import glob
-from load_course_sql import find_course_sql_dir
+from .load_course_sql import find_course_sql_dir
 
 def process_courses(clist, basedir, listings):
 
@@ -15,9 +15,9 @@ def process_courses(clist, basedir, listings):
     for course_id in clist:
         wrap = data[course_id].get('Course Wrap')
         try:
-            (month, day, year) = map(int, wrap.split('/'))
+            (month, day, year) = list(map(int, wrap.split('/')))
         except Exception as err:
-            print "Cannot parse date %s for course %s" % (wrap, course_id)
+            print("Cannot parse date %s for course %s" % (wrap, course_id))
             continue
     
         wrap_dn = "%04d-%02d-%02d" % (year, month, day)
@@ -49,8 +49,8 @@ def process_courses(clist, basedir, listings):
         # print "course %s, wrap %s, suggestd pin dir=%s" % (course_id, wrap_dn, chosen_dir)
         
         if chosen_dir:
-            print "    '%s': '%s'," % (course_id, chosen_dir.rsplit('/',2)[1])
+            print("    '%s': '%s'," % (course_id, chosen_dir.rsplit('/',2)[1]))
         else:
-            print "--> course %s, wrap %s, suggestd pin dir NOT FOUND" % (course_id, wrap_dn)
+            print("--> course %s, wrap %s, suggestd pin dir NOT FOUND" % (course_id, wrap_dn))
     
         

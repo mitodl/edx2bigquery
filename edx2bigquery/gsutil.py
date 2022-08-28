@@ -14,7 +14,7 @@ sys.path.append(os.path.abspath(os.curdir))
 try:
     import edx2bigquery_config
 except:
-    print "Warning: could not import edx2bigquery_config"
+    print("Warning: could not import edx2bigquery_config")
     class edx2bigquery_config(object):
         GS_BUCKET = "gs://dummy-gs-bucket"
 
@@ -33,7 +33,7 @@ def gs_download_link(gspath):
 def get_gs_file_list(path):
     if not path.startswith('gs://'):
         path = edxbigquery_config.GS_BUCKET + path
-    print "Getting file list from %s" % path
+    print("Getting file list from %s" % path)
     fnset = OrderedDict()
     for dat in os.popen('gsutil ls -l ' + path).readlines():
         if dat.strip().startswith('TOTAL'):
@@ -44,7 +44,7 @@ def get_gs_file_list(path):
                 continue
             (size, date, name) = x
         except Exception as err:
-            print "oops, err=%s, dat=%s" % (str(err), dat)
+            print("oops, err=%s, dat=%s" % (str(err), dat))
             raise
         date = dateutil.parser.parse(date)
         size = int(size)
@@ -55,7 +55,7 @@ def get_gs_file_list(path):
 def upload_file_to_gs(src, dst, options='', verbose=False):
     cmd = 'gsutil cp %s %s %s' % (options, src, dst)
     if verbose:
-        print "--> %s" % cmd
+        print("--> %s" % cmd)
         sys.stdout.flush()
     os.system(cmd)
 

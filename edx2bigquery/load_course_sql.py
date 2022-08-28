@@ -30,11 +30,11 @@ import re
 import datetime
 import pytz
 import gzip
-import bqutil
-import gsutil
+from . import bqutil
+from . import gsutil
 import unicodecsv as csv
 from path import Path as path
-from gsutil import get_gs_file_list
+from .gsutil import get_gs_file_list
 
 #-----------------------------------------------------------------------------
 
@@ -55,7 +55,7 @@ def find_course_sql_dir(course_id, basedir, datedir=None, use_dataset_latest=Fal
             lfp = (basedir or '.') / course_id.split('/',1)[1].replace('/','-') 
             if not os.path.exists(lfp):
                 msg = "Error!  Cannot find course SQL directory %s or %s" % (olfp , lfp)
-                print msg
+                print(msg)
                 raise Exception(msg)
 
     if use_dataset_latest:	# overrides datedir
@@ -64,18 +64,18 @@ def find_course_sql_dir(course_id, basedir, datedir=None, use_dataset_latest=Fal
         datedirs.sort()
         if not datedirs:
             msg = "[find_course_sql_dir] use_dateset_latest=True, but no date directories found in %s!" % (lfp)
-            print msg
+            print(msg)
             raise Exception(msg)
         datedir = path(datedirs[-1]).basename()
         if verbose:
-            print "[find_course_sql_dir] using latest datedir = %s for %s" % (datedir, course_id)
+            print("[find_course_sql_dir] using latest datedir = %s for %s" % (datedir, course_id))
 
     if datedir is not None:
         lfp = lfp / datedir
         
     if not os.path.exists(lfp):
         msg = "Error!  Cannot find course SQL directory %s" % (lfp)
-        print msg
+        print(msg)
         raise Exception(msg)
 
     return lfp
@@ -87,11 +87,11 @@ def get_course_sql_dirdate( course_id, lfp, datedir, use_dataset_latest ):
     '''
     if use_dataset_latest or datedir is not None:
         datedir = lfp.basename()
-        print "[get_course_sql_dirdate] set dirdate = %s for %s" % (datedir, course_id)
+        print("[get_course_sql_dirdate] set dirdate = %s for %s" % (datedir, course_id))
         return datedir
     else: 
         msg = "[get_course_sql_dirdate] No date directories found in %s!" % (lfp)
-        print msg
+        print(msg)
         return None
 
 #-----------------------------------------------------------------------------
@@ -236,7 +236,7 @@ def rephrase_studentmodule_opaque_keys(fn_sm):
     fn_sm = path(fn_sm)
     orig_sm_fn = '%s/studentmodule_orig.csv.gz' % (fn_sm.dirname())
     cmd = 'cp %s %s' % (fn_sm, orig_sm_fn)
-    print "  Running %s" % cmd
+    print("  Running %s" % cmd)
     sys.stdout.flush()
     os.system(cmd)
     ofp = openfile(fn_sm, 'w')
@@ -252,7 +252,7 @@ def rephrase_studentmodule_opaque_keys(fn_sm):
         fix_opaque_keys(entry, 'course_id')
         odw.writerow(entry)
     ofp.close()
-    print "Rephrased %s -> %s to convert opaque keys syntax to standard module_id and course_id format" % (orig_sm_fn, fn_sm)
+    print("Rephrased %s -> %s to convert opaque keys syntax to standard module_id and course_id format" % (orig_sm_fn, fn_sm))
     sys.stdout.flush()
 
 #-----------------------------------------------------------------------------
@@ -269,12 +269,12 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
     Thus, the latest SQL dataset can always be put in a consistently named dataset.
     '''
     
-    print "Loading SQL for course %s into BigQuery (start: %s)" % (course_id, datetime.datetime.now())
+    print("Loading SQL for course %s into BigQuery (start: %s)" % (course_id, datetime.datetime.now()))
     sys.stdout.flush()
 
     lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest=use_dataset_latest)
 
-    print "Using this directory for local files: ", lfp
+    print("Using this directory for local files: ", lfp)
     sys.stdout.flush()
                           
     # convert studentmodule if necessary
@@ -287,10 +287,10 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
             if not fn_sm.exists():
                 fn_sm = lfp / 'studentmodule.sql'
                 if not fn_sm.exists():
-                    print "Error!  Missing studentmodule.[sql,csv][.gz]"
+                    print("Error!  Missing studentmodule.[sql,csv][.gz]")
             if fn_sm.exists():	# have .sql or .sql.gz version: convert to .csv
                 newfn = lfp / 'studentmodule.csv.gz'
-                print "--> Converting %s to %s" % (fn_sm, newfn)
+                print("--> Converting %s to %s" % (fn_sm, newfn))
                 tsv2csv(fn_sm, newfn)
                 fn_sm = newfn
 
@@ -309,7 +309,7 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
         if os.path.exists(fnroot + ".sql") or os.path.exists(fnroot + ".sql.gz"):
             infn = fnroot + '.sql'
             outfn = fnroot + '.csv.gz'
-            print "--> Converting %s to %s" % (infn, outfn)
+            print("--> Converting %s to %s" % (infn, outfn))
             tsv2csv(infn, outfn)
 
     # convert sql files if necesssary
@@ -321,11 +321,11 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
 
     # if using latest date directory, also look for course_image.jpg one level up
     if use_dataset_latest:
-        print lfp.dirname()
+        print(lfp.dirname())
         ci_files = glob.glob(lfp.dirname() / 'course_image.jpg')
         if ci_files:
             local_files += list(ci_files)
-            print "--> local course_image file: %s" % ci_files
+            print("--> local course_image file: %s" % ci_files)
 
     gsdir = gsutil.gs_path_from_course_id(course_id, gsbucket=gsbucket, use_dataset_latest=use_dataset_latest)
 
@@ -347,11 +347,11 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
 
             fnb = os.path.basename(fn)
             if fnb in fnset and fnset[fnb]['date'] > utc_dt:
-                print "...%s already copied, skipping" % fn
+                print("...%s already copied, skipping" % fn)
                 sys.stdout.flush()
                 return
             elif fnb in fnset:
-                print "...%s already exists, but has date=%s and mtime=%s, re-uploading" % (fn, fnset[fnb]['date'], mt)
+                print("...%s already exists, but has date=%s and mtime=%s, re-uploading" % (fn, fnset[fnb]['date'], mt))
 
             gsutil.upload_file_to_gs(fn, gsdir / fnb, options=options, verbose=True)
 
@@ -361,7 +361,7 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
                 copy_if_newer(fn, fnset, options='-a public-read')
             if not (fnb.endswith('.csv') or fnb.endswith('.json') or fnb.endswith('.csv.gz') 
                     or fnb.endswith('.json.gz') or fnb.endswith('.mongo.gz')):
-                print "...unknown file type %s, skipping" % fn
+                print("...unknown file type %s, skipping" % fn)
                 sys.stdout.flush()
                 continue
             copy_if_newer(fn, fnset)
@@ -377,7 +377,7 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
         uic_schema = json.loads(open('%s/schemas/schema_user_info_combo.json' % mypath).read())['user_info_combo']
         bqutil.load_data_to_table(dataset, 'user_info_combo', gsdir / "user_info_combo.json.gz", uic_schema, wait=False)
     else:
-        print "--> File %s does not exist, not loading user_info_combo into BigQuery" % uicfn
+        print("--> File %s does not exist, not loading user_info_combo into BigQuery" % uicfn)
     
     # load studentmodule
                 
@@ -386,7 +386,7 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
         cwsm_schema = schemas['courseware_studentmodule']
         bqutil.load_data_to_table(dataset, 'studentmodule', gsdir / fn_sm.basename(), cwsm_schema, format='csv', wait=False, skiprows=1)
     else:
-        print "--> Not loading studentmodule: file %s not found" % fn_sm
+        print("--> Not loading studentmodule: file %s not found" % fn_sm)
 
 
         

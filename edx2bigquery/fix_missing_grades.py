@@ -3,7 +3,7 @@
 import os, sys
 import gzip
 import json
-import gsutil
+from . import gsutil
 import time
 try:
     import edxapi
@@ -13,8 +13,8 @@ import datetime
 
 from path import Path as path
 from collections import defaultdict
-from check_schema_tracking_log import schema2dict, check_schema
-from load_course_sql import find_course_sql_dir, parseCourseIdField
+from .check_schema_tracking_log import schema2dict, check_schema
+from .load_course_sql import find_course_sql_dir, parseCourseIdField
 
 
 TIME_TO_WAIT = 300 # Every 5 minutes
@@ -29,9 +29,9 @@ def fix_missing_grades( course_id,
                         use_dataset_latest=False):
 
     lfp = find_course_sql_dir(course_id=course_id, basedir=basedir)# , org_list=org_list)
-    print lfp
+    print(lfp)
     gradereport_dir = lfp + '/from_edxinstructordash'
-    print gradereport_dir
+    print(gradereport_dir)
 
     if not gradereport_dir.exists():
         os.mkdir(gradereport_dir)
@@ -45,7 +45,7 @@ def fix_missing_grades( course_id,
         # course_id_type can be set using --course-id-type opaque, for example, on the command line
         # Important to properly pass the original course id, as it exists in the edX platform
 	course_id = parseCourseIdField( course=course_id, org_list=org_list, course_id_type=course_id_type )
-        print 'Processing course %s' % course_id
+        print('Processing course %s' % course_id)
         sys.stdout.flush()
         
         try:
@@ -56,7 +56,7 @@ def fix_missing_grades( course_id,
 	    grade_reports_dict = getGrades.get_grade_reports( course_id, ofn_dir )
 
             if download_only:
-                    print 'Download grade report only specified'
+                    print('Download grade report only specified')
                     sys.stdout.flush()
 		    getGrades.get_latest_grade_report( grade_reports_dict, ofn, ofn_dir )
 
@@ -65,7 +65,7 @@ def fix_missing_grades( course_id,
 		    grade_report_ready = False
 		    while not grade_report_ready:
 			current_time = datetime.datetime.now()
-			print "Checking grade report status at %s" % current_time
+			print("Checking grade report status at %s" % current_time)
 			sys.stdout.flush()
 			time.sleep( TIME_TO_WAIT )
 			if grade_report_download_ready( course_id ):
@@ -74,7 +74,7 @@ def fix_missing_grades( course_id,
 			    grade_report_ready = True
 	
         except Exception as err:
-            print str(err)
+            print(str(err))
             grade_report_downloaded = False
 
 	    # Try one last time
@@ -84,15 +84,15 @@ def fix_missing_grades( course_id,
 		    getGrades.get_latest_grade_report( grade_reports_dict, ofn, ofn_dir )
 		    grade_report_downloaded = True
             except Exception as err:
-                    print 'Failure on second attempt %s' % str(err)
+                    print('Failure on second attempt %s' % str(err))
                     sys.stdout.flush()
 		    raise
 
             if grade_report_downloaded:
-                print 'Success on second attempt %s'
+                print('Success on second attempt %s')
                 sys.stdout.flush()
             else:
-                print 'Failure on second attempt %s' % str(err)
+                print('Failure on second attempt %s' % str(err))
                 sys.stdout.flush()
 	        raise
 

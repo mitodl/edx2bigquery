@@ -21,7 +21,7 @@ try:
 except:
     from local_config import PROJECT_ID as DEFAULT_PROJECT_ID
 
-import auth
+from . import auth
 from collections import OrderedDict
 
 service = auth.build_bq_client(timeout=480)
@@ -36,7 +36,7 @@ jobs = service.jobs()
 PROJECT_NAMES = {}				# used to cache project names, key=project_id
 
 def default_logger(msg):
-    print msg
+    print(msg)
 
 def get_project_name(project_id=DEFAULT_PROJECT_ID):
     if project_id in PROJECT_NAMES:		# lookup in cache, first
@@ -92,7 +92,7 @@ def get_list_of_datasets(project_id=DEFAULT_PROJECT_ID):
             new_dsets = {x['datasetReference']['datasetId']: x for x in dataset_list['datasets']}
             dsets.update(new_dsets)
         else:
-            print "no datasets?"
+            print("no datasets?")
             return {}
         if 'nextPageToken' in dataset_list:
             pageToken = dataset_list['nextPageToken']
@@ -103,15 +103,15 @@ def get_list_of_datasets(project_id=DEFAULT_PROJECT_ID):
 def get_projects(project_id=DEFAULT_PROJECT_ID):
     for project in projects.list().execute()['projects']:
         if (project['id'] == project_id):
-            print 'Found %s: %s' % (project_id, project['friendlyName'])
+            print('Found %s: %s' % (project_id, project['friendlyName']))
 
 def get_tables(dataset_id, project_id=DEFAULT_PROJECT_ID, verbose=False):
     table_list = tables.list(datasetId=dataset_id, projectId=project_id, maxResults=1000).execute()
     if verbose:
         for current in table_list['tables']:
-            print "table: ", current
+            print("table: ", current)
     if 'tables' not in table_list:
-        print "[bqutil] get_tables: oops! dataset=%s, no table info in %s" % (dataset_id, json.dumps(table_list, indent=4))
+        print("[bqutil] get_tables: oops! dataset=%s, no table info in %s" % (dataset_id, json.dumps(table_list, indent=4)))
     return table_list
 
 def get_list_of_table_ids(dataset_id):
@@ -127,11 +127,11 @@ def convert_data_dict_to_csv(tdata, extra_fields=None):
     This can be used, e.g. for adding course_id to a table missing that field.
     '''
     import unicodecsv as csv
-    from StringIO import StringIO
+    from io import StringIO
 
     sfp = StringIO()
     extra_fields = extra_fields or {}
-    fields = extra_fields.keys()
+    fields = list(extra_fields.keys())
     fields += tdata['field_names']
     dw = csv.DictWriter(sfp, fieldnames=fields)
     dw.writeheader()
@@ -216,7 +216,7 @@ def get_table_data(dataset_id, table_id, key=None, logger=default_logger,
     rows = data.get('rows', [])
     for row in rows:
         values = OrderedDict()
-        for i in xrange(0, len(fields)):
+        for i in range(0, len(fields)):
             cell = row['f'][i]
             # if field is a TIMESTMP then convert to datetime
             if convert_timestamps and fields[i]['type']=='TIMESTAMP':
@@ -243,7 +243,7 @@ def delete_zero_size_tables(dataset_id, verbose=False, project_id=DEFAULT_PROJEC
     for table_id in get_list_of_table_ids(dataset_id):
         if get_bq_table_size_rows(dataset_id, table_id, project_id)==0:
             if verbose:
-                print "Deleting %s.%s" % (dataset_id, table_id)
+                print("Deleting %s.%s" % (dataset_id, table_id))
                 sys.stdout.flush()
             delete_bq_table(dataset_id, table_id, project_id)
 
@@ -491,29 +491,29 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
     sys.stdout.flush()
 
     if verbose:
-        print job
+        print(job)
 
     for k in range(10):
         try:
             jobret = jobs.insert(body=job, **project_ref).execute()
             break
         except Exception as err:
-            print "[bqutil] oops!  Failed to insert job=%s" % job
+            print("[bqutil] oops!  Failed to insert job=%s" % job)
             if (k==9):
                 raise
             if 'HttpError 500' in str(err):
-                print err
-                print "--> 500 error, retrying in 30 sec"
+                print(err)
+                print("--> 500 error, retrying in 30 sec")
                 time.sleep(30)
                 continue
             raise
 
     if verbose:
-        print "job=", json.dumps(job, indent=4)
+        print("job=", json.dumps(job, indent=4))
       
     if verbose:
         job_list = jobs.list( stateFilter=['pending', 'running'], **project_ref).execute()
-        print "job list: ", job_list
+        print("job list: ", job_list)
 
     if not wait:
         return
@@ -522,7 +522,7 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
     # job_ref['timeoutMs'] = timeoutMs
 
     ecnt = 0
-    while job.get('status', {}).get('state', None) <> 'DONE':
+    while job.get('status', {}).get('state', None) != 'DONE':
         if 'status' not in job:
             ecnt += 1
             if (ecnt == 10):
@@ -535,8 +535,8 @@ def create_bq_table(dataset_id, table_id, sql, verbose=False, overwrite=False, w
             time.sleep(5)
             job = jobs.get(**job_ref).execute()
         except Exception as err:
-            print "[bqutil] oops!  Failed to execute jobs.get=%s" % (job_ref)
-            print "[bqutil] err=%s" % str(err)
+            print("[bqutil] oops!  Failed to execute jobs.get=%s" % (job_ref))
+            print("[bqutil] err=%s" % str(err))
 
     status = job['status']
     logger( "[bqutil] job status: %s" % status )
@@ -590,7 +590,7 @@ def add_description_to_table(dataset_id, table_id, description, append=False, pr
         description = old_description + '\n' + description
 
     if len(description) > 16383:
-        print "[bqutil] oops, cannot add description, length=%s > 16383, truncating description" % len(description)
+        print("[bqutil] oops, cannot add description, length=%s > 16383, truncating description" % len(description))
         description = description[:16383]
         # return
 
@@ -600,7 +600,7 @@ def add_description_to_table(dataset_id, table_id, description, append=False, pr
     try:
         table = tables.patch(body=patch, **table_ref).execute()
     except Exception as err:
-        print "[bqutil] oops, failed in adding description to table, patch=%s, err=%s, table=%s" % (patch, str(err), table_id)
+        print("[bqutil] oops, failed in adding description to table, patch=%s, err=%s, table=%s" % (patch, str(err), table_id))
         raise
     return table
 
@@ -639,28 +639,28 @@ def load_data_to_table(dataset_id, table_id, gsfn, schema, wait=True, verbose=Fa
     
     job = {'jobReference': job_ref, 'configuration': config}
 
-    print "[bqutil] loading table %s from %s, running job %s" % (table_id, gsfn, job_id)
+    print("[bqutil] loading table %s from %s, running job %s" % (table_id, gsfn, job_id))
     sys.stdout.flush()
 
     if verbose:
-        print job
+        print(job)
 
     for k in range(10):
         try:
             jobret = jobs.insert(body=job, **project_ref).execute()
             break
         except Exception as err:
-            print "[bqutil] oops!  Failed to insert job=%s" % job
+            print("[bqutil] oops!  Failed to insert job=%s" % job)
             if (k==9):
                 raise
             if 'HttpError 500' in str(err):
-                print err
-                print "--> 500 error, retrying in 30 sec"
+                print(err)
+                print("--> 500 error, retrying in 30 sec")
                 time.sleep(30)
                 continue
             if 'SSL3_GET_RECORD:decryption failed' in str(err):
-                print err
-                print "--> SSL3 error, retrying in 10 sec"
+                print(err)
+                print("--> SSL3 error, retrying in 10 sec")
                 time.sleep(10)
                 continue
             raise
@@ -668,17 +668,17 @@ def load_data_to_table(dataset_id, table_id, gsfn, schema, wait=True, verbose=Fa
     job = jobret
 
     if verbose:
-        print "job=", json.dumps(job, indent=4)
+        print("job=", json.dumps(job, indent=4))
       
     if verbose:
         job_list = jobs.list( stateFilter=['pending', 'running'], **project_ref).execute()
-        print "job list: ", job_list
+        print("job list: ", job_list)
 
     if not wait:
         return
 
     nerr = 0
-    while job['status']['state'] <> 'DONE':
+    while job['status']['state'] != 'DONE':
         try:
             job = jobs.get(**job_ref).execute()
         except Exception as err:
@@ -690,11 +690,11 @@ def load_data_to_table(dataset_id, table_id, gsfn, schema, wait=True, verbose=Fa
                 continue
 
     status = job['status']
-    print "[bqutil] job status: ", status
+    print("[bqutil] job status: ", status)
 
     if 'errors' in status:
-        print "[bqutil] ERROR!  ", status['errors']
-        print "job = ", json.dumps(job, indent=4)
+        print("[bqutil] ERROR!  ", status['errors'])
+        print("job = ", json.dumps(job, indent=4))
         raise Exception('BQ Error creating table')
     else:
         me = getpass.getuser()
@@ -733,30 +733,30 @@ def extract_table_to_gs(dataset_id, table_id, gsfn, format=None, do_gzip=False, 
     
     job = {'jobReference': job_ref, 'configuration': config}
     
-    print "[bqutil] extracting table %s to %s, running job %s" % (table_id, gsfn, job_id)
+    print("[bqutil] extracting table %s to %s, running job %s" % (table_id, gsfn, job_id))
     sys.stdout.flush()
 
     if verbose:
-        print job
+        print(job)
 
     try:
         job = jobs.insert(body=job, **project_ref).execute()
     except Exception as err:
-        print "[bqutil] oops!  Failed to insert job=%s" % job
+        print("[bqutil] oops!  Failed to insert job=%s" % job)
         raise
 
     if verbose:
-        print "job=", json.dumps(job, indent=4)
+        print("job=", json.dumps(job, indent=4))
       
     if verbose:
         job_list = jobs.list( stateFilter=['pending', 'running'], **project_ref).execute()
-        print "job list: ", job_list
+        print("job list: ", job_list)
 
     if not wait:
         return
 
     nerr = 0
-    while job['status']['state'] <> 'DONE':
+    while job['status']['state'] != 'DONE':
         try:
             job = jobs.get(**job_ref).execute()
         except Exception as err:
@@ -768,11 +768,11 @@ def extract_table_to_gs(dataset_id, table_id, gsfn, format=None, do_gzip=False, 
                 continue
 
     status = job['status']
-    print "[bqutil] job status: ", status
+    print("[bqutil] job status: ", status)
 
     if 'errors' in status:
-        print "[bqutil] ERROR!  ", status['errors']
-        print "job = ", json.dumps(job, indent=4)
+        print("[bqutil] ERROR!  ", status['errors'])
+        print("job = ", json.dumps(job, indent=4))
         raise Exception('BQ Error creating table')
 
 #-----------------------------------------------------------------------------
@@ -782,8 +782,8 @@ def extract_table_to_gs(dataset_id, table_id, gsfn, format=None, do_gzip=False, 
 
 def test_get_project_name():
     name = get_project_name()
-    print name
-    assert(name is not None and type(name)==unicode)
+    print(name)
+    assert(name is not None and type(name)==str)
 
 def test_course_id2dataset():
     dataset = course_id2dataset('the/course.123', use_dataset_latest=True)
@@ -809,14 +809,14 @@ def test_create_table():
     table = "test_table"
     sql = "select word, corpus from [publicdata:samples.shakespeare]"
     data = get_bq_table(dataset, table, sql=sql, key={'name': 'corpus'})
-    print 'data_by_key len: ', len(data['data_by_key'])
-    print 'data len: ', len(data['data'])
+    print('data_by_key len: ', len(data['data_by_key']))
+    print('data len: ', len(data['data']))
     assert(type(data['creationTime'])==datetime.datetime)
     assert(len(data['data'])>0)
     assert(len(data['data_by_key'])>0 and len(data['data_by_key'])<100)	# multiple words in a single corpus
 
     tinfo = get_tables(dataset)
-    print "tinfo = ", tinfo
+    print("tinfo = ", tinfo)
     assert('tables' in tinfo)
 
     tables = get_list_of_table_ids(dataset)

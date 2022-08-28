@@ -1,10 +1,10 @@
 
 import os
 import csv
-import gsutil
-import bqutil
+from . import gsutil
+from . import bqutil
 import json
-from load_course_sql import find_course_sql_dir
+from .load_course_sql import find_course_sql_dir
 
 def do_staff_csv(staff_csv_fn):
     dataset = 'courses'

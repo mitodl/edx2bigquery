@@ -9,15 +9,15 @@ import os, sys
 import csv
 import re
 import json
-import gsutil
-import bqutil
+from . import gsutil
+from . import bqutil
 import datetime
-import process_tracking_logs
+from . import process_tracking_logs
 
 from path import Path as path
 from collections import defaultdict
-from check_schema_tracking_log import schema2dict, check_schema
-from load_course_sql import find_course_sql_dir, openfile
+from .check_schema_tracking_log import schema2dict, check_schema
+from .load_course_sql import find_course_sql_dir, openfile
 
 def get_ora_events(course_id, force_recompute=False, use_dataset_latest=False, end_date=None):
     '''

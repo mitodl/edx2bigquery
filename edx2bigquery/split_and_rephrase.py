@@ -16,7 +16,7 @@ import json
 import gzip
 import dateutil.parser
 import pytz
-from rephrase_tracking_logs import do_rephrase
+from .rephrase_tracking_logs import do_rephrase
 
 ofpset = {}
 
@@ -110,7 +110,7 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
 
     if cid is None or not cid:
         if not 'event_source' in data:
-            print "[split_and_rephrase] Badly formatted log line, skipping: %s" % data
+            print("[split_and_rephrase] Badly formatted log line, skipping: %s" % data)
             return
         cid = guess_course_id(data, org=org)
 
@@ -159,11 +159,11 @@ def do_file(fn, logs_dir=LOGS_DIR, dynamic_dates=False, timezone=None, logfn_kee
     # if file has been done, then there will be a file denoting this in the META subdir
     ofn = '%s/META/%s' % (logs_dir, ofn)
     if os.path.exists(ofn):
-        print "Already done %s -> %s (skipping)" % (fn, ofn)
+        print("Already done %s -> %s (skipping)" % (fn, ofn))
         sys.stdout.flush()
         return
 
-    print "Processing %s -> %s (%s)" % (fn, ofn, datetime.datetime.now())
+    print("Processing %s -> %s (%s)" % (fn, ofn, datetime.datetime.now()))
     sys.stdout.flush()
 
     m = re.search('(\d\d\d\d-\d\d-\d\d)', fn)
@@ -180,14 +180,14 @@ def do_file(fn, logs_dir=LOGS_DIR, dynamic_dates=False, timezone=None, logfn_kee
                 newline = do_split(line, linecnt=cnt, run_rephrase=True, date=the_date, do_zip=True, logs_dir=logs_dir,
                                    dynamic_dates=dynamic_dates, timezone=timezone)
             except Exception as err:
-                print "[split_and_rephrase] ===> OOPS, failed err=%s in parsing line %s" % (str(err), line)
+                print("[split_and_rephrase] ===> OOPS, failed err=%s in parsing line %s" % (str(err), line))
                 raise
             if ((cnt % 10000)==0):
                 sys.stdout.write('.')
                 sys.stdout.flush()
     except Exception as err:
-        print("[split_and_rephrase] =====> ERROR, failed in parsing line=%s, file=%s, err=%s" % (cnt, fn, str(err)))
-    print
+        print(("[split_and_rephrase] =====> ERROR, failed in parsing line=%s, file=%s, err=%s" % (cnt, fn, str(err))))
+    print()
 
     mdir = '%s/META' % logs_dir
     if not os.path.exists(mdir):
@@ -195,11 +195,11 @@ def do_file(fn, logs_dir=LOGS_DIR, dynamic_dates=False, timezone=None, logfn_kee
     open(ofn, 'a').write(' ') 	    # mark META
 
     # close all file pointers
-    for fn, fp in ofpset.items():
+    for fn, fp in list(ofpset.items()):
         fp.close()
         ofpset.pop(fn)
 
-    print "...done (%s)" % datetime.datetime.now()
+    print("...done (%s)" % datetime.datetime.now())
     
     sys.stdout.flush()
 
@@ -214,7 +214,7 @@ if __name__=="__main__":
             LOGS_DIR = sys.argv[2]
             sys.argv.pop(1)
             sys.argv.pop(1)
-            print "Outputting files in directory %s" % LOGS_DIR
+            print("Outputting files in directory %s" % LOGS_DIR)
 
         for fn in sys.argv[1:]:
             do_file(fn)

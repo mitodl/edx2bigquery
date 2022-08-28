@@ -24,12 +24,12 @@
 import os
 import sys
 import json
-import bqutil
+from . import bqutil
 import datetime
-import process_tracking_logs
+from . import process_tracking_logs
 
 from path import Path as path
-from gsutil import get_gs_file_list
+from .gsutil import get_gs_file_list
         
 #-----------------------------------------------------------------------------
 
@@ -290,7 +290,7 @@ def process_time_on_task_totals(course_id, force_recompute=False, use_dataset_la
 
     tablename = config_parameters.get('time_on_task_totals_table_name') or 'time_on_task_totals'
 
-    print "Computing %s for %s" % (tablename, dataset)
+    print("Computing %s for %s" % (tablename, dataset))
     sys.stdout.flush()
 
     bqdat = bqutil.get_bq_table(dataset, tablename, the_sql,

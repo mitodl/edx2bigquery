@@ -60,14 +60,14 @@ import sys
 import unicodecsv as csv
 import gzip
 import json
-import bqutil
-import gsutil
+from . import bqutil
+from . import gsutil
 import datetime
 import copy
 from path import Path as path
 from collections import OrderedDict, defaultdict
-from check_schema_tracking_log import schema2dict, check_schema
-from load_course_sql import find_course_sql_dir, get_course_sql_dirdate
+from .check_schema_tracking_log import schema2dict, check_schema
+from .load_course_sql import find_course_sql_dir, get_course_sql_dirdate
 
 csv.field_size_limit(13107200)
 
@@ -95,7 +95,7 @@ class PersonCourse(object):
         self.sql_dir_date = get_course_sql_dirdate( course_id=course_id, lfp=self.course_dir, datedir=course_dir_date, use_dataset_latest=use_dataset_latest or use_latest_sql_dir )
 
         if not self.cdir.exists():
-            print "Oops: missing directory %s!" % self.cdir
+            print("Oops: missing directory %s!" % self.cdir)
             sys.exit(-1)
 
         self.verbose = verbose
@@ -133,7 +133,7 @@ class PersonCourse(object):
         try:
             self.the_schema = json.loads(open(self.SCHEMA_FILE).read())['person_course']
         except Exception as err:
-            print "Oops!  Failed to load schema file for person course.  Error: %s" % str(err)
+            print("Oops!  Failed to load schema file for person course.  Error: %s" % str(err))
             raise
 
         self.the_dict_schema = schema2dict(copy.deepcopy(self.the_schema))
@@ -146,7 +146,7 @@ class PersonCourse(object):
     def log(self, msg):
         self.logmsg.append(msg)
         if self.verbose:
-            print msg
+            print(msg)
             sys.stdout.flush()
 
     def openfile(self, fn, mode='r', useCourseDir=True):
@@ -205,7 +205,7 @@ class PersonCourse(object):
     def copy_fields(src, dst, fields, mapfun=None):
         if not mapfun:
             mapfun = lambda x: x
-        for key, val in fields.items():
+        for key, val in list(fields.items()):
             if type(val)==list:
                 for valent in val:
                     if valent in src:
@@ -291,7 +291,7 @@ class PersonCourse(object):
             struct = {x: json.loads(x) for x in self.openfile(csfn) }
         else:
             struct = json.loads(self.openfile(csfn).read())
-        for key, ent in struct.iteritems():
+        for key, ent in struct.items():
             if ent['category']=='chapter':
                 nchapters += 1
 
@@ -346,7 +346,7 @@ class PersonCourse(object):
             overall_cutoff = None
 
             self.load_passing_grade()
-            tkeys = self.grading_policy['data_by_key'].items()[0][1].keys()
+            tkeys = list(self.grading_policy['data_by_key'].items())[0][1].keys()
             import re
             # Regex is required since overall_cutoff variables vary 
             # ( e.g.: overall_cutoff_for_great_work, overall_cutoff_for_passing )
@@ -358,10 +358,10 @@ class PersonCourse(object):
                     overall_cutoff = m.group(1)
                     break
             if overall_cutoff is not None:
-	        passing_grade = self.grading_policy['data_by_key'].items()[0][1].get(overall_cutoff, None)
+	        passing_grade = list(self.grading_policy['data_by_key'].items())[0][1].get(overall_cutoff, None)
 	        if passing_grade is not None:
  	            passing_grade = float(passing_grade)
-            print 'Passing grade = %s' % passing_grade
+            print('Passing grade = %s' % passing_grade)
 
         except Exception as err:
             self.log("Error %s getting passing grade!" % str(err))
@@ -370,7 +370,7 @@ class PersonCourse(object):
         grade_dash_cnt = 0 # Initialize count for edx instructor grades
         grade_cert_cnt = 0 # Initialize count for edx weekly data dump grades
 
-        for key, uicent in uicdat.iteritems():
+        for key, uicent in uicdat.items():
             pcent = OrderedDict()
             self.pctab[key] = pcent			# key = username
             self.copy_fields(uicent, pcent,
@@ -460,7 +460,7 @@ class PersonCourse(object):
             pcent['email_domain'] = uicent.get('email').split('@')[1]
 
         # Grades Summary
-        print "%s Grades loaded from Certificates file, %s Grades loaded from edX instructor Dashboard" % (grade_cert_cnt, grade_dash_cnt)
+        print("%s Grades loaded from Certificates file, %s Grades loaded from edX instructor Dashboard" % (grade_cert_cnt, grade_dash_cnt))
 
     def compute_second_phase(self):
     
@@ -479,7 +479,7 @@ class PersonCourse(object):
             nchapters = None
             self.pc_nchapters = None
 
-        for key, pcent in self.pctab.iteritems():
+        for key, pcent in self.pctab.items():
 
             uid = str(pcent['user_id'])
             if self.pc_nchapters is not None:
@@ -564,7 +564,7 @@ class PersonCourse(object):
         nmissing_ip_cert = 0
 	langadded = 0
 	nmissing_lang = 0
-        for key, pcent in self.pctab.iteritems():
+        for key, pcent in self.pctab.items():
             uid = str(pcent['user_id'])
             username = pcent['username']
 
@@ -657,7 +657,7 @@ class PersonCourse(object):
                       ['developing_nation', 'un_developing_nation'],
                       ['special_region1', 'un_special_region']]
 
-        for key, pcent in self.pctab.iteritems():
+        for key, pcent in self.pctab.items():
             username = pcent['username']
 
             for pcdf in pcd_fields:
@@ -674,7 +674,7 @@ class PersonCourse(object):
             self.log("--> Skipping geoip")
             return
 
-        import make_geoip_table
+        from . import make_geoip_table
 
         try:
             gid = make_geoip_table.GeoIPData()
@@ -694,7 +694,7 @@ class PersonCourse(object):
              region_data = self.load_csv( fn=region_data_fn, useCourseDir=False, key='cc', keymap=str )
              region_data_exists = True
         except Exception as err:
-             print str(err)
+             print(str(err))
              self.log("Cannot find UN geographic region by country data file. Visit https://github.com/mitodl/world_geographic_regions to download geographic_regions_by_country.csv to your working directory")
              self.log("---> Skipping check for un region data for extra ip's found. Null values may exist for un region fields")
              pass
@@ -710,7 +710,7 @@ class PersonCourse(object):
         nmissing_geo = 0
         nmissing_ip = 0
         nmissing_ip_but_have_events = 0
-        for key, pcent in self.pctab.iteritems():
+        for key, pcent in self.pctab.items():
             cc = pcent.get('cc_by_ip', None)
             if cc is not None:
                 continue
@@ -737,7 +737,7 @@ class PersonCourse(object):
         # If region data exists, then do final check on location data and populate UN region data when its missing
         nmissing_un_data = 0
 	if region_data_exists:
-            for key, pcent in self.pctab.iteritems():
+            for key, pcent in self.pctab.items():
 
                 # If country code exists, then make sure un data is populated using data
 	        try:
@@ -819,7 +819,7 @@ class PersonCourse(object):
         nroles = 0
         nmissing = 0
         missing_uids = []
-        for key, pcent in self.pctab.iteritems():
+        for key, pcent in self.pctab.items():
             uid = int(pcent['user_id'])
             if not uid in roles:
                 missing_uids.append(uid)
@@ -831,7 +831,7 @@ class PersonCourse(object):
                 nroles += 1
 
 	    except Exception as err:
-                print str(err)
+                print(str(err))
                 #self.log( "---> Cannot add roles data... Skipping" )
 		continue
 
@@ -850,7 +850,7 @@ class PersonCourse(object):
 
 	verified_enroll_count = 0
 	verified_unenroll_count = 0
-        for key, pcent in self.pctab.iteritems():
+        for key, pcent in self.pctab.items():
 
             uid = str(pcent['user_id'])
 	    try:
@@ -888,7 +888,7 @@ class PersonCourse(object):
         output person_course table 
         '''
         
-        fieldnames = self.the_dict_schema.keys()
+        fieldnames = list(self.the_dict_schema.keys())
         ofn = 'person_course.csv.gz'
         ofnj = 'person_course.json.gz'
         ofp = self.openfile(ofnj, 'w')
@@ -899,18 +899,18 @@ class PersonCourse(object):
 
         # write JSON first - it's safer
         cnt = 0
-        for key, pcent in self.pctab.iteritems():
+        for key, pcent in self.pctab.items():
             cnt += 1
             check_schema(cnt, pcent, the_ds=self.the_dict_schema, coerce=True)
             ofp.write(json.dumps(pcent) + '\n')
         ofp.close()
 
         # now write CSV file (may have errors due to unicode)
-        for key, pcent in self.pctab.iteritems():
+        for key, pcent in self.pctab.items():
             if 0:	# after switching to unicodecsv, don't do this
                 try:
                     if 'countryLabel' in pcent:
-                        if pcent['countryLabel'] == u'R\xe9union':
+                        if pcent['countryLabel'] == 'R\xe9union':
                             pcent['countryLabel'] = 'Reunion'
                         else:
                             #pcent['countryLabel'] = pcent['countryLabel'].decode('utf8').encode('utf8')
@@ -1659,11 +1659,11 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
     '''
     make one person course dataset
     '''
-    print "-"*77
-    print "Processing person course for %s (start %s)" % (course_id, datetime.datetime.now())
+    print("-"*77)
+    print("Processing person course for %s (start %s)" % (course_id, datetime.datetime.now()))
     force_recompute = force_recompute or ('force_recompute' in options)
     if force_recompute:
-        print "--> Note: Forcing re-querying of person_day results from tracking logs!!! Can be $$$ expensive!!!"
+        print("--> Note: Forcing re-querying of person_day results from tracking logs!!! Can be $$$ expensive!!!")
         sys.stdout.flush()
     pc = PersonCourse(course_id, course_dir_root=basedir, course_dir_date=datedir,
                       gsbucket=gsbucket,
@@ -1679,7 +1679,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
     if skip_if_table_exists:
         # don't run person_course if the dataset table for this course_id already exists
         if pc.tableid in bqutil.get_list_of_table_ids(pc.dataset):
-            print "--> %s.%s already exists, skipping" % (pc.dataset, pc.tableid)
+            print("--> %s.%s already exists, skipping" % (pc.dataset, pc.tableid))
             sys.stdout.flush()
             return
 
@@ -1692,8 +1692,8 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
         pc.nightly_update()
     else:
         pc.make_all()
-    print "Done processing person course for %s (end %s)" % (course_id, datetime.datetime.now())
-    print "-"*77
+    print("Done processing person course for %s (end %s)" % (course_id, datetime.datetime.now()))
+    print("-"*77)
         
 #-----------------------------------------------------------------------------
 

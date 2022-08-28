@@ -22,7 +22,7 @@ together.
 '''
 
 import sys
-import bqutil
+from . import bqutil
 import datetime
 
 def make_item_tables(course_id, force_recompute=False, use_dataset_latest=False):
@@ -99,7 +99,7 @@ def create_course_item_table(course_id, force_recompute=False, use_dataset_lates
         disable_gformat = ""
         alternate_gp = ""
     else:
-        print "Warning - grading_policy doest NOT exist, using a dummy grading policy instead, and allowing gformat=null"
+        print("Warning - grading_policy doest NOT exist, using a dummy grading policy instead, and allowing gformat=null")
         sys.stdout.flush()
         disable_gformat = "#"
         alternate_gp = '( SELECT "" as assignment_type, 1.0 as fraction_of_overall_grade, "none" as short_label ) GP'
@@ -415,15 +415,15 @@ order by content_index, item_number
                                     depends_on=depends_on,
                                     force_query=force_recompute)
     except Exception as err:
-        print "[make_course_item_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename)
-        print the_sql
+        print("[make_course_item_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename))
+        print(the_sql)
         raise
 
     if not bqdat:
         nfound = 0
     else:
         nfound = len(bqdat['data'])
-    print "--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound)
+    print("--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound))
     sys.stdout.flush()
 
 
@@ -479,15 +479,15 @@ order by user_id, CI.content_index, CI.item_number
                                     force_query=force_recompute,
                                     startIndex=-2)
     except Exception as err:
-        print "[make_person_item_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename)
-        print the_sql
+        print("[make_person_item_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename))
+        print(the_sql)
         raise
 
     if not bqdat:
         nfound = 0
     else:
         nfound = bqutil.get_bq_table_size_rows(dataset, tablename)
-    print "--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound)
+    print("--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound))
     sys.stdout.flush()
     
 
@@ -531,15 +531,15 @@ order by user_id, course_id, problem_nid
                                     force_query=force_recompute,
                                     startIndex=-2)
     except Exception as err:
-        print "[make_person_problem_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename)
-        print the_sql
+        print("[make_person_problem_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename))
+        print(the_sql)
         raise
 
     if not bqdat:
         nfound = 0
     else:
         nfound = bqutil.get_bq_table_size_rows(dataset, tablename)
-    print "--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound)
+    print("--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound))
     sys.stdout.flush()
     
 
@@ -589,15 +589,15 @@ order by avg_problem_pct_score desc
                                     force_query=force_recompute,
                                     startIndex=-2)
     except Exception as err:
-        print "[make_course_problem_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename)
-        print the_sql
+        print("[make_course_problem_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename))
+        print(the_sql)
         raise
 
     if not bqdat:
         nfound = 0
     else:
         nfound = bqutil.get_bq_table_size_rows(dataset, tablename)
-    print "--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound)
+    print("--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound))
     sys.stdout.flush()
     
 #-----------------------------------------------------------------------------
@@ -656,13 +656,13 @@ FROM (
                                     force_query=force_recompute,
                                     startIndex=-2)
     except Exception as err:
-        print "[create_problem_first_attempt_correct_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename)
-        print the_sql
+        print("[create_problem_first_attempt_correct_table] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename))
+        print(the_sql)
         raise
 
     if not bqdat:
         nfound = 0
     else:
         nfound = bqutil.get_bq_table_size_rows(dataset, tablename)
-    print "--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound)
+    print("--> Done with %s for %s, %d entries found" % (tablename, course_id, nfound))
     sys.stdout.flush()

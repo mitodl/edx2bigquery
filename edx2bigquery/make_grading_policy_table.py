@@ -6,9 +6,9 @@ import tarfile
 import unicodecsv as csv
 from path import Path as path
 
-import bqutil
-import gsutil
-import load_course_sql
+from . import bqutil
+from . import gsutil
+from . import load_course_sql
 
 gpfn = 'grading_policy.json'
 #gpfn = 'grading_policy2.json'
@@ -67,7 +67,7 @@ def read_grading_policy_from_tar_file(tfn):
     try:
         tfp = tarfile.open(tfn)
     except Exception as err:
-        print "Error!  Cannot open tar file %s" % tfn
+        print("Error!  Cannot open tar file %s" % tfn)
         raise 
     gpfn = None
     for fn in tfp.getnames():
@@ -116,10 +116,10 @@ def load_grading_policy(gpstr, verbose=False, gpfn=None):
     if not cutoffs:
         raise Exception("Grading policy %s has no GRADE_CUTOFFS, cannot create grading_policy table" % gpfn)
     the_cutoffs = {}
-    for k, v in cutoffs.items():
+    for k, v in list(cutoffs.items()):
         the_cutoffs['overall_cutoff_for_%s' % k.lower()] = v
 
-    fields = ['assignment_type', 'name', 'fraction_of_overall_grade'] + grader[0].keys() + the_cutoffs.keys()
+    fields = ['assignment_type', 'name', 'fraction_of_overall_grade'] + list(grader[0].keys()) + list(the_cutoffs.keys())
     fields.remove('type')
     fields.remove('weight')
 
@@ -139,16 +139,16 @@ def load_grading_policy(gpstr, verbose=False, gpfn=None):
                 fields.append(key)
             
         
-    print "[grading_policy] %d assignments = %s" % (len(gptab), [x['assignment_type'] for x in gptab])
-    print "[grading_policy] assignment weights = ", weights
+    print("[grading_policy] %d assignments = %s" % (len(gptab), [x['assignment_type'] for x in gptab]))
+    print("[grading_policy] assignment weights = ", weights)
     if not abs(sum(weights)-1.0) < 0.001:
         msg = "Error!  Sum of assignment weights in grading policy = %s (should be 1.0)" % sum(weights)
         #raise Exception(msg)
-        print msg
+        print(msg)
 
     if verbose:
-        print "fields = ", fields
-        print json.dumps(gptab, indent=4)
+        print("fields = ", fields)
+        print(json.dumps(gptab, indent=4))
 
     # make schema
     string_fields = ["category", "show_only_average", "section_type", "assignment_type"]
@@ -169,7 +169,7 @@ def load_grading_policy(gpstr, verbose=False, gpfn=None):
                    })
 
     if verbose:
-        print "schema = ", json.dumps(schema, indent=4)
+        print("schema = ", json.dumps(schema, indent=4))
 
     return fields, gptab, schema
 

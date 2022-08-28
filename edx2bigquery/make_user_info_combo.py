@@ -51,12 +51,12 @@ import os, sys
 import csv
 import gzip
 import json
-import gsutil
+from . import gsutil
 
 from path import Path as path
 from collections import defaultdict
-from check_schema_tracking_log import schema2dict, check_schema
-from load_course_sql import find_course_sql_dir
+from .check_schema_tracking_log import schema2dict, check_schema
+from .load_course_sql import find_course_sql_dir
 
 #csv.field_size_limit(sys.maxsize)
 csv.field_size_limit(13107200)
@@ -68,7 +68,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest=use_dataset_latest)
 
     cdir = lfp
-    print "Processing %s from files in %s" % (course_id, cdir)
+    print("Processing %s from files in %s" % (course_id, cdir))
     sys.stdout.flush()
 
     mypath = os.path.dirname(os.path.realpath(__file__))
@@ -129,7 +129,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         if os.path.exists(fnroot + ".sql") or os.path.exists(fnroot + ".sql.gz"):
             infn = fnroot + '.sql'
             outfn = fnroot + '.csv.gz'
-            print "--> Converting %s to %s" % (infn, outfn)
+            print("--> Converting %s to %s" % (infn, outfn))
             tsv2csv(infn, outfn)
             return outfn
         return False
@@ -145,11 +145,11 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         uic[uid]['edxinstructordash_Grade'] = None
         uic[uid]['edxinstructordash_Grade_timestamp'] = None
     
-    print "  %d users loaded from users.csv" % nusers
+    print("  %d users loaded from users.csv" % nusers)
 
     fp = openfile('profiles.csv')
     if fp is None:
-        print "--> Skipping profiles.csv, file does not exist"
+        print("--> Skipping profiles.csv, file does not exist")
     else:
         nprofiles = 0
         fields = ['name', 'language', 'location', 'meta', 'courseware', 
@@ -159,11 +159,11 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
             uid = int(line['user_id'])
             copy_elements(line, uic[uid], fields, prefix="profile_")
             nprofiles += 1
-        print "  %d profiles loaded from profiles.csv" % nprofiles
+        print("  %d profiles loaded from profiles.csv" % nprofiles)
     
     fp = openfile('enrollment.csv')
     if fp is None:
-        print "--> Skipping enrollment.csv, file does not exist"
+        print("--> Skipping enrollment.csv, file does not exist")
     else:
         nenrollments = 0
         fields = ['course_id', 'created', 'is_active', 'mode', ]
@@ -171,12 +171,12 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
             uid = int(line['user_id'])
             copy_elements(line, uic[uid], fields, prefix="enrollment_")
             nenrollments += 1
-        print "  %d enrollments loaded from profiles.csv" % nenrollments
+        print("  %d enrollments loaded from profiles.csv" % nenrollments)
     
     # see if from_mongodb files are present for this course; if so, merge in that data
     mongodir = cdir.dirname() / 'from_mongodb'
     if mongodir.exists():
-        print "--> %s exists, merging in users, profile, and enrollment data from mongodb" % mongodir
+        print("--> %s exists, merging in users, profile, and enrollment data from mongodb" % mongodir)
         sys.stdout.flush()
         fp = gzip.GzipFile(mongodir / "users.json.gz")
         fields = ['username', 'email', 'is_staff', 'last_login', 'date_joined']
@@ -189,7 +189,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
                 uic[uid]['user_id'] = uid
                 nadded += 1
         fp.close()
-        print "  %d additional users loaded from %s/users.json.gz" % (nadded, mongodir)
+        print("  %d additional users loaded from %s/users.json.gz" % (nadded, mongodir))
                 
         fp = gzip.GzipFile(mongodir / "profiles.json.gz")
         fields = ['name', 'language', 'location', 'meta', 'courseware', 
@@ -210,7 +210,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
                 uic[uid]['y1_anomalous'] = 1
                 nadd_profiles += 1
         fp.close()
-        print "  %d additional profiles loaded from %s/profiles.json.gz" % (nadd_profiles, mongodir)
+        print("  %d additional profiles loaded from %s/profiles.json.gz" % (nadd_profiles, mongodir))
                 
         # if datedir is specified, then do not add entries from mongodb where the enrollment happened after the datedir cutoff
         cutoff = None
@@ -232,26 +232,26 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
                     copy_elements(pdata, uic[uid], fields, prefix="enrollment_", skip_empty=True)
                     nadd_enrollment += 1
         fp.close()
-        print "  %d additional enrollments loaded from %s/enrollment.json.gz" % (nadd_enrollment, mongodir)
+        print("  %d additional enrollments loaded from %s/enrollment.json.gz" % (nadd_enrollment, mongodir))
 
-        print "     from mongodb files, added %s (of %s) new users (%s profiles, %s enrollments, %s after cutoff %s)" % (nadded - n_removed_after_cutoff,
+        print("     from mongodb files, added %s (of %s) new users (%s profiles, %s enrollments, %s after cutoff %s)" % (nadded - n_removed_after_cutoff,
                                                                                                                          nadded, nadd_profiles, nadd_enrollment,
                                                                                                                          n_removed_after_cutoff,
-                                                                                                                         cutoff)
+                                                                                                                         cutoff))
         sys.stdout.flush()
 
     # See if instructor grade reports are present for this course; if so, merge in that data
     edxinstructordash = cdir.dirname() / 'from_edxinstructordash'
     if edxinstructordash.exists():
-        print "--> %s exists, merging in users, profile, and enrollment data from_edxinstructordash" % edxinstructordash
+        print("--> %s exists, merging in users, profile, and enrollment data from_edxinstructordash" % edxinstructordash)
         sys.stdout.flush()
 
         grade_report_fn = ( edxinstructordash / 'grade_report.csv' )
         fp = openfile( grade_report_fn, add_dir=False )
         if fp is None:
-            print "--> Skipping grade_report.csv, file does not exist in dir from_edxinstructordash"
+            print("--> Skipping grade_report.csv, file does not exist in dir from_edxinstructordash")
         nadded = 0
-        print fp
+        print(fp)
         for line in csv.DictReader(fp):
             uid = int(line['Student ID'])
             fields = [ 'Grade', 'Grade_timestamp' ]
@@ -260,13 +260,13 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
             copy_elements(line, uic[uid], fields, prefix="edxinstructordash_")
             nadded += 1
         fp.close()
-        print "  %d grades loaded from %s/grade_report.csv" % (nadded, edxinstructordash )
+        print("  %d grades loaded from %s/grade_report.csv" % (nadded, edxinstructordash ))
         sys.stdout.flush()
 
 
     fp = openfile('certificates.csv')
     if fp is None:
-        print "--> Skipping certificates.csv, file does not exist"
+        print("--> Skipping certificates.csv, file does not exist")
     else:
         for line in csv.DictReader(fp):
             uid = int(line['user_id'])
@@ -278,26 +278,26 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     
     # sanity check for entries with user_id but missing username
     nmissing_uname = 0
-    for uid, entry in uic.iteritems():
+    for uid, entry in uic.items():
         if (not 'username' in entry) or (not entry['username']):
             nmissing_uname += 1
             if nmissing_uname < 10:
-                print "missing username: %s" % entry
-    print "--> %d entries missing username" % nmissing_uname
+                print("missing username: %s" % entry)
+    print("--> %d entries missing username" % nmissing_uname)
     sys.stdout.flush()
     
     # sanity check for entries missing course_id
     nmissing_cid = 0
-    for uid, entry in uic.iteritems():
+    for uid, entry in uic.items():
         if (not 'enrollment_course_id' in entry) or (not entry['enrollment_course_id']):
             nmissing_cid += 1
             entry['enrollment_course_id'] = course_id
-    print "--> %d entries missing enrollment_course_id (all fixed by setting to %s)" % (nmissing_cid, course_id)
+    print("--> %d entries missing enrollment_course_id (all fixed by setting to %s)" % (nmissing_cid, course_id))
     sys.stdout.flush()
 
     fp = openfile('user_id_map.csv')
     if fp is None:
-        print "--> Skipping user_id_map.csv, file does not exist"
+        print("--> Skipping user_id_map.csv, file does not exist")
     else:
         for line in csv.DictReader(fp):
             uid = int(line['id'])
@@ -305,12 +305,12 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
             copy_elements(line, uic[uid], fields, prefix="id_map_")
     
     # sort by userid
-    uidset = uic.keys()
+    uidset = list(uic.keys())
     uidset.sort()
     
     # write out result, checking schema along the way
     
-    fieldnames = the_dict_schema.keys()
+    fieldnames = list(the_dict_schema.keys())
     ofp = openfile('user_info_combo.json.gz', 'w')
     ocsv = csv.DictWriter(openfile('user_info_combo.csv.gz', 'w'), fieldnames=fieldnames)
     ocsv.writeheader()
@@ -319,22 +319,22 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         data = uic[uid]
         check_schema(uid, data, the_ds=the_dict_schema, coerce=True)
         if ('enrollment_course_id' not in data) and ('certificate_course_id' not in data):
-            print "Oops!  missing course_id in user_info_combo line: inconsistent SQL?"
-            print "data = %s" % data
-            print "Suppressing this row"
+            print("Oops!  missing course_id in user_info_combo line: inconsistent SQL?")
+            print("data = %s" % data)
+            print("Suppressing this row")
             continue
         row_course_id = data.get('enrollment_course_id', data.get('certificate_course_id', ''))
         if not row_course_id==course_id:
-            print "Oops!  course_id=%s in user_info_combo line: inconsistent with expected=%s" % (row_course_id, course_id)
-            print "data = %s" % data
-            print "Suppressing this row"
+            print("Oops!  course_id=%s in user_info_combo line: inconsistent with expected=%s" % (row_course_id, course_id))
+            print("data = %s" % data)
+            print("Suppressing this row")
             continue
         ofp.write(json.dumps(data) + '\n')
         try:
             ocsv.writerow(data)
         except Exception as err:
-            print "failed to write data=%s" % data
+            print("failed to write data=%s" % data)
             raise
     
-    print "Done with make_user_info_combo for %s" % course_id
+    print("Done with make_user_info_combo for %s" % course_id)
     sys.stdout.flush()

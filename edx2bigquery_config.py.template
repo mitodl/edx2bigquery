@@ -62,13 +62,13 @@ try:
 		sys.path.append( PRIVATE_PATH )
 		import edx_private_config as CFG
 	else:
-		print "[edx2bigquery_config]: WARNING: Need to specify a configuration file, %s/%s, to operate properly" % ( PRIVATE_PATH, PRIVATE_CONFIG_FILENAME )
+		print("[edx2bigquery_config]: WARNING: Need to specify a configuration file, %s/%s, to operate properly" % ( PRIVATE_PATH, PRIVATE_CONFIG_FILENAME ))
 	os.chdir(currentDir) # Set back to current working dir
 
 except Exception as err:
 
-	print "[edx2bigquery_config]: Could not import private config"
-	print "[edx2bigquery_config]: Error = %s" % err
+	print("[edx2bigquery_config]: Could not import private config")
+	print("[edx2bigquery_config]: Error = %s" % err)
 	raise
 
 #-------------------------------------------

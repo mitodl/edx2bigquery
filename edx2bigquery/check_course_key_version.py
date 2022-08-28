@@ -4,7 +4,7 @@
 
 import gzip
 import glob
-import gsutil
+from . import gsutil
 from path import Path as path
 
 def course_key_version(course_id, logs_dir="TRACKING_LOGS", verbose=False):
@@ -19,7 +19,7 @@ def course_key_version(course_id, logs_dir="TRACKING_LOGS", verbose=False):
             break
 
     if verbose:
-        print "Using %s for course_key_version determination" % fn
+        print("Using %s for course_key_version determination" % fn)
     count = 0
     n = 0
     with gzip.GzipFile(fn) as fp:
@@ -35,4 +35,4 @@ def course_key_version(course_id, logs_dir="TRACKING_LOGS", verbose=False):
     else:
         version = "standard"
 
-    print "--> %s: %s" % (course_id, version)
+    print("--> %s: %s" % (course_id, version))

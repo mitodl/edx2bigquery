@@ -33,8 +33,8 @@ import traceback
 from math import isnan
 from path import Path as path
 
-from addmoduleid import add_module_id
-from check_schema_tracking_log import check_schema
+from .addmoduleid import add_module_id
+from .check_schema_tracking_log import check_schema
 
 
 def do_rephrase(data, do_schema_check=True, linecnt=0):
@@ -149,15 +149,15 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
         event['GET'] = get_str
 
     if event_type in ['problem_check', 'problem_save', 'problem_reset'] and data['event_source']=='browser':
-        if isinstance(event, (str, unicode)):
+        if isinstance(event, str):
             event = {'data': json.dumps(event)}
 
-    if isinstance(event, (str, unicode)):
+    if isinstance(event, str):
         #if event and data['event_js']:
         #    sys.stderr.write('unexpected STRING event: ' + json.dumps(data, indent=4) + '\n')
         event = {'data': json.dumps(event)}
 
-    if isinstance(event, (list,)):
+    if isinstance(event, list):
         event = {'data': json.dumps(event)}
 
     def make_str(key):
@@ -298,7 +298,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
         key = keys[0]
         if isinstance(data, dict) and key in data:
             if len(keys) == 1:
-                if data[key] in ["", u'']:
+                if data[key] in ["", '']:
                     # print "---> popped %s" % key
                     data.pop(key)
             else:
@@ -331,7 +331,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
     # check for any funny keys, recursively
     funny_key_sections = []
     def check_for_funny_keys(entry, name='toplevel'):
-        for key, val in entry.iteritems():
+        for key, val in entry.items():
             if key.startswith('i4x-') or key.startswith('xblock.'):
                 sys.stderr.write(
                     "[rephrase] oops, funny key at %s in entry: %s, data=%s\n" % (name, entry, '')
@@ -399,11 +399,11 @@ def do_rephrase_file(fn):
     rephrase lines in filename fn, and overwrite original file when done.
     '''
 
-    from load_course_sql import openfile	# only needed in this function
+    from .load_course_sql import openfile	# only needed in this function
 
     fn = path(fn)
 
-    print "Rephrasing tracking log file %s" % fn
+    print("Rephrasing tracking log file %s" % fn)
     sys.stdout.flush()
 
     ofn = fn.dirname() / ("tmp-" + fn.basename())
@@ -416,9 +416,9 @@ def do_rephrase_file(fn):
     ofp.close()
 
     oldfilename = fn.dirname() / ("old-" + fn.basename())
-    print "  --> Done; renaming %s -> %s" % (fn, oldfilename)
+    print("  --> Done; renaming %s -> %s" % (fn, oldfilename))
     os.rename(fn, oldfilename)
-    print "  --> renaming %s -> %s" % (ofn, fn)
+    print("  --> renaming %s -> %s" % (ofn, fn))
     os.rename(ofn, fn)
     sys.stdout.flush()
 

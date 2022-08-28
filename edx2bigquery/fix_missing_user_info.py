@@ -3,12 +3,12 @@
 import os, sys
 import gzip
 import json
-import gsutil
+from . import gsutil
 
 from path import Path as path
 from collections import defaultdict
-from check_schema_tracking_log import schema2dict, check_schema
-from load_course_sql import find_course_sql_dir
+from .check_schema_tracking_log import schema2dict, check_schema
+from .load_course_sql import find_course_sql_dir
 
 
 def mongo_dump_user_info_files(course_id, basedir=None, datedir=None, dbname=None, use_dataset_latest=False):
@@ -42,14 +42,14 @@ def mongo_dump_user_info_files(course_id, basedir=None, datedir=None, dbname=Non
     lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest=use_dataset_latest)
     mongodir = lfp.dirname() / 'from_mongodb'
 
-    print "[mongo_dump_user_info_files] processing %s, output directory = %s" % (course_id, mongodir)
+    print("[mongo_dump_user_info_files] processing %s, output directory = %s" % (course_id, mongodir))
     if not mongodir.exists():
         os.mkdir(mongodir)
 
     def do_mongo_export(collection, ofn, ckey='course_id'):
         query = '{"%s": "%s"}' % (ckey, course_id)
         cmd = "mongoexport -d %s -c %s -q '%s' | gzip -9 > %s" % (dbname, collection, query, ofn)
-        print "--> %s" % cmd
+        print("--> %s" % cmd)
         sys.stdout.flush()
         os.system(cmd)
 
@@ -78,7 +78,7 @@ def mongo_dump_user_info_files(course_id, basedir=None, datedir=None, dbname=Non
 
     ofn = mongodir / "users.json.gz"
     cmd = 'echo "%s" | mongo --quiet | tail -n +3 | gzip -9 > %s' % (js.replace('\n',''), ofn)
-    print "--> %s" % cmd
+    print("--> %s" % cmd)
     sys.stdout.flush()
     os.system(cmd)
 

@@ -34,13 +34,13 @@ import os, sys
 import csv
 import gzip
 import json
-import gsutil
+from . import gsutil
 import pandas as pd
 
 from path import Path as path
 from collections import defaultdict, OrderedDict
-from check_schema_tracking_log import schema2dict, check_schema
-from load_course_sql import find_course_sql_dir
+from .check_schema_tracking_log import schema2dict, check_schema
+from .load_course_sql import find_course_sql_dir
 
 #csv.field_size_limit(sys.maxsize)
 #csv.field_size_limit(1310720)
@@ -56,7 +56,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest=use_dataset_latest)
 
     cdir = lfp
-    print "Processing %s role data in %s" % (course_id, cdir)
+    print("Processing %s role data in %s" % (course_id, cdir))
     sys.stdout.flush()
 
     mypath = os.path.dirname(os.path.realpath(__file__))
@@ -67,13 +67,13 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     
     def convertLongToWide( longData, unique_id, column_header, values, columns ):
         import numpy as np
-        print "    Currently %d roles assigned... Dropping duplicates" % len(longData)
+        print("    Currently %d roles assigned... Dropping duplicates" % len(longData))
         sys.stdout.flush()
     
         ld2 = longData.drop_duplicates(subset=[unique_id, column_header])#, keep='last')
     
-        print "    %d unique roles assigned" % len(ld2)
-        print "    Processing role data with these known roles: %s" % columns
+        print("    %d unique roles assigned" % len(ld2))
+        print("    Processing role data with these known roles: %s" % columns)
         sys.stdout.flush()
         wideData = ld2.pivot( index=unique_id, columns=column_header, values=values )
         wideData = pd.DataFrame( wideData , index=wideData.index ).reset_index()
@@ -174,9 +174,9 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
                           ('sales_admin', 'roles_isSales')
                           ])
     base_fields = ['user_id', 'course_id']
-    fields = base_fields + known_roles_course.keys()
-    print "  Cleaning %s" % ROLE_COURSE_ACCESS
-    wide_roledata = cleanRoles( roledata, 'uid', 'role', 'value', known_roles_course.keys(), fields )
+    fields = base_fields + list(known_roles_course.keys())
+    print("  Cleaning %s" % ROLE_COURSE_ACCESS)
+    wide_roledata = cleanRoles( roledata, 'uid', 'role', 'value', list(known_roles_course.keys()), fields )
     
     # Process Forum Discussion Roles
     known_roles_disc = OrderedDict([
@@ -187,18 +187,18 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
                            ])
     base_fields = ['user_id', 'course_id']
     extra_fields = ['roles'] # To be used to create custom mapping based on existing course and discussion forum roles
-    fields = base_fields + known_roles_disc.keys()
-    print "  Cleaning %s" % ROLE_FORUM_ACCESS
+    fields = base_fields + list(known_roles_disc.keys())
+    print("  Cleaning %s" % ROLE_FORUM_ACCESS)
     if len(rolediscdata)==0:
         print("    No forum roles data!")
     else:
-        wide_rolediscdata = cleanRoles( rolediscdata, 'uid', 'name', 'value', known_roles_disc.keys(), fields )
+        wide_rolediscdata = cleanRoles( rolediscdata, 'uid', 'name', 'value', list(known_roles_disc.keys()), fields )
     
     # Compile
     if len(rolediscdata)==0:
-        fields_all = base_fields + known_roles_course.keys() + extra_fields
+        fields_all = base_fields + list(known_roles_course.keys()) + extra_fields
     else:
-        fields_all = base_fields + known_roles_course.keys() + known_roles_disc.keys() + extra_fields
+        fields_all = base_fields + list(known_roles_course.keys()) + list(known_roles_disc.keys()) + extra_fields
     rename_dict = dict(known_roles_course, **known_roles_disc)
     if len(rolediscdata)==0:
         wideData = wide_roledata
@@ -207,9 +207,9 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
 
     # Create Roles var
     if len(rolediscdata)==0:
-        all_roles = known_roles_course.keys()
+        all_roles = list(known_roles_course.keys())
     else:
-        all_roles = known_roles_disc.keys() + known_roles_course.keys()
+        all_roles = list(known_roles_disc.keys()) + list(known_roles_course.keys())
         all_roles.remove('Student')
     wideData['roles'] = wideData.apply( createRoleVar, args=[all_roles], axis=1 )
 
@@ -220,7 +220,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     finalFields = wideData.columns.tolist()
 
     # Write out
-    fieldnames = the_dict_schema.keys()
+    fieldnames = list(the_dict_schema.keys())
     ofp = openfile('roles.json.gz', 'w')
     ocsv = csv.DictWriter(openfile('roles.csv', 'w'), fieldnames=finalFields)
     ocsv.writeheader()
@@ -237,9 +237,9 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         try:
             ocsv.writerow(data)
         except Exception as err:
-            print "failed to write data=%s" % data
+            print("failed to write data=%s" % data)
             raise
     
-    print "Done with make_roles for %s" % course_id
+    print("Done with make_roles for %s" % course_id)
     sys.stdout.flush()
 

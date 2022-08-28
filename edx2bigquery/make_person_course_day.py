@@ -55,12 +55,12 @@
 import os
 import sys
 import json
-import bqutil
+from . import bqutil
 import datetime
 from path import Path as path
-from gsutil import get_gs_file_list
+from .gsutil import get_gs_file_list
 
-import process_tracking_logs
+from . import process_tracking_logs
 
 #-----------------------------------------------------------------------------
 
@@ -135,7 +135,7 @@ def obsolete_process_course(course_id, force_recompute=False, check_dates=True):
     log_dataset = bqutil.course_id2dataset(course_id, dtype="logs")
     pcd_dataset = bqutil.course_id2dataset(course_id, dtype="pcday")
 
-    print "Processing course %s (start %s)"  % (course_id, datetime.datetime.now())
+    print("Processing course %s (start %s)"  % (course_id, datetime.datetime.now()))
     sys.stdout.flush()
 
     log_tables = bqutil.get_tables(log_dataset)
@@ -143,12 +143,12 @@ def obsolete_process_course(course_id, force_recompute=False, check_dates=True):
     try:
         bqutil.create_dataset_if_nonexistent(pcd_dataset)
     except Exception as err:
-        print "Oops, err when creating %s, err=%s" % (pcd_dataset, str(err))
+        print("Oops, err when creating %s, err=%s" % (pcd_dataset, str(err)))
         
     pcday_tables_info = bqutil.get_tables(pcd_dataset)
     pcday_tables = [x['tableReference']['tableId'] for x in pcday_tables_info.get('tables', [])]
 
-    print "pcday_tables = ", pcday_tables
+    print("pcday_tables = ", pcday_tables)
 
     log_table_list = log_tables['tables']
     log_table_list.sort()
@@ -170,20 +170,20 @@ def obsolete_process_course(course_id, force_recompute=False, check_dates=True):
                 log_table_date = bqutil.get_bq_table_last_modified_datetime(log_dataset, table_id)
                 if log_table_date > table_out_date:
                     skip = False
-                    print "%s...already exists, but table_out date=%s and log_table date=%s, so re-computing" % (table_out,
+                    print("%s...already exists, but table_out date=%s and log_table date=%s, so re-computing" % (table_out,
                                                                                                                  table_out_date,
-                                                                                                                 log_table_date)
+                                                                                                                 log_table_date))
             if skip:
-                print "%s...already done, skipping" % table_out
+                print("%s...already done, skipping" % table_out)
                 sys.stdout.flush()
                 continue
 
         if bqutil.get_bq_table_size_rows(log_dataset, table_id)==0:
-            print "...zero size table %s, skipping" % table_id
+            print("...zero size table %s, skipping" % table_id)
             sys.stdout.flush()
             continue
 
-        print ("Creating %s " % table_out),
+        print(("Creating %s " % table_out), end=' ')
         
         the_sql = PCDAY_SQL.format(course_id=course_id, 
                                    dataset=log_dataset,
@@ -193,8 +193,8 @@ def obsolete_process_course(course_id, force_recompute=False, check_dates=True):
     
         bqutil.create_bq_table(pcd_dataset, table_out, the_sql, wait=False)
     
-    print "Done with course %s (end %s)"  % (course_id, datetime.datetime.now())
-    print "="*77
+    print("Done with course %s (end %s)"  % (course_id, datetime.datetime.now()))
+    print("="*77)
     sys.stdout.flush()
 
 #-----------------------------------------------------------------------------
@@ -506,7 +506,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
     def gdf(row):
         return datetime.datetime.strptime(row['date'], '%Y-%m-%d')
 
-    print "=== Processing person_course_day for %s (start %s)"  % (course_id, datetime.datetime.now())
+    print("=== Processing person_course_day for %s (start %s)"  % (course_id, datetime.datetime.now()))
     sys.stdout.flush()
 
     # Major person_course_day schema revision 19-Jan-2016 adds new fields; if table exists, ensure it 
@@ -520,7 +520,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
         field_names = [x['name'] for x in fields]
         if not 'nvideos_viewed' in field_names:
             cdt = tinfo['creationTime']
-            print "    --> person_course_day created %s; missing nvideos_viewed field in schema; forcing recompute - this may take a long time!" % cdt
+            print("    --> person_course_day created %s; missing nvideos_viewed field in schema; forcing recompute - this may take a long time!" % cdt)
             sys.stdout.flush()
             force_recompute = True
 
@@ -531,8 +531,8 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
                                                      newer_than=datetime.datetime( 2017, 2, 8, 16, 30 ),
                                                      skip_last_day=skip_last_day)
     
-    print "Done with person_course_day for %s (end %s)"  % (course_id, datetime.datetime.now())
-    print "="*77
+    print("Done with person_course_day for %s (end %s)"  % (course_id, datetime.datetime.now()))
+    print("="*77)
     sys.stdout.flush()
         
 #-----------------------------------------------------------------------------

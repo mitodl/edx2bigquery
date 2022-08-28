@@ -15,7 +15,7 @@ already have been computed.
 '''
 
 import sys
-import bqutil
+from . import bqutil
 import datetime
 from collections import OrderedDict
 
@@ -99,15 +99,15 @@ where CI.item_number = 1
                 irt_table_date = lmt
                 irt_table_to_use = irt_tablename
             else:
-                print "[make_irt_report] Not using IRT table %s (date %s) - older than %s (date %s)" % ( irt_tablename,
+                print("[make_irt_report] Not using IRT table %s (date %s) - older than %s (date %s)" % ( irt_tablename,
                                                                                                          lmt,
                                                                                                          irt_table_to_use,
-                                                                                                         irt_table_date )
+                                                                                                         irt_table_date ))
         except Exception as err:
             pass
     
     if not irt_table_to_use:
-        raise Exception("[make_irt_report] Cannot generate IRT report; requires one of %s" % (','.join(IRT_TABLES.keys())))
+        raise Exception("[make_irt_report] Cannot generate IRT report; requires one of %s" % (','.join(list(IRT_TABLES.keys()))))
 
     # SQL changes depending on whether item_reliabilities exists or not
     have_reliabilities = False
@@ -143,13 +143,13 @@ where CI.item_number = 1
                                     newer_than=datetime.datetime(2016, 9, 27, 14, 48),
                                     startIndex=-2)
     except Exception as err:
-        print "[make_irt_report] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename)
-        print the_sql
+        print("[make_irt_report] ERR! failed in creating %s.%s using this sql:" % (dataset, tablename))
+        print(the_sql)
         raise
 
     if not bqdat:
         nfound = 0
     else:
         nfound = bqutil.get_bq_table_size_rows(dataset, tablename)
-    print "--> Done with %s for %s, %d problem items found" % (tablename, course_id, nfound)
+    print("--> Done with %s for %s, %d problem items found" % (tablename, course_id, nfound))
     sys.stdout.flush()

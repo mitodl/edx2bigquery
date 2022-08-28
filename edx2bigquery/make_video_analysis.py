@@ -7,21 +7,21 @@ import os, sys
 import csv
 import re
 import json
-import gsutil
-import bqutil
+from . import gsutil
+from . import bqutil
 import datetime
-import process_tracking_logs
+from . import process_tracking_logs
 
 from path import Path as path
 from collections import OrderedDict
 from collections import defaultdict
-from check_schema_tracking_log import schema2dict, check_schema
-from load_course_sql import find_course_sql_dir, openfile
+from .check_schema_tracking_log import schema2dict, check_schema
+from .load_course_sql import find_course_sql_dir, openfile
 from unidecode import unidecode
 
 import re
 from time import sleep
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import json
 import os
 import datetime
@@ -99,7 +99,7 @@ def make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_
 	videoAxisExists = True
         va_date = tinfo['lastModifiedTime']		# datetime
     except (AssertionError, Exception) as err:
-        print "%s --> Attempting to process %s table" % ( str(err), TABLE_VIDEO_AXIS )
+        print("%s --> Attempting to process %s table" % ( str(err), TABLE_VIDEO_AXIS ))
         sys.stdout.flush()
 
     # get course axis time
@@ -112,7 +112,7 @@ def make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_
 
     if videoAxisExists and (not force_recompute) and ca_date and va_date and (ca_date > va_date):
         force_recompute = True
-        print "video_axis exists, but has date %s, older than course_axis date %s; forcing recompute" % (va_date, ca_date)
+        print("video_axis exists, but has date %s, older than course_axis date %s; forcing recompute" % (va_date, ca_date))
         sys.stdout.flush()
 
     if not videoAxisExists or force_recompute:
@@ -133,7 +133,7 @@ def make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_
         bqutil.load_data_to_table(dataset, table, gsfn, the_schema, wait=True)
 
     else:
-        print "[analyze videos] %s.%s already exists (and force recompute not specified). Skipping step to generate %s using latest course axis" % ( dataset, TABLE_VIDEO_AXIS, TABLE_VIDEO_AXIS )
+        print("[analyze videos] %s.%s already exists (and force recompute not specified). Skipping step to generate %s using latest course axis" % ( dataset, TABLE_VIDEO_AXIS, TABLE_VIDEO_AXIS ))
 
     # Lastly, create video stats
     createVideoStats_day( course_id, force_recompute=force_recompute, use_dataset_latest=use_dataset_latest )
@@ -178,7 +178,7 @@ def createVideoAxis(course_id, force_recompute=False, use_dataset_latest=False):
                       ORDER BY videos.index asc
               """.format(dataset=dataset)
     
-    print "[analyze_videos] Creating %s.%s table for %s" % (dataset, TABLE_VIDEO_AXIS, course_id)
+    print("[analyze_videos] Creating %s.%s table for %s" % (dataset, TABLE_VIDEO_AXIS, course_id))
     sys.stdout.flush()
         
     try:
@@ -186,7 +186,7 @@ def createVideoAxis(course_id, force_recompute=False, use_dataset_latest=False):
         assert tinfo is not None, "[analyze videos] %s table depends on %s, which does not exist" % ( TABLE_VIDEO_AXIS, TABLE_COURSE_AXIS )
 
     except (AssertionError, Exception) as err:
-        print " --> Err: missing %s.%s?  Skipping creation of %s" % ( dataset, TABLE_COURSE_AXIS, TABLE_VIDEO_AXIS )
+        print(" --> Err: missing %s.%s?  Skipping creation of %s" % ( dataset, TABLE_COURSE_AXIS, TABLE_VIDEO_AXIS ))
         sys.stdout.flush()
         return
 
@@ -223,17 +223,17 @@ def createVideoStats_day( course_id, force_recompute=False, use_dataset_latest=F
         tinfo = bqutil.get_bq_table_info(dataset, TABLE_VIDEO_STATS_PER_DAY )
         assert tinfo is not None, "[analyze_videos] Creating %s.%s table for %s" % (dataset, TABLE_VIDEO_STATS_PER_DAY, course_id)
 
-        print "[analyze_videos] Appending latest data to %s.%s table for %s" % (dataset, TABLE_VIDEO_STATS_PER_DAY, course_id)
+        print("[analyze_videos] Appending latest data to %s.%s table for %s" % (dataset, TABLE_VIDEO_STATS_PER_DAY, course_id))
         sys.stdout.flush()
 
     except (AssertionError, Exception) as err:
-        print str(err)
+        print(str(err))
         sys.stdout.flush()
-        print " --> Missing %s.%s?  Attempting to create..." % ( dataset, TABLE_VIDEO_STATS_PER_DAY )
+        print(" --> Missing %s.%s?  Attempting to create..." % ( dataset, TABLE_VIDEO_STATS_PER_DAY ))
         sys.stdout.flush()
         pass
 
-    print "=== Processing Video Stats Per Day for %s (start %s)"  % (course_id, datetime.datetime.now())
+    print("=== Processing Video Stats Per Day for %s (start %s)"  % (course_id, datetime.datetime.now()))
     sys.stdout.flush()
 
     def gdf(row):
@@ -244,8 +244,8 @@ def createVideoStats_day( course_id, force_recompute=False, use_dataset_latest=F
                                                      get_date_function=gdf,
                                                      skip_last_day=skip_last_day)
 
-    print "Done with Video Stats Per Day for %s (end %s)"  % (course_id, datetime.datetime.now())
-    print "="*77
+    print("Done with Video Stats Per Day for %s (end %s)"  % (course_id, datetime.datetime.now()))
+    print("="*77)
     sys.stdout.flush()
 
 #-----------------------------------------------------------------------------
@@ -294,7 +294,7 @@ def createVideoStats( course_id, force_recompute=False, use_dataset_latest=False
                 ORDER BY index_video asc;
                 """.format(dataset=dataset, videoaxis=TABLE_VIDEO_AXIS, videostatsperday=TABLE_VIDEO_STATS_PER_DAY)
 
-    print "[analyze_videos] Creating %s.%s table for %s" % (dataset, TABLE_VIDEO_STATS, course_id)
+    print("[analyze_videos] Creating %s.%s table for %s" % (dataset, TABLE_VIDEO_STATS, course_id))
     sys.stdout.flush()
         
     try:
@@ -306,7 +306,7 @@ def createVideoStats( course_id, force_recompute=False, use_dataset_latest=False
         assert tinfo_va_day is not None and trows_va_day != 0, "[analyze videos] %s table depends on %s, which does not exist" % ( TABLE_VIDEO_STATS, TABLE_VIDEO_STATS_PER_DAY ) 
 
     except (AssertionError, Exception) as err:
-        print " --> Err: missing %s.%s and/or %s (including 0 rows in table)?  Skipping creation of %s" % ( dataset, TABLE_VIDEO_AXIS, TABLE_VIDEO_STATS_PER_DAY, TABLE_VIDEO_STATS )
+        print(" --> Err: missing %s.%s and/or %s (including 0 rows in table)?  Skipping creation of %s" % ( dataset, TABLE_VIDEO_AXIS, TABLE_VIDEO_STATS_PER_DAY, TABLE_VIDEO_STATS ))
         sys.stdout.flush()
         return
 
@@ -370,7 +370,7 @@ def createPersonCourseVideo( course_id, force_recompute=False, use_dataset_lates
         nfound = 0
     else:
         nfound = bqutil.get_bq_table_size_rows(dataset, table)
-    print "--> Done with %s for %s, %d entries found" % (table, course_id, nfound)
+    print("--> Done with %s for %s, %d entries found" % (table, course_id, nfound))
     sys.stdout.flush()
 
     return bqdat
@@ -423,7 +423,7 @@ def createVideoStats_obsolete( course_id, force_recompute=False, use_dataset_lat
                         order by index_video asc;
                 """.format(dataset=dataset,start_date=startDate,end_date=endDate,logs=logs, videoaxis=TABLE_VIDEO_AXIS)
 
-    print "[analyze_videos] Creating %s.%s table for %s" % (dataset, TABLE_VIDEO_STATS, course_id)
+    print("[analyze_videos] Creating %s.%s table for %s" % (dataset, TABLE_VIDEO_STATS, course_id))
     sys.stdout.flush()
         
     try:
@@ -431,7 +431,7 @@ def createVideoStats_obsolete( course_id, force_recompute=False, use_dataset_lat
         assert tinfo is not None, "[analyze videos] %s table depends on %s, which does not exist" % ( TABLE_VIDEO_STATS, TABLE_VIDEO_AXIS ) 
 
     except (AssertionError, Exception) as err:
-        print " --> Err: missing %s.%s?  Skipping creation of %s" % ( dataset, TABLE_VIDEO_AXIS, TABLE_VIDEO_STATS )
+        print(" --> Err: missing %s.%s?  Skipping creation of %s" % ( dataset, TABLE_VIDEO_AXIS, TABLE_VIDEO_STATS ))
         sys.stdout.flush()
         return
 
@@ -454,19 +454,19 @@ def get_youtube_api_stats(youtube_id, api_key, part, delay_secs=0):
         assert api_key is not None, "[analyze videos] Public API Key is missing from configuration file."
         #url = "http://gdata.youtube.com/feeds/api/videos/" + youtube_id + "?v=2&alt=jsonc"    # Version 2 API has been deprecated
         url = "https://www.googleapis.com/youtube/v3/videos?part=" + part + "&id=" + youtube_id + "&key=" + api_key # Version 3.0 API
-        data = urllib2.urlopen(url).read().decode("utf-8")
+        data = urllib.request.urlopen(url).read().decode("utf-8")
     except (AssertionError, Exception) as err:
         error = str(err)
         if "504" in error or "403" in error: 
             # rate-limit issue: try again with double timeout
             if delay_secs > MIN_IN_SECS:
-                print "[Giving up] %s\n%s" % (youtube_id, url)
+                print("[Giving up] %s\n%s" % (youtube_id, url))
                 return None, None
             new_delay = max(1.0, delay_secs * 2.0)
-            print "[Rate-limit] <%s> - Trying again with delay: %s" % (youtube_id, str(new_delay))
+            print("[Rate-limit] <%s> - Trying again with delay: %s" % (youtube_id, str(new_delay)))
             return get_youtube_api_stats(youtube_id=youtube_id, api_key=api_key, delay_secs=new_delay)
         else:
-            print "[Error] <%s> - Unable to get duration.\n%s" % (youtube_id, url)
+            print("[Error] <%s> - Unable to get duration.\n%s" % (youtube_id, url))
 
         raise
         
@@ -532,16 +532,16 @@ def findVideoLength(dataset, youtube_id, api_key=None):
     try:
         youtube_id = unidecode(youtube_id)
     except Exception as err:
-        print "youtube_id is not ascii?  ytid=", youtube_id
+        print("youtube_id is not ascii?  ytid=", youtube_id)
         return 0
     try:
         assert youtube_id is not None, "[analyze videos] youtube id does not exist"
         content, stats = get_youtube_api_stats(youtube_id=youtube_id, api_key=api_key, part=YOUTUBE_PARTS)
         durationDict = parseISOduration(content['duration'].encode("ascii","ignore"))
         length = getTotalTimeSecs(durationDict)
-        print "[analyze videos] totalTime for youtube video %s is %s sec" % (youtube_id, length)
+        print("[analyze videos] totalTime for youtube video %s is %s sec" % (youtube_id, length))
     except (AssertionError, Exception) as err:
-        print "Failed to lookup video length for %s!  Error=%s, data=%s" % (youtube_id, err, dataset)
+        print("Failed to lookup video length for %s!  Error=%s, data=%s" % (youtube_id, err, dataset))
         length = 0
     return length
 
@@ -578,7 +578,7 @@ def getYoutubeDurations(dataset, bq_table_input, api_key, outputfilename, schema
         for keys in row_dict:
             
             # Only include keys defined in schema
-            if keys in schema.keys():
+            if keys in list(schema.keys()):
                 verified_row[keys] = row_dict[keys]
             
         # Recompute Video Length durations
@@ -591,7 +591,7 @@ def getYoutubeDurations(dataset, bq_table_input, api_key, outputfilename, schema
         try:
             fp.write(json.dumps(verified_row)+'\n')
         except Exception as err:
-            print "Failed to write line %s!  Error=%s, data=%s" % (linecnt, str(err), dataset)
+            print("Failed to write line %s!  Error=%s, data=%s" % (linecnt, str(err), dataset))
     
     fp.close()
 

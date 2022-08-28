@@ -15,9 +15,9 @@ sfn = '%s/schemas/schema_tracking_log.json' % mypath
 
 schema = json.loads(open(sfn).read())['tracking_log']
 
-bq2ptype = {'RECORD': dict, 'INTEGER': int, 'STRING': unicode, 'FLOAT': float, 
+bq2ptype = {'RECORD': dict, 'INTEGER': int, 'STRING': str, 'FLOAT': float, 
             'BOOLEAN': int,
-            'TIMESTAMP': unicode,
+            'TIMESTAMP': str,
             }
 
 def schema2dict(the_schema_in):
@@ -47,7 +47,7 @@ def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=N
     if the_ds is None:
         the_ds = ds
 
-    for key, val in data.iteritems():
+    for key, val in data.items():
         if val is None:
             continue
         if not key in the_ds:
@@ -66,32 +66,32 @@ def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=N
                 continue
             if type(val)==bool and ptype==int:
                 continue
-            if type(val)==unicode and ptype==str:
+            if type(val)==str and ptype==str:
                 continue
-            if type(val)==str and ptype==unicode:
+            if type(val)==str and ptype==str:
                 continue
 
             if coerce:
-                if type(val) in [str, unicode] and ptype==float:
+                if type(val) in [str, str] and ptype==float:
                     try:
                         data[key] = float(val)
                     except Exception as err:
-                        print "Error coercing data for key=%s path=%s, val=%s, err=%s" % (key, path, val, str(err))
+                        print("Error coercing data for key=%s path=%s, val=%s, err=%s" % (key, path, val, str(err)))
                         data[key] = None
                     continue
-                if type(val) in [str, unicode] and ptype==int:
+                if type(val) in [str, str] and ptype==int:
                     try:
                         data[key] = int(val)
                     except Exception as err:
-                        print "Error coercing data for key=%s path=%s, val=%s, err=%s" % (key, path, val, str(err))
+                        print("Error coercing data for key=%s path=%s, val=%s, err=%s" % (key, path, val, str(err)))
                         raise
                     continue
                     
-            print "[line %d] mismatch type expected %s got %s for key=%s, val=%s, path=%s" % (linecnt,
+            print("[line %d] mismatch type expected %s got %s for key=%s, val=%s, path=%s" % (linecnt,
                                                                                               ptype, 
                                                                                               type(val), 
                                                                                               key, val,
-                                                                                              path)
+                                                                                              path))
         if ptype==dict:
             check_schema(linecnt, val, the_ds[key]['dict_schema'], path + "/" + key, coerce=coerce)
 

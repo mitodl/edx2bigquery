@@ -6,16 +6,16 @@ if course_report_latest.person_course_viewed is available.  Produces idv_analysi
 '''
 
 import sys
-import bqutil
+from . import bqutil
 
 def AnalyzeIDV(course_id, force_recompute=False, use_dataset_latest=False):
 
     tablename = "idv_analysis"
     dataset = bqutil.course_id2dataset(course_id, use_dataset_latest=use_dataset_latest)
 
-    print "="*77
-    print "Creating %s.%s table for %s" % (dataset, tablename, course_id)
-    print "-"*77
+    print("="*77)
+    print("Creating %s.%s table for %s" % (dataset, tablename, course_id))
+    print("-"*77)
 
     org = course_id.split('/',1)[0]
     dataset_cr = ('course_report_%s' % org)
@@ -27,7 +27,7 @@ def AnalyzeIDV(course_id, force_recompute=False, use_dataset_latest=False):
         tinfo = bqutil.get_bq_table_info(dataset_cr, "person_course_viewed")
         assert tinfo is not None
     except Exception as err:
-        print " --> missing %s.%s ;  using dummy instead" % (dataset_cr, pcv)
+        print(" --> missing %s.%s ;  using dummy instead" % (dataset_cr, pcv))
         sys.stdout.flush()
         dataset_cr = dataset
         pcv = "person_course"
@@ -222,9 +222,9 @@ order by verified_enroll_date, user_id
                                     allowLargeResults=True,
                                     startIndex=-2)
     except Exception as err:
-        print "ERROR! Failed on SQL="
-        print the_sql
+        print("ERROR! Failed on SQL=")
+        print(the_sql)
         raise
     
-    print "  --> created %s.%s" % (dataset, tablename)
+    print("  --> created %s.%s" % (dataset, tablename))
     sys.stdout.flush()

@@ -7,7 +7,7 @@
 import os, sys
 import datetime
 from path import Path as path
-from gsutil import get_gs_file_list, gs_path_from_course_id, path_from_course_id, upload_file_to_gs
+from .gsutil import get_gs_file_list, gs_path_from_course_id, path_from_course_id, upload_file_to_gs
 
 DBNAME = 'harvardxdb'
 
@@ -35,13 +35,13 @@ def extract_logs_mongo2gs(course_id, start="2012-09-01", end="2014-09-24", verbo
                           tracking_logs_directory="TRACKING_LOGS",
                           ):
 
-    print "extracting logs for course %s" % course_id
+    print("extracting logs for course %s" % course_id)
 
     # list of dates to dump
     dates = daterange(d2dt(start), d2dt(end))
     
     if verbose:
-        print "Dates to dump:", [x['dstr'] for x in dates]
+        print("Dates to dump:", [x['dstr'] for x in dates])
 
     # what files already on gs?
     gspath = "%s/DAILY" % gs_path_from_course_id(course_id)
@@ -65,7 +65,7 @@ def extract_logs_mongo2gs(course_id, start="2012-09-01", end="2014-09-24", verbo
         ofnb = os.path.basename(ofn)
 
         if ofnb in gsfiles:
-            print "Already have %s, skipping" % ofnb
+            print("Already have %s, skipping" % ofnb)
             sys.stdout.flush()
             continue
 
@@ -85,5 +85,5 @@ def extract_logs_mongo2gs(course_id, start="2012-09-01", end="2014-09-24", verbo
         if len(filebuf)>20:
             ffn = filebuf.pop(0)
             os.unlink(ffn)
-            print "...Deleted %s" % ffn
+            print("...Deleted %s" % ffn)
             sys.stdout.flush()

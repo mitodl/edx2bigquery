@@ -6,7 +6,7 @@ import codecs
 import sys
 import os
 import datetime
-import bqutil
+from . import bqutil
 import json
 import re
 
@@ -28,10 +28,10 @@ def run_external_script(extcmd, param, ecinfo, course_id):
     settings.update(ecinfo.get(extcmd))
     # print "settings: ", json.dumps(settings, indent=4)
     
-    print settings['name']
+    print(settings['name'])
     
     if param.verbose:
-        print settings.get('description', '')
+        print(settings.get('description', ''))
 
     cidns = course_id.replace('/', '__')
     cidns_nodots = course_id.replace('/', '__').replace('.', '_').replace('-', '_')
@@ -50,8 +50,8 @@ def run_external_script(extcmd, param, ecinfo, course_id):
     try:
         ofn = settings['script_fn'].format(filename_prefix=fnpre, cidns=cidns)
     except Exception as err:
-        print "oops, errr %s" % str(err)
-        print "settings=", json.dumps(settings, indent=4)
+        print("oops, errr %s" % str(err))
+        print("settings=", json.dumps(settings, indent=4))
         raise
     cwd = os.getcwd()
 
@@ -86,23 +86,23 @@ def run_external_script(extcmd, param, ecinfo, course_id):
     runcmd = settings['script_cmd'].format(**context)
 
     tem = codecs.open(the_template).read()
-    tem = unicode(tem)
+    tem = str(tem)
     try:
         # script_file = tem.format(**context)
         script_file = Template(tem).render(**context)
     except Exception as err:
-        print "Oops, cannot properly format template %s" % the_template
-        print "Error %s" % str(err)
-        print "context: ", json.dumps(context, indent=4)
+        print("Oops, cannot properly format template %s" % the_template)
+        print("Error %s" % str(err))
+        print("context: ", json.dumps(context, indent=4))
         raise
     ofndir = path(ofn).dirname()
     if not os.path.exists(ofndir):
-        print "[Warning] Directory %s doesn't exist - creating it" % ofndir
+        print("[Warning] Directory %s doesn't exist - creating it" % ofndir)
         os.mkdir(ofndir)
     fp = codecs.open(ofn, 'w', encoding="utf8")
     fp.write(script_file)
     fp.close()
-    print "Generated %s" % ofn
+    print("Generated %s" % ofn)
 
     # if depends_on is defined, and force_recompute is not true, then skip
     # run if output already exists and is newer than all depends_on tables.
@@ -122,7 +122,7 @@ def run_external_script(extcmd, param, ecinfo, course_id):
         except:
             pass
         if not has_output:
-            print "Output table %s.%s doesn't exist: running" % (dataset, output_table)
+            print("Output table %s.%s doesn't exist: running" % (dataset, output_table))
             do_compute = True
         else:
             table_date = tinfo['lastModifiedTime']
@@ -137,13 +137,13 @@ def run_external_script(extcmd, param, ecinfo, course_id):
                     do_compute = True
                     break
             if not do_compute:
-                print "Output table %s.%s exists and is newer than %s, skipping" % (dataset, output_table, depends_on)
+                print("Output table %s.%s exists and is newer than %s, skipping" % (dataset, output_table, depends_on))
             
     if do_compute:
         os.chdir(rundir)
-        print "Working directory: %s" % rundir
-        print "Logging to %s" % lfn
-        print "Run command: %s" % runcmd
+        print("Working directory: %s" % rundir)
+        print("Logging to %s" % lfn)
+        print("Run command: %s" % runcmd)
         sys.stdout.flush()
         if not param.skiprun:
             start = datetime.datetime.now()
@@ -168,7 +168,7 @@ def run_external_script(extcmd, param, ecinfo, course_id):
                 fp.write(condor_template)
                 fp.close()
                 cmd = "condor_submit %s" % condor_submit_fn
-                print cmd
+                print(cmd)
                 jobid = None
                 for k in os.popen(cmd):
                     m = re.search('submitted to cluster ([0-9]+)', k)
@@ -177,7 +177,7 @@ def run_external_script(extcmd, param, ecinfo, course_id):
                 dt = str(datetime.datetime.now())
                 jobfile = 'condor_jobs.csv'
                 open(jobfile, 'a').write("%s,%s,%s,%s\n" % (course_id, dt, jobid, lfn))
-                print "[%s] Submitted as condor job %s at %s" % (course_id, jobid, dt)
+                print("[%s] Submitted as condor job %s at %s" % (course_id, jobid, dt))
                 # print "[run_external] submitted %s, job=%s" % (extcmd, jobnum)
                 return
             else:
@@ -188,7 +188,7 @@ def run_external_script(extcmd, param, ecinfo, course_id):
                 batch_log = ofn.split('.')[0] + ".log"
                 if os.path.exists(batch_log):
                     os.unlink(batch_log)
-                    print "Removed old log file %s" % batch_log
+                    print("Removed old log file %s" % batch_log)
 
             end = datetime.datetime.now()
             has_output = False
@@ -200,7 +200,7 @@ def run_external_script(extcmd, param, ecinfo, course_id):
                 pass
             success = has_output
             dt = end-start
-            print "[run_external] DONE WITH %s, success=%s, dt=%s" % (extcmd, success, dt)
+            print("[run_external] DONE WITH %s, success=%s, dt=%s" % (extcmd, success, dt))
             sys.stdout.flush()
             if param.parallel and not success:
                 raise Exception("[run_external] External command %s failed on %s" % (extcmd, course_id))

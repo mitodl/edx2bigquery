@@ -22,13 +22,13 @@ import stat
 import traceback
 import tempfile
 
-from addmoduleid import add_module_id
-from check_schema_tracking_log import check_schema, schema2dict
-from load_course_sql import find_course_sql_dir
+from .addmoduleid import add_module_id
+from .check_schema_tracking_log import check_schema, schema2dict
+from .load_course_sql import find_course_sql_dir
 from path import Path as path
-from edx2course_axis import date_parse
-import bqutil
-import gsutil
+from .edx2course_axis import date_parse
+from . import bqutil
+from . import gsutil
 
 sfn = 'schema_forum.json'
 
@@ -53,7 +53,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                     try:
                         dt = datetime.datetime.utcfromtimestamp(dtime/1000.0)
                     except Exception as err:
-                        print "oops, failed to convert in utcfromtimestamp dtime=%s, dstr=%s" % (dtime, dstr)
+                        print("oops, failed to convert in utcfromtimestamp dtime=%s, dstr=%s" % (dtime, dstr))
                         raise
                     return str(dt)
             except Exception as err:
@@ -103,7 +103,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
     # check for any funny keys, recursively
     funny_key_sections = []
     def check_for_funny_keys(entry, name='toplevel'):
-        for key, val in entry.iteritems():
+        for key, val in entry.items():
             if key.startswith('i4x-') or key.startswith('xblock.'):
                 sys.stderr.write("[rephrase] oops, funny key at %s in entry: %s, data=%s\n" % (name, entry, ''))
                 funny_key_sections.append(name)
@@ -170,12 +170,12 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data",
                                    do_gs_copy=False,
                                    use_dataset_latest=False,
                                    ):
-    print "Loading SQL for course %s into BigQuery (start: %s)" % (course_id, datetime.datetime.now())
+    print("Loading SQL for course %s into BigQuery (start: %s)" % (course_id, datetime.datetime.now()))
     sys.stdout.flush()
 
     lfp = find_course_sql_dir(course_id, basedir, datedir, use_dataset_latest=use_dataset_latest)
 
-    print "Using this directory for local files: ", lfp
+    print("Using this directory for local files: ", lfp)
     sys.stdout.flush()
 
     fn = 'forum.mongo'
@@ -201,18 +201,18 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data",
 
         tables = bqutil.get_list_of_table_ids(dataset)
         if not 'forum' in tables:
-            print "Already done?  But no forums table loaded into datasaet %s.  Redoing." % dataset
+            print("Already done?  But no forums table loaded into datasaet %s.  Redoing." % dataset)
         else:
-            print "Already done %s -> %s (skipping)" % (fn, ofn)
-            print "Already done %s -> %s (skipping)" % (fn, ofncsv_lfp)
+            print("Already done %s -> %s (skipping)" % (fn, ofn))
+            print("Already done %s -> %s (skipping)" % (fn, ofncsv_lfp))
             sys.stdout.flush()
             return
 
-    print "Processing %s -> writing to %s and %s (%s)" % (fn, ofn, ofncsv, datetime.datetime.now())
+    print("Processing %s -> writing to %s and %s (%s)" % (fn, ofn, ofncsv, datetime.datetime.now()))
     sys.stdout.flush()
 
     # Setup CSV header
-    ocsv = csv.DictWriter( openfile(ofncsv, 'w'), fieldnames=SCHEMA_DICT.keys(), quoting=csv.QUOTE_NONNUMERIC )
+    ocsv = csv.DictWriter( openfile(ofncsv, 'w'), fieldnames=list(SCHEMA_DICT.keys()), quoting=csv.QUOTE_NONNUMERIC )
     ocsv.writeheader()
 
     cnt = 0
@@ -231,19 +231,19 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data",
             data = json.loads(newline)
             ocsv.writerow( data )
         except Exception as err:
-            print "Error writing CSV output row %s=%s" % ( cnt, data )
+            print("Error writing CSV output row %s=%s" % ( cnt, data ))
             raise
 
     ofp.close()
 
-    print "...done (%s)" % datetime.datetime.now()
+    print("...done (%s)" % datetime.datetime.now())
 
     if cnt == 0:
-        print "...but cnt=0 entries found, skipping forum loading"
+        print("...but cnt=0 entries found, skipping forum loading")
         sys.stdout.flush()
         return
 
-    print "...copying to gsc"
+    print("...copying to gsc")
     sys.stdout.flush()
 
     # do upload twice, because GSE file metadata doesn't always make it to BigQuery right away?
@@ -259,7 +259,7 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data",
 
     os.system('mv %s "%s"' % (tmp_fname, ofn))
 
-    print "...done (%s)" % datetime.datetime.now()
+    print("...done (%s)" % datetime.datetime.now())
     sys.stdout.flush()
 
 #-----------------------------------------------------------------------------

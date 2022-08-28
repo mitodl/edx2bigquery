@@ -181,7 +181,7 @@ def guess_module_id(doc):
         # sys.stderr.write("ok mid = %s\n" % mid)
         return mid
 
-    if ('problem' in event_type and type(event) in [str, unicode] and event.startswith("input_")):
+    if ('problem' in event_type and type(event) in [str, str] and event.startswith("input_")):
         page = doc.get('page', '') or ''
         # sys.stderr.write("page=%s\n" % page)
         rr = okre2.search(page)
@@ -236,7 +236,7 @@ def guess_module_id(doc):
         if type(event_dict)==dict and 'id' in event_dict:
             event = event_dict
 
-    if (type(event)==dict and 'id' in event and type(event['id']) in [str, unicode]):
+    if (type(event)==dict and 'id' in event and type(event['id']) in [str, str]):
         eid = event['id']
         rr = okre4.search(eid)
         if (rr):
@@ -253,7 +253,7 @@ def guess_module_id(doc):
                 mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), 'video', eid)
                 return mid
 
-    elif (type(event) in [str, unicode]):
+    elif (type(event) in [str, str]):
         rr = okre4.search(event)
         if (rr):
             mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
@@ -268,7 +268,7 @@ def guess_module_id(doc):
     if event_type in ['add_resource', 'delete_resource', 'recommender_upvote']:
         return None
 
-    if type(event)==dict and ('id' in event) and not (type(event['id']) in [str, unicode]):
+    if type(event)==dict and ('id' in event) and not (type(event['id']) in [str, str]):
         return None
 
     if doc['event_source']=='browser':
@@ -301,7 +301,7 @@ def guess_module_id(doc):
         except Exception as err:
             pass
   
-        if (type(event)==str or type(event)==unicode):
+        if (type(event)==str or type(event)==str):
             rr = cidre5.search(event)
             if (rr):
                 return rr.group(1) + '/' + rr.group(2) + '/problem/' + rr.group(3)
@@ -359,7 +359,7 @@ def guess_module_id(doc):
         # sys.stderr.write("ok mid = %s\n" % mid)
         return mid
 
-    if type(event) in [str, unicode] and event.startswith('input_'):
+    if type(event) in [str, str] and event.startswith('input_'):
         #rr = cidre11.search(doc.get('page', ''))
         rr2 = cidre11a.search(event)
         if (rr2):
@@ -383,13 +383,13 @@ def guess_module_id(doc):
         mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
         return mid
   
-    if type(event) in [str, unicode]:
+    if type(event) in [str, str]:
         rr = cidre3c.search(event)
         if (rr):
             mid = "%s/%s/%s/%s" % (rr.group('org'), rr.group('course'), rr.group('mtype'), rr.group('id'))
             return mid
 
-    if (type(event)==str or type(event)==unicode):	# all the rest of the patterns need event to be a dict
+    if (type(event)==str or type(event)==str):	# all the rest of the patterns need event to be a dict
         return
 
     if (type(event)==dict and event.get('problem_id')): # assumes event is js, not string
@@ -435,7 +435,7 @@ def add_moduleid_line(line):
 if __name__=="__main__":
     for line in sys.stdin:
         newline = add_moduleid_line(line)
-        print newline,
+        print(newline, end=' ')
 
     
 

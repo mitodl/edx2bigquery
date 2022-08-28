@@ -3,9 +3,9 @@
 import os
 import sys
 import traceback
-import edx2course_axis
-import load_course_sql
-import axis2bigquery
+from . import edx2course_axis
+from . import load_course_sql
+from . import axis2bigquery
 
 def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=False, pin_date=None, stop_on_error=True):
     if pin_date:
@@ -30,7 +30,7 @@ def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=Fals
             break
 
     if not os.path.exists(fn):
-        print "---> oops, cannot generate course axis for %s, file %s (or 'course.xml.tar.gz' or 'course-prod-edge-analytics.xml.tar.gz') missing!" % (course_id, fn)
+        print("---> oops, cannot generate course axis for %s, file %s (or 'course.xml.tar.gz' or 'course-prod-edge-analytics.xml.tar.gz') missing!" % (course_id, fn))
         sys.stdout.flush()
         return
 
@@ -41,7 +41,7 @@ def process_course(course_id, basedir, datedir, use_dataset_latest, verbose=Fals
                                                 use_dataset_latest=use_dataset_latest,
                                                 force_course_id=course_id)
     except Exception as err:
-        print err
+        print(err)
         traceback.print_exc()
         if stop_on_error:
             raise
