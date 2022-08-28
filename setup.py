@@ -1,5 +1,10 @@
 import glob
+from pathlib import Path
 from setuptools import setup
+
+# read the contents of README file
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
 
 def findfiles(pat):
     return [x for x in glob.glob('share/' + pat)]
@@ -20,7 +25,7 @@ setup(
     url='https://github.com/mitodl/edx2bigquery',
     license='LICENSE',
     description='Import research data from edX dumps into google BigQuery',
-    long_description=open('README.md').read(),
+    long_description=long_description,
     include_package_data=True,
     entry_points={
         'console_scripts': [
@@ -34,7 +39,8 @@ setup(
                       'python-dateutil',
                       'geoip2',
                       'lxml',
-                      'BeautifulSoup',
+                      # 'BeautifulSoup',
+                      'bs4',
                       'unicodecsv',
                       'Jinja2',
                       'google-api-python-client',
