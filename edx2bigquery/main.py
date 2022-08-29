@@ -21,7 +21,7 @@ from collections import OrderedDict
 CURDIR = path(os.path.abspath(os.curdir))
 if os.path.exists(CURDIR / 'edx2bigquery_config.py'):
     sys.path.append(CURDIR)
-    import edx2bigquery_config			# user's configuration parameters
+    import edx2bigquery_config                  # user's configuration parameters
 else:
     print("WARNING: edx2bigquery needs a configuration file, ./edx2bigquery_config.py, to operate properly")
 
@@ -79,7 +79,7 @@ def get_course_ids_from_subset_missing_table(args):
     return courses
 
 def get_course_ids_no_check(args):
-    if type(args) in [str, str]:		# special case: a single course, already specified
+    if type(args) in [str, str]:                # special case: a single course, already specified
         return [ args ]
     if type(args)==list:
         return args
@@ -181,7 +181,7 @@ def run_capture_stdout(function, args, stdout=None, name="<run>"):
     print("[RUN] STARTING %s at %s" % (name, start))
     print("-"*100)
     if stdout:
-        sys.stdout = stdout			# overload for multiprocessing, so that we can unravel output streams
+        sys.stdout = stdout                     # overload for multiprocessing, so that we can unravel output streams
     try:
         function(*args)
         errstr = None
@@ -371,7 +371,7 @@ def time_on_task(param, course_id, optargs=None, skip_totals=False, just_do_tota
     sys.stdout.flush()
 
     config_parameter_overrides = None
-    if optargs.time_on_task_config:	# e.g. "timeout_short:7,time_on_task_table_name:test_time_on_task_7"
+    if optargs.time_on_task_config:     # e.g. "timeout_short:7,time_on_task_table_name:test_time_on_task_7"
         config_parameter_overrides = {x[0]: x[1] for x in [y.split(':', 1) for y in optargs.time_on_task_config.split(',')]}
         print("   Overriding default config with: %s" % json.dumps(config_parameter_overrides, indent=4))
         sys.stdout.flush()
@@ -461,7 +461,7 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
     if 'split' in steps:
         from . import split_and_rephrase
         import pytz
-        tlfn = course_id		# tracking log filename
+        tlfn = course_id                # tracking log filename
         if '*' in tlfn:
             import glob
             TODO = glob.glob(tlfn)
@@ -859,17 +859,17 @@ def research(param, courses, args, check_dates=True, stop_on_error=False):
     from . import rephrase_forum_data
     for course_id in get_course_ids(courses):
         try:
-	    make_research_data_tables.ResearchDataProducts(course_id,
-						       basedir=param.the_basedir,
-						       datedir=param.the_datedir,
-						       nskip=(args.nskip or 0),
-						       output_project_id=args.output_project_id or edx2bigquery_config.PROJECT_ID,
-						       output_dataset_id=args.output_dataset_id,
-						       output_bucket=args.output_bucket or edx2bigquery_config.GS_BUCKET,
-						       use_dataset_latest=param.use_dataset_latest,
-						       only_step=param.only_step,
-						       end_date=(param.end_date or param.DEFAULT_END_DATE),
-						       )
+            make_research_data_tables.ResearchDataProducts(course_id,
+                                                       basedir=param.the_basedir,
+                                                       datedir=param.the_datedir,
+                                                       nskip=(args.nskip or 0),
+                                                       output_project_id=args.output_project_id or edx2bigquery_config.PROJECT_ID,
+                                                       output_dataset_id=args.output_dataset_id,
+                                                       output_bucket=args.output_bucket or edx2bigquery_config.GS_BUCKET,
+                                                       use_dataset_latest=param.use_dataset_latest,
+                                                       only_step=param.only_step,
+                                                       end_date=(param.end_date or param.DEFAULT_END_DATE),
+                                                       )
 
             rephrase_forum_data.rephrase_forum_json_for_course(course_id,
                                                                gsbucket=edx2bigquery_config.GS_BUCKET,
@@ -978,7 +978,7 @@ def doall(param, course_id, args, stdout=None):
     start = datetime.datetime.now()
     success = False
     if stdout:
-        sys.stdout = stdout			# overload for multiprocessing, so that we can unravel output streams
+        sys.stdout = stdout                     # overload for multiprocessing, so that we can unravel output streams
     try:
         print("-"*100)
         print("DOALL PROCESSING %s" % course_id)
@@ -1004,11 +1004,11 @@ def doall(param, course_id, args, stdout=None):
             print("--> Skipping loading of any new tracking logs")
         else:
             daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
-        pcday_ip(param, course_id, args)	# needed for modal IP
+        pcday_ip(param, course_id, args)        # needed for modal IP
         pcday_trlang(param, course_id, args)
         person_day(param, course_id, args, stop_on_error=False)
         enrollment_day(param, course_id, args)
-    	enrollment_events_table(param, course_id, args)
+        enrollment_events_table(param, course_id, args)
         person_course(param, course_id, args)
         problem_check(param, course_id, args)
         show_answer_table(param, course_id, args)
@@ -1069,8 +1069,8 @@ def run_nightly_single(param, course_id, args=None):
 
         person_day(param, course_id, args, check_dates=False, stop_on_error=False)
         enrollment_day(param, course_id, args)
-	enrollment_events_table(param, course_id, args)
-        pcday_ip(param, course_id, args)	# needed for modal IP
+        enrollment_events_table(param, course_id, args)
+        pcday_ip(param, course_id, args)        # needed for modal IP
         pcday_trlang(param, course_id, args)
         person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
         problem_check(param, course_id, args)
@@ -1789,7 +1789,7 @@ check_for_duplicates        : check list of courses for duplicates
     if args.external:
         extcmd = args.command
         try:
-            eec = edx2bigquery_config.extra_external_commands	# dict of external commands, with settings
+            eec = edx2bigquery_config.extra_external_commands   # dict of external commands, with settings
         except:
             eec = {}
         from .config_external import external_commands as ecinfo
@@ -1832,7 +1832,7 @@ check_for_duplicates        : check list of courses for duplicates
                 sys.stdout.write(newline)
 
     elif (args.command=='doall'):
-        if args.parallel:			# run multiple instances in parallel
+        if args.parallel:                       # run multiple instances in parallel
             courses = get_course_ids(args)
             pool = mp.Pool(processes=args.max_parallel or MAXIMUM_PARALLEL_PROCESSES)
             stdoutset = {}
@@ -1855,7 +1855,7 @@ check_for_duplicates        : check list of courses for duplicates
                 print("="*100 + " [%s]" % course_id)
                 print(ret['stdout'].output)
             print("="*100)
-            for ret in output:	# repeat
+            for ret in output:  # repeat
                 print('    [%s] success=%s, dt=%s' % (ret['course_id'], ret['success'], ret['dt']))
             print("="*100)
         else:
@@ -1894,7 +1894,7 @@ check_for_duplicates        : check list of courses for duplicates
                 person_day(param, course_id, args, check_dates=False)
                 enrollment_day(param, course_id, args)
                 enrollment_events_table(param, course_id, args)
-                pcday_ip(param, course_id, args)	# needed for modal IP
+                pcday_ip(param, course_id, args)        # needed for modal IP
                 pcday_trlang(param, course_id, args)
                 person_course(param, course_id, args, just_do_nightly=True, force_recompute=True)
                 problem_check(param, course_id, args)
@@ -1923,8 +1923,8 @@ check_for_duplicates        : check list of courses for duplicates
 
     elif (args.command=='waldofy'):
         from . import do_waldofication_of_sql
-        dirname = args.courses[0]		# directory of unpacked SQL data from edX
-        args.courses = args.courses[1:]		# remove first element, which was dirname
+        dirname = args.courses[0]               # directory of unpacked SQL data from edX
+        args.courses = args.courses[1:]         # remove first element, which was dirname
         courses = get_course_ids(args)
         do_waldofication_of_sql.process_directory(dirname, courses, param.the_basedir)
 
@@ -2057,7 +2057,7 @@ check_for_duplicates        : check list of courses for duplicates
         return get_data_tables(tables, args, course_id_by_table=course_id_by_table, just_status=True)
 
     elif (args.command=='get_data'):
-        tables = args.courses			# may specify project as well, with syntax project_id:dataset_id.table_id
+        tables = args.courses                   # may specify project as well, with syntax project_id:dataset_id.table_id
         return get_data_tables(tables, args)
 
     elif (args.command=='get_table_info'):
