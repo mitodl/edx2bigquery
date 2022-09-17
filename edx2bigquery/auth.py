@@ -83,7 +83,7 @@ def get_gcloud_oauth2_creds():
     credentials = Credentials.new_from_json(json.dumps(gcloud_cred))
   except Exception as err:
     print("Warning, failed to get credentials from %s, trying googlecloudsdk instead" % credfn)
-    if 1:
+    if 0:
       sys.path = ["/usr/lib/google-cloud-sdk/lib", "/usr/lib/google-cloud-sdk/lib/third_party"] + sys.path    
       from googlecloudsdk.core.credentials import store
       credentials = store.Load(use_google_auth=False)

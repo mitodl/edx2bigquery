@@ -16,11 +16,15 @@ import json
 import gzip
 import dateutil.parser
 import pytz
+import traceback
 from .rephrase_tracking_logs import do_rephrase
 
 ofpset = {}
 
 LOGS_DIR = "TRACKING_LOGS"
+
+string.rsplit = str.rsplit
+string.split = str.split
 
 #-----------------------------------------------------------------------------
 
@@ -118,6 +122,8 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
         do_rephrase(data)
 
     ofn = cid.replace('/','__')     # determine output filename
+    if ofn.startswith("("):		# skip lines with badly formatted course-id, e.g. "path": "/courses/(select(0)from(select(sleep(15)))v ..."
+        return
     
     mode = 'w'
     if dynamic_dates:
@@ -137,7 +143,14 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
             ofp = gzip.GzipFile(ofn_actual, mode)
         ofpset[ofn] = ofp
 
-    ofp.write(json.dumps(data)+'\n')
+    try:
+        outstr = json.dumps(data)+'\n'
+        if do_zip:
+            outstr = outstr.encode("utf8")	# python3 gzip requires bytes output
+        ofp.write(outstr)
+    except Exception as err:
+        print("[split_and_rephrase] failed to write output line to file %s, err=%s" % (ofn_actual, err))
+        raise
 
 #-----------------------------------------------------------------------------
 
@@ -175,6 +188,8 @@ def do_file(fn, logs_dir=LOGS_DIR, dynamic_dates=False, timezone=None, logfn_kee
     cnt = 0
     try:
         for line in fp:
+            if type(line)==bytes:
+                line = line.decode("utf8")
             cnt += 1
             try:
                 newline = do_split(line, linecnt=cnt, run_rephrase=True, date=the_date, do_zip=True, logs_dir=logs_dir,
@@ -187,6 +202,7 @@ def do_file(fn, logs_dir=LOGS_DIR, dynamic_dates=False, timezone=None, logfn_kee
                 sys.stdout.flush()
     except Exception as err:
         print(("[split_and_rephrase] =====> ERROR, failed in parsing line=%s, file=%s, err=%s" % (cnt, fn, str(err))))
+        traceback.print_exc()
     print()
 
     mdir = '%s/META' % logs_dir
