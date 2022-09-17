@@ -62,7 +62,10 @@ def get_gcloud_oauth2_creds():
     if os.path.exists(credfn):
       cdirs = os.listdir(credfn)
       if cdirs:
+        credfn_root = credfn
         credfn = "%s/%s/multistore.json" % (credfn, cdirs[0])	# just take the first one for now
+        if not os.path.exists(credfn):
+          credfn = "%s/%s/singlestore_bq.json" % (credfn_root, cdirs[0])	# just take the first one for now
 
   if not os.path.exists(credfn):
     msg = "[edx2bigquery] Authentication error!  You have specified USE_GCLOUD_AUTH in the configuration, but do not have gcloud authentication available.\n"
@@ -71,8 +74,30 @@ def get_gcloud_oauth2_creds():
     print(msg)
     raise Exception(msg)
     
-  gcloud_cred = json.loads(open(credfn).read())['data'][0]['credential']
-  credentials = Credentials.new_from_json(json.dumps(gcloud_cred))
+  credfn_data = json.loads(open(credfn).read())
+  if 'data' in credfn_data:
+    gcloud_cred = credfn_data['data'][0]['credential']
+  else:
+    gcloud_cred = credfn_data['credentials']
+  try:
+    credentials = Credentials.new_from_json(json.dumps(gcloud_cred))
+  except Exception as err:
+    print("Warning, failed to get credentials from %s, trying googlecloudsdk instead" % credfn)
+    if 1:
+      sys.path = ["/usr/lib/google-cloud-sdk/lib", "/usr/lib/google-cloud-sdk/lib/third_party"] + sys.path    
+      from googlecloudsdk.core.credentials import store
+      credentials = store.Load(use_google_auth=False)
+      print("Loaded oauth2 auth with client_id=", credentials.client_id)
+    else:
+      sys.path = ["/usr/lib/google-cloud-sdk/lib", "/usr/lib/google-cloud-sdk/lib/third_party", "/usr/lib/google-cloud-sdk/bin/bootstrapping", "/usr/lib/google-cloud-sdk/platform/bq", "/usr/lib/google-cloud-sdk/platform/bq/third_party"] + sys.path
+      from absl import flags
+      flags.FLAGS(["edx2bigquery"])
+      import credential_loader
+      adcp = os.path.basename(credfn) + "/" + "adc.json"
+      print("using application default credentials file ", adcp)
+      cloader = credential_loader.ApplicationDefaultCredentialFileLoader(credential_cache_file=credfn, read_cache_first=True, credential_file=adcp)
+      credentials = cloader.Load()
+      print("Loaded oauth2 auth with client_id=", credentials.client_id)
   return credentials
 
 def get_oauth2_creds():
