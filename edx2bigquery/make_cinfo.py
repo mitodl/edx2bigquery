@@ -3,7 +3,8 @@
 # make course info listings
 
 import os
-import csv
+# import csv
+import unicodecsv as csv
 from . import gsutil
 from . import bqutil
 import json

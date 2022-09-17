@@ -11,7 +11,8 @@
 #
 
 import os, sys
-import csv
+#import csv
+import unicodecsv as csv
 import re
 import json
 import time
@@ -139,7 +140,19 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
         # May 2015: new location syntax for module_id's, e.g.:
         # block-v1:HarvardX+BUS5.1x+3T2015+type@sequential+block@34c9c30a2bd3486f9e63e18552818286
 
-        (org, num, category, url_name) = mid.rsplit('/',3)
+        if mid.startswith("block-v1:"):
+            mid = mid.split('-v1:', 1)[1]
+            try:
+                (org, num, category, url_name) = mid.rsplit('+',3)            
+            except Exception as err:
+                print("[make_problem_analysis] Warning, failed to process line %s, mid=%s, err=%s" % (line, mid, err))
+                continue
+        else:
+            try:
+                (org, num, category, url_name) = mid.rsplit('/',3)
+            except Exception as err:
+                print("[make_problem_analysis] Warning, failed to process line %s, mid=%s, err=%s" % (line, mid, err))
+                continue
 
         if not category=='problem':     # filter based on category info in module_id
             continue

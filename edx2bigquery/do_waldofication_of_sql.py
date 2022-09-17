@@ -120,7 +120,8 @@ def getCourseDir(cid, dtstr, basedir='', known_course_ids=None, is_edge=False):
     return cdir2
 
 def tsv2csv(fn_in, fn_out):
-    import csv
+    # import csv
+    import unicodecsv as csv
     fp = gzip.GzipFile(fn_out, 'w')
     csvfp = csv.writer(fp)
     for line in open(fn_in):

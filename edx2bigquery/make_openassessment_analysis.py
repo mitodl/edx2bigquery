@@ -6,7 +6,8 @@
 #
 
 import os, sys
-import csv
+# import csv
+import unicodecsv as csv
 import re
 import json
 from . import gsutil

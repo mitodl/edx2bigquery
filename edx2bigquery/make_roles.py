@@ -31,7 +31,8 @@
 # Each record's schema is checked for validity afterwards.
 
 import os, sys
-import csv
+# import csv
+import unicodecsv as csv
 import gzip
 import json
 from . import gsutil

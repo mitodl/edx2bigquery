@@ -45,6 +45,7 @@ setup(
                       'Jinja2',
                       'google-api-python-client',
                       'edxcut',
+                      'unidecode',
                       ],
     dependency_links = [
         ],

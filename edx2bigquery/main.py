@@ -2122,7 +2122,8 @@ check_for_duplicates        : check list of courses for duplicates
         course_key_version(param, args, args)
 
     elif (args.command=='tsv2csv'):
-        import csv
+        # import csv
+        import unicodecsv as csv
         fp = csv.writer(sys.stdout)
         for line in sys.stdin:
             fp.writerow(line[:-1].split('\t'))

@@ -4,7 +4,8 @@ Create Video Statistics
 '''
 
 import os, sys
-import csv
+# import csv
+import unicodecsv as csv
 import re
 import json
 from . import gsutil
@@ -96,8 +97,8 @@ def make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_
     try:
         tinfo = bqutil.get_bq_table_info(dataset, TABLE_VIDEO_AXIS )
         assert tinfo is not None, "[analyze videos] %s.%s does not exist. First time creating table" % ( dataset, TABLE_VIDEO_AXIS )
-	videoAxisExists = True
-        va_date = tinfo['lastModifiedTime']		# datetime
+        videoAxisExists = True
+        va_date = tinfo['lastModifiedTime']             # datetime
     except (AssertionError, Exception) as err:
         print("%s --> Attempting to process %s table" % ( str(err), TABLE_VIDEO_AXIS ))
         sys.stdout.flush()
@@ -106,7 +107,7 @@ def make_video_stats(course_id, api_key, basedir, datedir, force_recompute, use_
     ca_date = None
     try:
         tinfo = bqutil.get_bq_table_info(dataset, TABLE_COURSE_AXIS )
-        ca_date = tinfo['lastModifiedTime']		# datetime
+        ca_date = tinfo['lastModifiedTime']             # datetime
     except (AssertionError, Exception) as err:
         pass
 
@@ -354,7 +355,7 @@ def createPersonCourseVideo( course_id, force_recompute=False, use_dataset_lates
                           SELECT count(*) as n_total_videos
                           FROM [{dataset}.video_axis]
                       ) NV
-                      WHERE ((PC.roles = 'Student') OR (PC.roles is NULL))	# accommodate case when roles.csv is missing
+                      WHERE ((PC.roles = 'Student') OR (PC.roles is NULL))      # accommodate case when roles.csv is missing
                       # WHERE PC.roles = 'Student'
                   )
                   GROUP BY user_id, certified, viewed, verified, n_total_videos

@@ -37,7 +37,8 @@
 # <codecell>
 
 import os, sys, string, re
-import csv
+# import csv
+import unicodecsv as csv
 import codecs
 import json
 import glob
@@ -371,7 +372,13 @@ def make_axis(dir):
                 if solutions and len(solutions)>0:
                     text = ''
                     for sol in solutions:
-                        text = text.join(html.tostring(e, pretty_print=False) for e in sol)
+                        try:
+                            text = text.join(html.tostring(e, pretty_print=False).decode("utf8") for e in sol)
+                        except Exception as err:
+                            print("[edx2course_axis] failed in parsing solutions sol=%s, err=%s" % (list(sol), err))
+                            for e in sol:
+                                print("[edx2course_axis] e=%s, html=%s" % (e, repr(html.tostring(e, pretty_print=False))))
+                            raise
                         # This if statment checks each solution. Note, many MITx problems have multiple solution tags.
                         # In 8.05x, common to put image in one solution tag, and the text in a second. So we are checking each tag.
                         # If we find one solution with > 65 char, or one solution with an image, we set meta['solution'] = True
@@ -601,8 +608,10 @@ def process_course(dir, use_dataset_latest=False, force_course_id=None):
         # write out xbundle to xml file
         bfn = '%s/xbundle_%s.xml' % (DATADIR, cid.replace('/','__'))
         bundle_out = ret[default_cid]['bundle']
-        bundle_out = bundle_out.replace('<!------>', '')	# workaround improper XML
-        codecs.open(bfn,'w',encoding='utf8').write(bundle_out)
+        bundle_out = bundle_out.replace(b'<!------>', b'')	# workaround improper XML
+        # codecs.open(bfn,'w',encoding='utf8').write(bundle_out)
+        with open(bfn, 'w') as bfp:
+            bfp.write(bundle_out.decode("utf8"))
 
         print("Writing out xbundle to %s (len=%s)" % (bfn, len(bundle_out)))
         

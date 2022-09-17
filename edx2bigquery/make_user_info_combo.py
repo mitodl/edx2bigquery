@@ -48,7 +48,8 @@
 # Each record's schema is checked for validity afterwards.
 
 import os, sys
-import csv
+# import csv
+import unicodecsv as csv
 import gzip
 import json
 from . import gsutil
@@ -106,7 +107,8 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         return open(fn, mode)
     
     def tsv2csv(fn_in, fn_out):
-        import csv
+        # import csv
+        import unicodecsv as csv
         fp = openfile(fn_out, 'w', add_dir=False)
         csvfp = csv.writer(fp)
         for line in openfile(fn_in, add_dir=False):
