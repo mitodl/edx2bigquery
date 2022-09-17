@@ -118,7 +118,7 @@ class PersonCourse(object):
 
         self.end_date = end_date
         self.start_date = start_date
-        # self.start_date = '2014-08-01'			# for debugging - smaller BQ queries
+        # self.start_date = '2014-08-01'                        # for debugging - smaller BQ queries
         self.sql_parameters = {'dataset': self.dataset, 
                                'dataset_logs': self.dataset_logs,
                                'dataset_pcday': self.dataset_pcday,
@@ -170,7 +170,7 @@ class PersonCourse(object):
         data = OrderedDict()
         if keymap is None:
             keymap = lambda x: x
-        for line in csv.DictReader(self.openfile(fn, useCourseDir=useCourseDir)):
+        for line in csv.DictReader(self.openfile(fn, mode="rb", useCourseDir=useCourseDir)):
             try:
                 the_id = keymap(line[key])
             except Exception as err:
@@ -285,7 +285,7 @@ class PersonCourse(object):
         if csfn is None:
             self.log('[make_person_course] get_nchapters: Cannot find required file in %s, one of %s' % (self.cdir, csfiles))
             sys.stdout.flush()
-            return 9999   	# dummy value
+            return 9999         # dummy value
 
         if csfn=='course_axis.json':
             struct = {x: json.loads(x) for x in self.openfile(csfn) }
@@ -358,9 +358,9 @@ class PersonCourse(object):
                     overall_cutoff = m.group(1)
                     break
             if overall_cutoff is not None:
-	        passing_grade = list(self.grading_policy['data_by_key'].items())[0][1].get(overall_cutoff, None)
-	        if passing_grade is not None:
- 	            passing_grade = float(passing_grade)
+                passing_grade = list(self.grading_policy['data_by_key'].items())[0][1].get(overall_cutoff, None)
+                if passing_grade is not None:
+                    passing_grade = float(passing_grade)
             print('Passing grade = %s' % passing_grade)
 
         except Exception as err:
@@ -372,7 +372,7 @@ class PersonCourse(object):
 
         for key, uicent in uicdat.items():
             pcent = OrderedDict()
-            self.pctab[key] = pcent			# key = username
+            self.pctab[key] = pcent                     # key = username
             self.copy_fields(uicent, pcent,
                              {'course_id': ['enrollment_course_id', 'certificate_course_id'],
                               'user_id': 'user_id',
@@ -391,7 +391,7 @@ class PersonCourse(object):
                               "y1_anomalous": "y1_anomalous",
                               })
         
-            pcent['registered'] = True	# by definition
+            pcent['registered'] = True  # by definition
         
             # Set passing grade for course; else, assign null to indicate error
             if passing_grade is not None:
@@ -400,7 +400,7 @@ class PersonCourse(object):
             # Perform Grade corrections using certificates and edX instructor dashboard data (if it exists)
             pcent['completed'] = False
             import dateutil.parser
-	    grade_cert = uicent.get('certificate_grade', None)
+            grade_cert = uicent.get('certificate_grade', None)
             try:
                 grade_cert_date = dateutil.parser.parse( self.sql_dir_date ) if self.sql_dir_date is not None else None
             except Exception as err:
@@ -419,7 +419,7 @@ class PersonCourse(object):
 
                     #print "Grade from edx instructor dash is %s (newer) than cert grade %s" % (grade_dash_date, grade_cert_date)
                     grade_dash_cnt += 1
-		    pcent['grade'] = grade_dash
+                    pcent['grade'] = grade_dash
 
                 # Grade from certificates file is newer
                 elif grade_dash_date <= grade_cert_date:
@@ -432,7 +432,7 @@ class PersonCourse(object):
 
                     grade_dash_cnt += 1
                     #print "Grade from certificate is missing, so using edx instructor dash grade from (%s)" % (grade_dash_date)
-		    pcent['grade'] = grade_dash
+                    pcent['grade'] = grade_dash
 
             else:
                 # Default to using certificate file data
@@ -444,7 +444,7 @@ class PersonCourse(object):
             if current_grade is not None and passing_grade is not None:
                 current_grade = float(pcent['grade'])
                 if current_grade >= passing_grade:
-		    pcent['completed'] = True
+                    pcent['completed'] = True
 
             # derived entries, from SQL data
         
@@ -537,9 +537,9 @@ class PersonCourse(object):
             return
 
         if False:
-            self.load_last_event()	# this now comes from pc_day_totals
+            self.load_last_event()      # this now comes from pc_day_totals
 
-        self.load_pc_day_totals()	# person-course-day totals contains all the aggregate nevents, etc.
+        self.load_pc_day_totals()       # person-course-day totals contains all the aggregate nevents, etc.
 
         # Video Watched
         self.load_pc_video_watched()
@@ -550,7 +550,7 @@ class PersonCourse(object):
         if not skip_modal_ip:
             self.load_modal_ip()
 
-	# Modal language
+        # Modal language
         self.load_modal_language()
 
         pcd_fields = ['nevents', 'ndays_act', 'nprogcheck', 'nshow_answer', 'nvideo', 'nproblem_check', 
@@ -562,14 +562,14 @@ class PersonCourse(object):
 
         nmissing_ip = 0
         nmissing_ip_cert = 0
-	langadded = 0
-	nmissing_lang = 0
+        langadded = 0
+        nmissing_lang = 0
         for key, pcent in self.pctab.items():
             uid = str(pcent['user_id'])
             username = pcent['username']
 
-	    for pcdl in pc_lang_fields:
-	        pcent[ pcdl ] = None
+            for pcdl in pc_lang_fields:
+                pcent[ pcdl ] = None
             # pcent['nevents'] = self.pc_nevents['data_by_key'].get(username, {}).get('nevents', None)
 
             if not skip_last_event:
@@ -597,13 +597,13 @@ class PersonCourse(object):
 
             # Video Watched
             try:
-	        self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'n_unique_videos_watched', new_field='nvideos_unique_viewed')
-	        self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'fract_total_videos_watched', new_field='nvideos_total_watched')
+                self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'n_unique_videos_watched', new_field='nvideos_unique_viewed')
+                self.copy_from_bq_table(self.person_course_video_watched, pcent, uid, 'fract_total_videos_watched', new_field='nvideos_total_watched')
 
             except Exception as err:
                 pass
 
-	    # Copy Modal IP data
+            # Copy Modal IP data
             if not skip_modal_ip:
                 self.copy_from_bq_table(self.pc_modal_ip, pcent, username, 'modal_ip', new_field='ip')
                 if self.pc_modal_ip['data_by_key'].get(username, {}).get('source', None)=='missing':
@@ -611,12 +611,12 @@ class PersonCourse(object):
                     if pcent.get('certified'):
                         nmissing_ip_cert += 1
 
-	    try:
-	        for pcdl in pc_lang_fields:
-	            pcent[ pcdl ] = self.course_modal_language['data_by_key'].get(username, {}).get( pcdl, None)
-	        langadded += 1
-	    except Exception as err:
-	        nmissing_lang += 1
+            try:
+                for pcdl in pc_lang_fields:
+                    pcent[ pcdl ] = self.course_modal_language['data_by_key'].get(username, {}).get( pcdl, None)
+                langadded += 1
+            except Exception as err:
+                nmissing_lang += 1
                 pass
 
         if not skip_modal_ip:
@@ -662,8 +662,8 @@ class PersonCourse(object):
 
             for pcdf in pcd_fields:
                 self.copy_from_bq_table(self.pc_geoip, pcent, username, pcdf)
-            self.copy_from_bq_table(self.pc_geoip, pcent, username, 'countryLabel', mkutf=True)	# unicode
-            self.copy_from_bq_table(self.pc_geoip, pcent, username, 'city', mkutf=True)		# unicode
+            self.copy_from_bq_table(self.pc_geoip, pcent, username, 'countryLabel', mkutf=True) # unicode
+            self.copy_from_bq_table(self.pc_geoip, pcent, username, 'city', mkutf=True)         # unicode
 
     def compute_fifth_phase(self):
         '''
@@ -736,45 +736,47 @@ class PersonCourse(object):
 
         # If region data exists, then do final check on location data and populate UN region data when its missing
         nmissing_un_data = 0
-	if region_data_exists:
+        if region_data_exists:
             for key, pcent in self.pctab.items():
 
                 # If country code exists, then make sure un data is populated using data
-	        try:
+                try:
                     check_country = None
-		    added_missing_un_data = False
+                    added_missing_un_data = False
                     check_country = pcent.get('cc_by_ip', None)
                     countryLabel = pcent.get('countryLabel', None)
-		    continent = pcent.get('continent', None)
+                    if type(countryLabel)==bytes:
+                        countryLabel = countryLabel.decode("utf8")
+                    continent = pcent.get('continent', None)
                     un_major_region = pcent.get('un_major_region', None)
                     un_economic_group = pcent.get('un_economic_group', None)
                     un_developing_nation = pcent.get('un_developing_nation', None)
                     un_special_region = pcent.get('un_special_region', None)
-		    if countryLabel is None and check_country is not None:
+                    if countryLabel is None and check_country is not None:
                         pcent['countryLabel'] = region_data[check_country].get('name')
-		        added_missing_un_data = True
-		    if continent is None and check_country is not None:
-		        #print "Adding Continent %s for %s" % (continent, check_country)
+                        added_missing_un_data = True
+                    if continent is None and check_country is not None:
+                        #print "Adding Continent %s for %s" % (continent, check_country)
                         pcent['continent'] = region_data[check_country].get('continent')
-		        added_missing_un_data = True
+                        added_missing_un_data = True
                     if un_major_region is None and region_data[check_country].get('un_region'):
-		        #print "Adding major region from %s to %s [cc=%s]" % (un_major_region, str(region_data[check_country].get('un_region')), check_country) 
+                        #print "Adding major region from %s to %s [cc=%s]" % (un_major_region, str(region_data[check_country].get('un_region')), check_country) 
                         pcent['un_major_region'] = region_data[check_country].get('un_region')
-		        added_missing_un_data = True
+                        added_missing_un_data = True
                     if un_economic_group is None and region_data[check_country].get('econ_group'):
-		        #print "Adding un economic group from %s to %s [cc=%s]" % (un_economic_group, str(region_data[check_country].get('econ_group')), check_country)
+                        #print "Adding un economic group from %s to %s [cc=%s]" % (un_economic_group, str(region_data[check_country].get('econ_group')), check_country)
                         pcent['un_economic_group'] = region_data[check_country].get('econ_group')
-		        added_missing_un_data = True
+                        added_missing_un_data = True
                     if un_developing_nation is None and region_data[check_country].get('developing_nation'):
-		        #print "Adding un developing nation from %s to %s [cc=%s]" % (un_developing_nation, str(region_data[check_country].get('developing_nation')), check_country)
+                        #print "Adding un developing nation from %s to %s [cc=%s]" % (un_developing_nation, str(region_data[check_country].get('developing_nation')), check_country)
                         pcent['un_developing_nation'] = region_data[check_country].get('developing_nation')
-		        added_missing_un_data = True
+                        added_missing_un_data = True
                     if un_special_region is None and region_data[check_country].get('special_region1'):
                         pcent['un_special_region'] = region_data[check_country].get('special_region1')
-		        added_missing_un_data = True
-		    if added_missing_un_data:
+                        added_missing_un_data = True
+                    if added_missing_un_data:
                         nmissing_un_data += 1
-		        if (nmissing_un_data%100==0):
+                        if (nmissing_un_data%100==0):
                             sys.stdout.write('.')
                             sys.stdout.flush()
 
@@ -830,55 +832,55 @@ class PersonCourse(object):
                 self.copy_fields(roles[uid], pcent, {x:x for x in fields}, mapfun=mapfun)
                 nroles += 1
 
-	    except Exception as err:
+            except Exception as err:
                 print(str(err))
                 #self.log( "---> Cannot add roles data... Skipping" )
-		continue
+                continue
 
         if self.verbose and False:
             self.log("--> Err! missing roles information for uid=%s" % missing_uids)
         self.log("  Added roles information for %d users; missing roles for %d" % (nroles, nmissing))
 
     def compute_seventh_phase(self):
-	'''
-	Load up id-verified enrollment/unenrollment data
-	'''
+        '''
+        Load up id-verified enrollment/unenrollment data
+        '''
 
-	self.load_enrollment_verified()
+        self.load_enrollment_verified()
 
         pcd_fields = ['verified_enroll_time', 'verified_unenroll_time']
 
-	verified_enroll_count = 0
-	verified_unenroll_count = 0
+        verified_enroll_count = 0
+        verified_unenroll_count = 0
         for key, pcent in self.pctab.items():
 
             uid = str(pcent['user_id'])
-	    try:
-		
+            try:
+                
                 enroll_verified = self.person_enrollment_verified['data_by_key'][uid].get('verified_enroll_time', None)
                 unenroll_verified = self.person_enrollment_verified['data_by_key'][uid].get('verified_unenroll_time', None)
 
-	    	# First check enrollment verified time
-	        if enroll_verified is not None and enroll_verified:
-	            try:
-		        enroll_verified = str(datetime.datetime.utcfromtimestamp(float(enroll_verified)))
-		        pcent['verified_enroll_time'] = enroll_verified
-		        verified_enroll_count += 1
-      		    except Exception as err:
-		        self.log('oops, enroll verified time cannot be turned into a time; enroll_verified=%s, user_id=%s' % (enroll_verified, uid ) )
+                # First check enrollment verified time
+                if enroll_verified is not None and enroll_verified:
+                    try:
+                        enroll_verified = str(datetime.datetime.utcfromtimestamp(float(enroll_verified)))
+                        pcent['verified_enroll_time'] = enroll_verified
+                        verified_enroll_count += 1
+                    except Exception as err:
+                        self.log('oops, enroll verified time cannot be turned into a time; enroll_verified=%s, user_id=%s' % (enroll_verified, uid ) )
 
 
-	        # Next, check unenrollment verified time
-	        if unenroll_verified is not None and unenroll_verified:
-	            try:
-		        unenroll_verified = str(datetime.datetime.utcfromtimestamp(float(unenroll_verified)))
-		        pcent['verified_unenroll_time'] = unenroll_verified
-		        verified_unenroll_count += 1
-  		    except Exception as err:
-		        self.log('oops, enroll verified time cannot be turned into a time; unenroll_verified=%s, user_id=%s' % (unenroll_verified, uid ) )
+                # Next, check unenrollment verified time
+                if unenroll_verified is not None and unenroll_verified:
+                    try:
+                        unenroll_verified = str(datetime.datetime.utcfromtimestamp(float(unenroll_verified)))
+                        pcent['verified_unenroll_time'] = unenroll_verified
+                        verified_unenroll_count += 1
+                    except Exception as err:
+                        self.log('oops, enroll verified time cannot be turned into a time; unenroll_verified=%s, user_id=%s' % (unenroll_verified, uid ) )
 
-	    except Exception as err:
-		continue
+            except Exception as err:
+                continue
 
         self.log("  Added verified enrollment and unenrollment times: %d verified enrollments; %d verified unenrollments" % (verified_enroll_count, verified_unenroll_count))
 
@@ -901,13 +903,20 @@ class PersonCourse(object):
         cnt = 0
         for key, pcent in self.pctab.items():
             cnt += 1
+            for pkey, pval in pcent.items():
+                if type(pval)==bytes:
+                    pcent[pkey] = pval.decode("utf8")	# turn from bytes to utf8 str
             check_schema(cnt, pcent, the_ds=self.the_dict_schema, coerce=True)
-            ofp.write(json.dumps(pcent) + '\n')
+            try:
+                ofp.write((json.dumps(pcent) + '\n').encode("utf8"))
+            except Exception as err:
+                self.log("[make_person_course] failed to write person-course entry line pcent=%s, err=%s" % (pcent, err))
+                raise
         ofp.close()
 
         # now write CSV file (may have errors due to unicode)
         for key, pcent in self.pctab.items():
-            if 0:	# after switching to unicodecsv, don't do this
+            if 0:       # after switching to unicodecsv, don't do this
                 try:
                     if 'countryLabel' in pcent:
                         if pcent['countryLabel'] == 'R\xe9union':
@@ -932,7 +941,7 @@ class PersonCourse(object):
         def upload_to_gs(fn):
             ofn = self.cdir / fn
             gsfn = self.gspath + '/'
-            gsfnp = gsfn + fn			# full path to google storage data file
+            gsfnp = gsfn + fn                   # full path to google storage data file
             cmd = 'gsutil cp %s %s' % (ofn, gsfn)
             self.log("Uploading to gse using %s" % cmd)
             os.system(cmd)
@@ -989,14 +998,14 @@ class PersonCourse(object):
         '''
         Load ID-Verified Enrollment and Unrollment data
         '''
-	tables = bqutil.get_list_of_table_ids(self.dataset)
-	tablename = 'person_enrollment_verified'
-	if not tablename in tables:
-		self.log( "===> WARNING: Missing table %s for %s" % ( tablename, self.course_id ) )
-		setattr(self, tablename, {'data': [], 'data_by_key': {}})
-		return
+        tables = bqutil.get_list_of_table_ids(self.dataset)
+        tablename = 'person_enrollment_verified'
+        if not tablename in tables:
+                self.log( "===> WARNING: Missing table %s for %s" % ( tablename, self.course_id ) )
+                setattr(self, tablename, {'data': [], 'data_by_key': {}})
+                return
         sql = '''
-	      SELECT *
+              SELECT *
               FROM [{dataset}.person_enrollment_verified]
               '''.format(**self.sql_parameters)
         self.log( "Loading %s from BigQuery" % tablename )
@@ -1011,12 +1020,12 @@ class PersonCourse(object):
 
         tables = bqutil.get_list_of_table_ids(self.dataset)     
         tablename = 'person_course_video_watched'
-	if not tablename in tables:
-		self.log( "===> WARNING: Missing table %s for %s" % ( tablename, self.course_id ) )
-		setattr(self, tablename, {'data': [], 'data_by_key': {}})
-		return
+        if not tablename in tables:
+                self.log( "===> WARNING: Missing table %s for %s" % ( tablename, self.course_id ) )
+                setattr(self, tablename, {'data': [], 'data_by_key': {}})
+                return
         sql = '''
-	      SELECT *
+              SELECT *
               FROM [{dataset}.person_course_video_watched]
               '''.format(**self.sql_parameters)
         self.log( "Loading %s from BigQuery" % tablename )
@@ -1223,15 +1232,15 @@ class PersonCourse(object):
 
     def load_modal_language(self):
         '''
-	Compute the modal transcript language and multi_language_table, based on tracking logs
+        Compute the modal transcript language and multi_language_table, based on tracking logs
         using the canonical daily dataset 'pcday_trlang_counts
         '''
         tables = bqutil.get_list_of_table_ids(self.dataset)
         table = 'pcday_trlang_count'
 
 
-        self.make_course_specific_multilang_table()	# make course-specific mult-language table
-        self.make_course_specific_modallang_table()	# make course-specific modal language table
+        self.make_course_specific_multilang_table()     # make course-specific mult-language table
+        self.make_course_specific_modallang_table()     # make course-specific modal language table
 
     def load_modal_ip(self):
         '''
@@ -1253,7 +1262,7 @@ class PersonCourse(object):
         
         # pcday_ip_counts exists!
 
-        self.make_course_specific_modal_ip_table()	# make course-specific modal ip table
+        self.make_course_specific_modal_ip_table()      # make course-specific modal ip table
         
         use_each = ""
         # check to see if the course_modal_ip table is too large; if so, must do JOIN EACH
@@ -1353,7 +1362,7 @@ class PersonCourse(object):
 
     def make_course_specific_modallang_table(self):
         '''
-	Make course-specific modal transcript language table, based on local multi transcript language table => language_multi_transcripts
+        Make course-specific modal transcript language table, based on local multi transcript language table => language_multi_transcripts
         This data will be joined with Person Course, where 'language' indicates the modal
         or most frequently used language for a particular user. 
         This table should contain users and language, showing up once per course
@@ -1361,32 +1370,32 @@ class PersonCourse(object):
 
         tablename = 'course_modal_language'
         SQL = '''
-		SELECT
-		  username,
-		  course_id,
-		  resource,
-		  resource_event_data as language,
-		  transcript_download as language_download,
-		  n_events as language_nevents,
-		  n_diff_lang as language_ndiff,
-		FROM (
-		  SELECT
-		    username,
-		    course_id,
-		    resource,
-		    resource_event_data,
-		    transcript_download,
-		    n_events,
-		    last_time_used_lang,
-		    MAX(last_time_used_lang) OVER (PARTITION BY username ) AS max_time_used_lang,
-		    n_diff_lang
-		  FROM [{dataset}.language_multi_transcripts]
-		  WHERE
-		    rank_num = 1
-		  ORDER BY
-		    username ASC )
-		WHERE
-		  last_time_used_lang = max_time_used_lang
+                SELECT
+                  username,
+                  course_id,
+                  resource,
+                  resource_event_data as language,
+                  transcript_download as language_download,
+                  n_events as language_nevents,
+                  n_diff_lang as language_ndiff,
+                FROM (
+                  SELECT
+                    username,
+                    course_id,
+                    resource,
+                    resource_event_data,
+                    transcript_download,
+                    n_events,
+                    last_time_used_lang,
+                    MAX(last_time_used_lang) OVER (PARTITION BY username ) AS max_time_used_lang,
+                    n_diff_lang
+                  FROM [{dataset}.language_multi_transcripts]
+                  WHERE
+                    rank_num = 1
+                  ORDER BY
+                    username ASC )
+                WHERE
+                  last_time_used_lang = max_time_used_lang
 
               '''.format(**self.sql_parameters)
 
@@ -1400,7 +1409,7 @@ class PersonCourse(object):
 
     def make_course_specific_multilang_table(self):
         '''
-	Make a course-specific multi transcript language table, based on local pcday_trlang_counts table
+        Make a course-specific multi transcript language table, based on local pcday_trlang_counts table
         This table can be used to find out what languages a user has interacted with through
         the video transcript events
         '''
@@ -1408,46 +1417,46 @@ class PersonCourse(object):
 
         SQL = '''
 
-		SELECT
-		  username,
-		  course_id,
-		  resource,
-		  resource_event_data,
-		  SUM(transcript_download) as transcript_download,
-		  SUM(n_events) AS n_events,
-		  LAST(last_time_used_lang) AS last_time_used_lang,
-		  COUNT(resource_event_data) OVER (PARTITION BY username ) AS n_diff_lang,
-		  RANK() OVER (PARTITION BY username ORDER BY n_events DESC) AS rank_num,
-		FROM (
-		  SELECT
-		    username,
-		    course_id,
-		    resource,
-		    resource_event_data,
-		    resource_event_type,
-		    SUM(CASE
-			WHEN resource_event_type = 'transcript_download' THEN 1
-			ELSE 0 END) AS transcript_download,
-		    SUM(langcount) AS n_events,
-		    LAST(last_time) AS last_time_used_lang
-		  FROM
-		    [{dataset}.pcday_trlang_counts]
-		  GROUP BY
-		    username,
-		    course_id,
-		    resource,
-		    resource_event_data,
-		    resource_event_type,
-		  ORDER BY
-		    username ASC )
-		GROUP BY
-		  username,
-		  course_id,
-		  resource,
-		  resource_event_data,
-		ORDER BY
-		  username,
-		  rank_num ASC # END - Ranking Table
+                SELECT
+                  username,
+                  course_id,
+                  resource,
+                  resource_event_data,
+                  SUM(transcript_download) as transcript_download,
+                  SUM(n_events) AS n_events,
+                  LAST(last_time_used_lang) AS last_time_used_lang,
+                  COUNT(resource_event_data) OVER (PARTITION BY username ) AS n_diff_lang,
+                  RANK() OVER (PARTITION BY username ORDER BY n_events DESC) AS rank_num,
+                FROM (
+                  SELECT
+                    username,
+                    course_id,
+                    resource,
+                    resource_event_data,
+                    resource_event_type,
+                    SUM(CASE
+                        WHEN resource_event_type = 'transcript_download' THEN 1
+                        ELSE 0 END) AS transcript_download,
+                    SUM(langcount) AS n_events,
+                    LAST(last_time) AS last_time_used_lang
+                  FROM
+                    [{dataset}.pcday_trlang_counts]
+                  GROUP BY
+                    username,
+                    course_id,
+                    resource,
+                    resource_event_data,
+                    resource_event_type,
+                  ORDER BY
+                    username ASC )
+                GROUP BY
+                  username,
+                  course_id,
+                  resource,
+                  resource_event_data,
+                ORDER BY
+                  username,
+                  rank_num ASC # END - Ranking Table
 
 
               '''.format(**self.sql_parameters)
@@ -1595,7 +1604,7 @@ class PersonCourse(object):
             self.compute_third_phase,
             self.compute_fourth_phase,
             self.compute_fifth_phase,
-            self.compute_sixth_phase,	# roles
+            self.compute_sixth_phase,   # roles
             self.compute_seventh_phase, # verified events
             ]
         if self.nskip==0:

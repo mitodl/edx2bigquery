@@ -300,6 +300,8 @@ def load_sql_for_course(course_id, gsbucket="gs://x-data", basedir="X-Year-2-dat
         smfp = openfile(fn_sm)
         fline = smfp.readline()	# skip first line - it's a header
         fline = smfp.readline()
+        if type(fline)==bytes:
+            fline = fline.decode("utf8")
         if 'block-v1:' in fline or 'course-v1' in fline:
             rephrase_studentmodule_opaque_keys(fn_sm)
 

@@ -190,7 +190,7 @@ class GeoIPData(object):
         ofp = codecs.open(ofn, 'w', encoding='utf8')
         for key, val in self.geoipdat.items():
             try:
-                ofp.write(json.dumps(val)+'\n')
+                ofp.write((json.dumps(val)+'\n').encode("utf8"))
             except Exception as err:
                 print("Error!  %s" % err)
                 sys.stdout.write(repr(val))

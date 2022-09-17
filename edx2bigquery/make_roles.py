@@ -223,7 +223,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     # Write out
     fieldnames = list(the_dict_schema.keys())
     ofp = openfile('roles.json.gz', 'w')
-    ocsv = csv.DictWriter(openfile('roles.csv', 'w'), fieldnames=finalFields)
+    ocsv = csv.DictWriter(openfile('roles.csv', 'wb'), fieldnames=finalFields)
     ocsv.writeheader()
     
     wideData_dict = wideData.to_dict(orient='record')
@@ -234,7 +234,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         role_data[uid]['user_id'] = uid
         data = role_data[uid]   
     
-        ofp.write(json.dumps(data) + '\n')
+        ofp.write((json.dumps(data) + '\n').encode("utf8"))
         try:
             ocsv.writerow(data)
         except Exception as err:

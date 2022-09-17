@@ -221,7 +221,7 @@ def make_problem_analysis(course_id, basedir=None, datedir=None, force_recompute
     ofn = lfp / ofnb
     ofp = openfile(ofn, 'w')
     for entry in data:
-        ofp.write(json.dumps(entry) + '\n')
+        ofp.write((json.dumps(entry) + '\n').encode("utf8"))
     ofp.close()
 
     # upload and import

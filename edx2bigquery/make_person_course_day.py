@@ -222,12 +222,12 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
 
         tinfo_video = bqutil.get_bq_table_info(dataset, 'video_stats_day')
         assert tinfo_video is not None, "Video stats table missing... Not including video stats"
-	videoTableExists = True
+        videoTableExists = True
 
     except (AssertionError, Exception) as err:
         #print " --> Err: missing %s.%s?  Skipping creation of chapter_grades" % (dataset, "course_axis")
         sys.stdout.flush()
-	pass
+        pass
         #return
 
     forumTableExists = False
@@ -235,12 +235,12 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
 
         tinfo_forum = bqutil.get_bq_table_info(dataset, 'forum_events')
         assert tinfo_forum is not None, "Forum events table missing... Not including forum stats"
-	forumTableExists = True
+        forumTableExists = True
 
     except (AssertionError, Exception) as err:
         #print " --> Err: missing %s.%s?  Skipping creation of chapter_grades" % (dataset, "course_axis")
         sys.stdout.flush()
-	pass
+        pass
         #return
 
     problemTableExists = False
@@ -250,251 +250,251 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
         tinfo_courseproblem = bqutil.get_bq_table_info(dataset, 'course_problem')
         tinfo_courseaxis = bqutil.get_bq_table_info(dataset, 'course_axis')
         tinfo_personcourse = bqutil.get_bq_table_info(dataset, 'person_course')
-	# Check course axis and person course, course problem
+        # Check course axis and person course, course problem
         assert tinfo_personproblem is not None, "Person problem table missing... Not including problem stats"
         assert tinfo_courseproblem is not None, "Course problem table missing... Not including problem stats"
         assert tinfo_courseaxis is not None, "Course axis table missing... Not including problem stats"
         assert tinfo_personcourse is not None, "Person Course table missing... Not including problem stats"
-	problemTableExists = True
+        problemTableExists = True
 
     except (AssertionError, Exception) as err:
         #print " --> Err: missing %s.%s?  Skipping creation of chapter_grades" % (dataset, "course_axis")
         sys.stdout.flush()
-	pass
+        pass
 
     PCDAY_SQL_BASE_SELECT = """
-			  SELECT username,
-				 '{course_id}' AS course_id,
-				 DATE(time) AS date,
-				 SUM(bevent) AS nevents,
-				 SUM(bprogress) AS nprogcheck,
-				 SUM(bshow_answer) AS nshow_answer,
-				 SUM(bvideo) AS nvideo,
-				 SUM(bproblem_check) AS nproblem_check,
-				 SUM(bforum) AS nforum,
-				 SUM(bshow_transcript) AS ntranscript,
-				 SUM(bseq_goto) AS nseq_goto,
-				 SUM(bseek_video) AS nseek_video,
-				 SUM(bpause_video) AS npause_video,
-		    """
+                          SELECT username,
+                                 '{course_id}' AS course_id,
+                                 DATE(time) AS date,
+                                 SUM(bevent) AS nevents,
+                                 SUM(bprogress) AS nprogcheck,
+                                 SUM(bshow_answer) AS nshow_answer,
+                                 SUM(bvideo) AS nvideo,
+                                 SUM(bproblem_check) AS nproblem_check,
+                                 SUM(bforum) AS nforum,
+                                 SUM(bshow_transcript) AS ntranscript,
+                                 SUM(bseq_goto) AS nseq_goto,
+                                 SUM(bseek_video) AS nseek_video,
+                                 SUM(bpause_video) AS npause_video,
+                    """
 
     PCDAY_SQL_VIDEO_EXISTS = """
-			  	 COUNT(DISTINCT video_id) AS nvideos_viewed, # New Video - Unique videos viewed
-				 SUM(case when position is not null then FLOAT(position) else FLOAT(0.0) end) AS nvideos_watched_sec, # New Video - # sec watched using max video position
-		    """
+                                 COUNT(DISTINCT video_id) AS nvideos_viewed, # New Video - Unique videos viewed
+                                 SUM(case when position is not null then FLOAT(position) else FLOAT(0.0) end) AS nvideos_watched_sec, # New Video - # sec watched using max video position
+                    """
 
     PCDAY_SQL_VIDEO_DNE = """
-				 0 AS nvideos_viewed, # New Video - Unique videos viewed
-				 FLOAT(0.0) AS nvideos_watched_sec, # New Video - # sec watched using max video position
-		    """
+                                 0 AS nvideos_viewed, # New Video - Unique videos viewed
+                                 FLOAT(0.0) AS nvideos_watched_sec, # New Video - # sec watched using max video position
+                    """
     PCDAY_SQL_VIDEO_SELECT = PCDAY_SQL_VIDEO_EXISTS if videoTableExists else PCDAY_SQL_VIDEO_DNE
 
     PCDAY_SQL_FORUM_EXISTS = """
-				 SUM(case when read is not null then read else 0 end) AS nforum_reads, # New discussion - Forum reads
-				 SUM(case when write is not null then write else 0 end) AS nforum_posts, # New discussion - Forum posts
-				 COUNT(DISTINCT thread_id ) AS nforum_threads, # New discussion - Unique forum threads interacted with
-		    """
+                                 SUM(case when read is not null then read else 0 end) AS nforum_reads, # New discussion - Forum reads
+                                 SUM(case when write is not null then write else 0 end) AS nforum_posts, # New discussion - Forum posts
+                                 COUNT(DISTINCT thread_id ) AS nforum_threads, # New discussion - Unique forum threads interacted with
+                    """
 
     PCDAY_SQL_FORUM_DNE = """
-				 0 AS nforum_reads, # New discussion - Forum reads
-				 0 AS nforum_posts, # New discussion - Forum posts
-				 0 AS nforum_threads, # New discussion - Unique forum threads interacted with
-		    """
+                                 0 AS nforum_reads, # New discussion - Forum reads
+                                 0 AS nforum_posts, # New discussion - Forum posts
+                                 0 AS nforum_threads, # New discussion - Unique forum threads interacted with
+                    """
     PCDAY_SQL_FORUM_SELECT = PCDAY_SQL_FORUM_EXISTS if forumTableExists else PCDAY_SQL_FORUM_DNE
 
     PCDAY_SQL_PROBLEM_EXISTS = """
-				 COUNT(DISTINCT problem_nid ) AS nproblems_answered, # New Problem - Unique problems attempted
-				 SUM(case when n_attempts is not null then n_attempts else 0 end) AS nproblems_attempted, # New Problem - Total attempts
-				 SUM(case when ncount_problem_multiplechoice is not null then ncount_problem_multiplechoice else 0 end) as nproblems_multiplechoice,
-				 SUM(case when ncount_problem_choice is not null then ncount_problem_choice else 0 end) as nproblems_choice,
-				 SUM(case when ncount_problem_numerical is not null then ncount_problem_numerical else 0 end) as nproblems_numerical,
-				 SUM(case when ncount_problem_option is not null then ncount_problem_option else 0 end) as nproblems_option,
-				 SUM(case when ncount_problem_custom is not null then ncount_problem_custom else 0 end) as nproblems_custom,
-				 SUM(case when ncount_problem_string is not null then ncount_problem_string else 0 end) as nproblems_string,
-				 SUM(case when ncount_problem_mixed is not null then ncount_problem_mixed else 0 end) as nproblems_mixed,
-				 SUM(case when ncount_problem_formula is not null then ncount_problem_formula else 0 end) as nproblems_forumula,
-				 SUM(case when ncount_problem_other is not null then ncount_problem_other else 0 end) as nproblems_other,
-		    """
+                                 COUNT(DISTINCT problem_nid ) AS nproblems_answered, # New Problem - Unique problems attempted
+                                 SUM(case when n_attempts is not null then n_attempts else 0 end) AS nproblems_attempted, # New Problem - Total attempts
+                                 SUM(case when ncount_problem_multiplechoice is not null then ncount_problem_multiplechoice else 0 end) as nproblems_multiplechoice,
+                                 SUM(case when ncount_problem_choice is not null then ncount_problem_choice else 0 end) as nproblems_choice,
+                                 SUM(case when ncount_problem_numerical is not null then ncount_problem_numerical else 0 end) as nproblems_numerical,
+                                 SUM(case when ncount_problem_option is not null then ncount_problem_option else 0 end) as nproblems_option,
+                                 SUM(case when ncount_problem_custom is not null then ncount_problem_custom else 0 end) as nproblems_custom,
+                                 SUM(case when ncount_problem_string is not null then ncount_problem_string else 0 end) as nproblems_string,
+                                 SUM(case when ncount_problem_mixed is not null then ncount_problem_mixed else 0 end) as nproblems_mixed,
+                                 SUM(case when ncount_problem_formula is not null then ncount_problem_formula else 0 end) as nproblems_forumula,
+                                 SUM(case when ncount_problem_other is not null then ncount_problem_other else 0 end) as nproblems_other,
+                    """
 
     PCDAY_SQL_PROBLEM_DNE = """
-				 0 AS nproblems_answered, # New Problem - Unique problems attempted
-				 0 AS nproblems_attempted, # New Problem - Total attempts
-				 0 AS nproblems_multiplechoice,
-				 0 AS nproblems_choice,
-				 0 AS nproblems_numerical,
-				 0 AS nproblems_option,
-				 0 AS nproblems_custom,
-				 0 AS nproblems_string,
-				 0 AS nproblems_mixed,
-				 0 AS nproblems_forumula,
-				 0 AS nproblems_other,
-		    """
+                                 0 AS nproblems_answered, # New Problem - Unique problems attempted
+                                 0 AS nproblems_attempted, # New Problem - Total attempts
+                                 0 AS nproblems_multiplechoice,
+                                 0 AS nproblems_choice,
+                                 0 AS nproblems_numerical,
+                                 0 AS nproblems_option,
+                                 0 AS nproblems_custom,
+                                 0 AS nproblems_string,
+                                 0 AS nproblems_mixed,
+                                 0 AS nproblems_forumula,
+                                 0 AS nproblems_other,
+                    """
     PCDAY_SQL_PROBLEM_SELECT = PCDAY_SQL_PROBLEM_EXISTS if problemTableExists else PCDAY_SQL_PROBLEM_DNE
 
     PCDAY_SQL_MID = """
-				 MIN(time) AS first_event,
-				 MAX(time) AS last_event,
-				 AVG( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS avg_dt,
-				 STDDEV( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS sdv_dt,
-				 MAX( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS max_dt,
-				 COUNT( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS n_dt,
-				 SUM( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS sum_dt
-			FROM (
-			  SELECT
-			    *
-			  FROM (
-			    SELECT
-			      username,
-			      CASE WHEN event_type = "play_video" THEN 1 ELSE 0 END AS bvideo,
-			      CASE WHEN event_type = "problem_check" THEN 1 ELSE 0 END AS bproblem_check,
-			      CASE WHEN username != "" THEN 1 ELSE 0 END AS bevent,
-			      CASE WHEN REGEXP_MATCH(event_type, "^/courses/{course_id}/discussion/.*") then 1 else 0 end as bforum,
-			      CASE WHEN REGEXP_MATCH(event_type, "^/courses/{course_id}/progress") then 1 else 0 end as bprogress,
-			      CASE WHEN event_type IN ("show_answer",
-				"showanswer") THEN 1 ELSE 0 END AS bshow_answer,
-			      CASE WHEN event_type = 'show_transcript' THEN 1 ELSE 0 END AS bshow_transcript,
-			      CASE WHEN event_type = 'seq_goto' THEN 1 ELSE 0 END AS bseq_goto,
-			      CASE WHEN event_type = 'seek_video' THEN 1 ELSE 0 END AS bseek_video,
-			      CASE WHEN event_type = 'pause_video' THEN 1 ELSE 0 END AS bpause_video,
-			      # case when event_type = 'edx.course.enrollment.activated' then 1 else 0 end as benroll,
-			      # case when event_type = 'edx.course.enrollment.deactivated' then 1 else 0 end as bunenroll
-			      time,
-			      LAG(time, 1) OVER (PARTITION BY username ORDER BY time) last_time
-			    FROM {DATASETS}
-			    WHERE
-			      NOT event_type CONTAINS "/xblock/"
-			      AND username != "" )
-		    """
+                                 MIN(time) AS first_event,
+                                 MAX(time) AS last_event,
+                                 AVG( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS avg_dt,
+                                 STDDEV( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS sdv_dt,
+                                 MAX( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS max_dt,
+                                 COUNT( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS n_dt,
+                                 SUM( CASE WHEN (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 > 5*60 THEN NULL ELSE (TIMESTAMP_TO_USEC(time) - last_time)/1.0E6 END ) AS sum_dt
+                        FROM (
+                          SELECT
+                            *
+                          FROM (
+                            SELECT
+                              username,
+                              CASE WHEN event_type = "play_video" THEN 1 ELSE 0 END AS bvideo,
+                              CASE WHEN event_type = "problem_check" THEN 1 ELSE 0 END AS bproblem_check,
+                              CASE WHEN username != "" THEN 1 ELSE 0 END AS bevent,
+                              CASE WHEN REGEXP_MATCH(event_type, "^/courses/{course_id}/discussion/.*") then 1 else 0 end as bforum,
+                              CASE WHEN REGEXP_MATCH(event_type, "^/courses/{course_id}/progress") then 1 else 0 end as bprogress,
+                              CASE WHEN event_type IN ("show_answer",
+                                "showanswer") THEN 1 ELSE 0 END AS bshow_answer,
+                              CASE WHEN event_type = 'show_transcript' THEN 1 ELSE 0 END AS bshow_transcript,
+                              CASE WHEN event_type = 'seq_goto' THEN 1 ELSE 0 END AS bseq_goto,
+                              CASE WHEN event_type = 'seek_video' THEN 1 ELSE 0 END AS bseek_video,
+                              CASE WHEN event_type = 'pause_video' THEN 1 ELSE 0 END AS bpause_video,
+                              # case when event_type = 'edx.course.enrollment.activated' then 1 else 0 end as benroll,
+                              # case when event_type = 'edx.course.enrollment.deactivated' then 1 else 0 end as bunenroll
+                              time,
+                              LAG(time, 1) OVER (PARTITION BY username ORDER BY time) last_time
+                            FROM {DATASETS}
+                            WHERE
+                              NOT event_type CONTAINS "/xblock/"
+                              AND username != "" )
+                    """
 
 
     PCDAY_SQL_VIDEO = """ ,
-			  ( # Video events
-				  SELECT TIMESTAMP(date) as time,
-				         '{course_id}' as course_id,
-				         username,
-				         video_id,
-				         position,
-				  FROM [{dataset}.video_stats_day]
-				  WHERE TIMESTAMP(date)>= TIMESTAMP("{min_date_start}") and TIMESTAMP(date) <= TIMESTAMP("{max_date_end}")
+                          ( # Video events
+                                  SELECT TIMESTAMP(date) as time,
+                                         '{course_id}' as course_id,
+                                         username,
+                                         video_id,
+                                         position,
+                                  FROM [{dataset}.video_stats_day]
+                                  WHERE TIMESTAMP(date)>= TIMESTAMP("{min_date_start}") and TIMESTAMP(date) <= TIMESTAMP("{max_date_end}")
 
-			  )
+                          )
                       """
     PCDAY_SQL_ADD = PCDAY_SQL_VIDEO if videoTableExists else ''
 
     PCDAY_SQL_FORUM = """ ,
-			  ( # Forum Events
-				   SELECT time,
-					  username,
-				          '{course_id}' as course_id,
-				          thread_id,
-				          (CASE WHEN (forum_action == "reply" or forum_action == "comment_reply"
-						      or forum_action == "created_thread" or forum_action == "created_response" or forum_action == "created_comment")
-						THEN 1 ELSE 0 END) AS write,
-					  (CASE WHEN (forum_action == "read" or forum_action == "read_inline") THEN 1 ELSE 0 END) AS read,
-				   FROM [{dataset}.forum_events]
-				   WHERE (forum_action == "reply" or forum_action == "comment_reply"
-					  or forum_action == "created_thread" or forum_action == "created_response" or forum_action == "created_comment"
-					  or forum_action == "read" or forum_action == "read_inline")
-				          and ( time >= TIMESTAMP("{min_date_start}") and time <= TIMESTAMP("{max_date_end}") )
-			  )
+                          ( # Forum Events
+                                   SELECT time,
+                                          username,
+                                          '{course_id}' as course_id,
+                                          thread_id,
+                                          (CASE WHEN (forum_action == "reply" or forum_action == "comment_reply"
+                                                      or forum_action == "created_thread" or forum_action == "created_response" or forum_action == "created_comment")
+                                                THEN 1 ELSE 0 END) AS write,
+                                          (CASE WHEN (forum_action == "read" or forum_action == "read_inline") THEN 1 ELSE 0 END) AS read,
+                                   FROM [{dataset}.forum_events]
+                                   WHERE (forum_action == "reply" or forum_action == "comment_reply"
+                                          or forum_action == "created_thread" or forum_action == "created_response" or forum_action == "created_comment"
+                                          or forum_action == "read" or forum_action == "read_inline")
+                                          and ( time >= TIMESTAMP("{min_date_start}") and time <= TIMESTAMP("{max_date_end}") )
+                          )
                       """
     PCDAY_SQL_ADD = PCDAY_SQL_ADD + PCDAY_SQL_FORUM if forumTableExists else PCDAY_SQL_ADD
 
     PCDAY_SQL_PROBLEM = """,
-			  ( # Problems
-				   SELECT pc.username AS username,
-				          pp.problem_nid AS problem_nid,
-				          pp.n_attempts AS n_attempts,
-				          pp.time AS time,
-				          '{course_id}' as course_id,
-					  pp.ncount_problem_multiplechoice as ncount_problem_multiplechoice,
-					  pp.ncount_problem_choice as ncount_problem_choice,
-					  pp.ncount_problem_numerical as ncount_problem_numerical,
-					  pp.ncount_problem_option as ncount_problem_option,
-					  pp.ncount_problem_custom as ncount_problem_custom,
-					  pp.ncount_problem_string as ncount_problem_string,
-					  pp.ncount_problem_mixed as ncount_problem_mixed,
-					  pp.ncount_problem_formula as ncount_problem_formula,
-					  pp.ncount_problem_other as ncount_problem_other,
-				   FROM (
+                          ( # Problems
+                                   SELECT pc.username AS username,
+                                          pp.problem_nid AS problem_nid,
+                                          pp.n_attempts AS n_attempts,
+                                          pp.time AS time,
+                                          '{course_id}' as course_id,
+                                          pp.ncount_problem_multiplechoice as ncount_problem_multiplechoice,
+                                          pp.ncount_problem_choice as ncount_problem_choice,
+                                          pp.ncount_problem_numerical as ncount_problem_numerical,
+                                          pp.ncount_problem_option as ncount_problem_option,
+                                          pp.ncount_problem_custom as ncount_problem_custom,
+                                          pp.ncount_problem_string as ncount_problem_string,
+                                          pp.ncount_problem_mixed as ncount_problem_mixed,
+                                          pp.ncount_problem_formula as ncount_problem_formula,
+                                          pp.ncount_problem_other as ncount_problem_other,
+                                   FROM (
 
-					   (
-					      SELECT PP.user_id as user_id,
-						     PP.problem_nid AS problem_nid,
-						     PP.n_attempts as n_attempts,
-						     PP.date as time,
-						     (Case when CP_CA.data_itype == "multiplechoiceresponse" then 1 else 0 end) as ncount_problem_multiplechoice, # Choice
-					             (Case when CP_CA.data_itype == "choiceresponse" then 1 else 0 end) as ncount_problem_choice,       # Choice
-						     (Case when CP_CA.data_itype == "numericalresponse" then 1 else 0 end) as ncount_problem_numerical, #input
-						     (Case when CP_CA.data_itype == "optionresponse" then 1 else 0 end) as ncount_problem_option,       # Choice
-					             (Case when CP_CA.data_itype == "customresponse" then 1 else 0 end) as ncount_problem_custom,       # Custom
-					             (Case when CP_CA.data_itype == "stringresponse" then 1 else 0 end) as ncount_problem_string,       # Input
-					             (Case when CP_CA.data_itype == "mixed" then 1 else 0 end) as ncount_problem_mixed,                 # Mixed
-					             (Case when CP_CA.data_itype == "forumula" then 1 else 0 end) as ncount_problem_formula,            # Input
-					             (Case when CP_CA.data_itype != "multiplechoiceresponse" and
-							        CP_CA.data_itype != "choiceresponse" and
-							        CP_CA.data_itype != "numericalresponse" and
-							        CP_CA.data_itype != "optionresponse" and
-							        CP_CA.data_itype != "customresponse" and
-							        CP_CA.data_itype != "stringresponse" and
-							        CP_CA.data_itype != "mixed" and
-							        CP_CA.data_itype != "forumula"
-							   then 1 else 0 end) as ncount_problem_other, # Input
-						     #MAX(n_attempts) AS n_attempts,
-						     #MAX(date) AS time,
-					      FROM [{dataset}.person_problem] PP
-					      LEFT JOIN
-					      (
-							SELECT CP.problem_nid as problem_nid,
-							       INTEGER(CP.problem_id) as problem_id,
-							       CA.data.itype as data_itype,
-						        FROM [{dataset}.course_problem] CP
-						        LEFT JOIN [{dataset}.course_axis] CA
-						        ON CP.problem_id == CA.url_name
-					      ) as CP_CA
-					      ON PP.problem_nid == CP_CA.problem_nid
-					      GROUP BY time, user_id, problem_nid, n_attempts,
-						       ncount_problem_multiplechoice,
-						       ncount_problem_choice,
-						       ncount_problem_choice,
-						       ncount_problem_numerical,
-						       ncount_problem_option,
-						       ncount_problem_custom,
-						       ncount_problem_string,
-						       ncount_problem_mixed,
-						       ncount_problem_formula,
-						       ncount_problem_other
-					      )
+                                           (
+                                              SELECT PP.user_id as user_id,
+                                                     PP.problem_nid AS problem_nid,
+                                                     PP.n_attempts as n_attempts,
+                                                     PP.date as time,
+                                                     (Case when CP_CA.data_itype == "multiplechoiceresponse" then 1 else 0 end) as ncount_problem_multiplechoice, # Choice
+                                                     (Case when CP_CA.data_itype == "choiceresponse" then 1 else 0 end) as ncount_problem_choice,       # Choice
+                                                     (Case when CP_CA.data_itype == "numericalresponse" then 1 else 0 end) as ncount_problem_numerical, #input
+                                                     (Case when CP_CA.data_itype == "optionresponse" then 1 else 0 end) as ncount_problem_option,       # Choice
+                                                     (Case when CP_CA.data_itype == "customresponse" then 1 else 0 end) as ncount_problem_custom,       # Custom
+                                                     (Case when CP_CA.data_itype == "stringresponse" then 1 else 0 end) as ncount_problem_string,       # Input
+                                                     (Case when CP_CA.data_itype == "mixed" then 1 else 0 end) as ncount_problem_mixed,                 # Mixed
+                                                     (Case when CP_CA.data_itype == "forumula" then 1 else 0 end) as ncount_problem_formula,            # Input
+                                                     (Case when CP_CA.data_itype != "multiplechoiceresponse" and
+                                                                CP_CA.data_itype != "choiceresponse" and
+                                                                CP_CA.data_itype != "numericalresponse" and
+                                                                CP_CA.data_itype != "optionresponse" and
+                                                                CP_CA.data_itype != "customresponse" and
+                                                                CP_CA.data_itype != "stringresponse" and
+                                                                CP_CA.data_itype != "mixed" and
+                                                                CP_CA.data_itype != "forumula"
+                                                           then 1 else 0 end) as ncount_problem_other, # Input
+                                                     #MAX(n_attempts) AS n_attempts,
+                                                     #MAX(date) AS time,
+                                              FROM [{dataset}.person_problem] PP
+                                              LEFT JOIN
+                                              (
+                                                        SELECT CP.problem_nid as problem_nid,
+                                                               INTEGER(CP.problem_id) as problem_id,
+                                                               CA.data.itype as data_itype,
+                                                        FROM [{dataset}.course_problem] CP
+                                                        LEFT JOIN [{dataset}.course_axis] CA
+                                                        ON CP.problem_id == CA.url_name
+                                              ) as CP_CA
+                                              ON PP.problem_nid == CP_CA.problem_nid
+                                              GROUP BY time, user_id, problem_nid, n_attempts,
+                                                       ncount_problem_multiplechoice,
+                                                       ncount_problem_choice,
+                                                       ncount_problem_choice,
+                                                       ncount_problem_numerical,
+                                                       ncount_problem_option,
+                                                       ncount_problem_custom,
+                                                       ncount_problem_string,
+                                                       ncount_problem_mixed,
+                                                       ncount_problem_formula,
+                                                       ncount_problem_other
+                                              )
 
-					      #FROM [{dataset}.person_item] PI
-					      #JOIN [{dataset}.course_item] CI
-					      #ON PI.item_nid = CI.item_nid
-					      #GROUP BY user_id,
-						       #problem_nid
-					      #ORDER BY
-						       #user_id,
-						       #problem_nid
-					) AS pp
-				        LEFT JOIN (
-							      SELECT username,
-								     user_id
-							      FROM [{dataset}.person_course] 
-					) AS pc
-					ON pc.user_id = pp.user_id
-				        WHERE time >= TIMESTAMP("{min_date_start}") and time <= TIMESTAMP("{max_date_end}")
-			  )
+                                              #FROM [{dataset}.person_item] PI
+                                              #JOIN [{dataset}.course_item] CI
+                                              #ON PI.item_nid = CI.item_nid
+                                              #GROUP BY user_id,
+                                                       #problem_nid
+                                              #ORDER BY
+                                                       #user_id,
+                                                       #problem_nid
+                                        ) AS pp
+                                        LEFT JOIN (
+                                                              SELECT username,
+                                                                     user_id
+                                                              FROM [{dataset}.person_course] 
+                                        ) AS pc
+                                        ON pc.user_id = pp.user_id
+                                        WHERE time >= TIMESTAMP("{min_date_start}") and time <= TIMESTAMP("{max_date_end}")
+                          )
  
                         """
     PCDAY_SQL_ADD = PCDAY_SQL_ADD + PCDAY_SQL_PROBLEM if problemTableExists else PCDAY_SQL_ADD
 
     PCDAY_SQL_END = """
-			  )
-			  WHERE time > TIMESTAMP("{last_date}")
-			  GROUP BY course_id,
-				   username,
-				   date
-			  ORDER BY date
-		    """
+                          )
+                          WHERE time > TIMESTAMP("{last_date}")
+                          GROUP BY course_id,
+                                   username,
+                                   date
+                          ORDER BY date
+                    """
 
 
     PCDAY_SQL_NEW = PCDAY_SQL_BASE_SELECT + PCDAY_SQL_VIDEO_SELECT + PCDAY_SQL_FORUM_SELECT + PCDAY_SQL_PROBLEM_SELECT + PCDAY_SQL_MID + PCDAY_SQL_ADD + PCDAY_SQL_END
@@ -550,82 +550,82 @@ def compute_person_course_day_trlang_table(course_id, force_recompute=False, use
     table = 'pcday_trlang_counts'
 
     SQL = '''
-		SELECT
-		  username,
-		  course_id,
-		  DATE(time) AS date,
-		  LAST(time) AS last_time,
-		  resource,
-		  CASE
-		    WHEN resource_event_type = 'transcript_download' AND prev_event_data IS NOT NULL THEN prev_event_data
-		    WHEN resource_event_type = 'transcript_download'
-		  AND prev_event_data IS NULL THEN 'en'
-		    WHEN resource_event_type = 'transcript_language' THEN resource_event_data
-		    ELSE resource_event_data
-		  END AS resource_event_data,
-		  resource_event_type,
-		  SUM(lang_count) AS langcount
-		FROM (
-		  SELECT
-		    course_id,
-		    username,
-		    resource,
-		    resource_event_data,
-		    resource_event_type,
-		    LAG(time, 1) OVER (PARTITION BY username ORDER BY time) AS prev_time,
-		    LAG(resource_event_type, 1) OVER (PARTITION BY username ORDER BY time) AS prev_event_type,
-		    LAG(resource_event_data, 1) OVER (PARTITION BY username ORDER BY time) AS prev_event_data,
-		    time,
-		    COUNT(*) AS lang_count,
-		    event_type
-		  FROM (
-		    SELECT
-		      time,
-		      course_id,
-		      username,
-		      'video' AS resource,
-		      CASE
-			WHEN module_id IS NOT NULL THEN REGEXP_EXTRACT(module_id, r'.*video/(.*)')                          # Newer data .. May 2016?
-			ELSE REGEXP_EXTRACT(event_type, r'.*;_video;_(.*)\/handler\/transcript\/translation\/.*') END   # Older data
-		      AS resource_id,
-		      CASE
-			WHEN (event_type = 'edx.ui.lms.link_clicked'                                                     # Trasncript Download
-			AND REGEXP_MATCH(JSON_EXTRACT(event, '$.target_url'), r'(.*handler/transcript/download)') ) THEN 'transcript_download'
-			WHEN (REGEXP_MATCH(event_type, "/transcript/translation/.*") ) THEN 'transcript_language'
-			ELSE NULL
-		      END AS resource_event_type,
-		      REGEXP_EXTRACT(event_type, r'.*\/handler\/transcript\/translation\/(.*)') AS resource_event_data,
-		      event_type,
-		    FROM {DATASETS}
-		    WHERE
-		      time > TIMESTAMP("2010-10-01 01:02:03")
-		      AND username != ""
-		      AND ( (NOT event_type CONTAINS "/xblock/"                                                          # Trasncript Download
-			  AND event_type = 'edx.ui.lms.link_clicked'                                                  # Trasncript Download
-			  AND REGEXP_MATCH(JSON_EXTRACT(event, '$.target_url'), r'(.*handler/transcript/download)') ) # Transcript Download
-			OR (REGEXP_MATCH(event_type, "/transcript/translation/.*") )                                   # Transcript Language Toggle
-			)
-		    ORDER BY
-		      time )
-		  GROUP BY
-		    username,
-		    course_id,
-		    resource,
-		    resource_event_data,
-		    resource_event_type,
-		    event_type,
-		    time )
-		GROUP BY
-		  username,
-		  course_id,
-		  date,
-		  resource,
-		  resource_event_data,
-		  resource_event_type,
-		ORDER BY
-		  date ASC,
-		  username ASC
-		  '''
+                SELECT
+                  username,
+                  course_id,
+                  DATE(time) AS date,
+                  LAST(time) AS last_time,
+                  resource,
+                  CASE
+                    WHEN resource_event_type = 'transcript_download' AND prev_event_data IS NOT NULL THEN prev_event_data
+                    WHEN resource_event_type = 'transcript_download'
+                  AND prev_event_data IS NULL THEN 'en'
+                    WHEN resource_event_type = 'transcript_language' THEN resource_event_data
+                    ELSE resource_event_data
+                  END AS resource_event_data,
+                  resource_event_type,
+                  SUM(lang_count) AS langcount
+                FROM (
+                  SELECT
+                    course_id,
+                    username,
+                    resource,
+                    resource_event_data,
+                    resource_event_type,
+                    LAG(time, 1) OVER (PARTITION BY username ORDER BY time) AS prev_time,
+                    LAG(resource_event_type, 1) OVER (PARTITION BY username ORDER BY time) AS prev_event_type,
+                    LAG(resource_event_data, 1) OVER (PARTITION BY username ORDER BY time) AS prev_event_data,
+                    time,
+                    COUNT(*) AS lang_count,
+                    event_type
+                  FROM (
+                    SELECT
+                      time,
+                      course_id,
+                      username,
+                      'video' AS resource,
+                      CASE
+                        WHEN module_id IS NOT NULL THEN REGEXP_EXTRACT(module_id, r'.*video/(.*)')                          # Newer data .. May 2016?
+                        ELSE REGEXP_EXTRACT(event_type, r'.*;_video;_(.*)\/handler\/transcript\/translation\/.*') END   # Older data
+                      AS resource_id,
+                      CASE
+                        WHEN (event_type = 'edx.ui.lms.link_clicked'                                                     # Trasncript Download
+                        AND REGEXP_MATCH(JSON_EXTRACT(event, '$.target_url'), r'(.*handler/transcript/download)') ) THEN 'transcript_download'
+                        WHEN (REGEXP_MATCH(event_type, "/transcript/translation/.*") ) THEN 'transcript_language'
+                        ELSE NULL
+                      END AS resource_event_type,
+                      REGEXP_EXTRACT(event_type, r'.*\/handler\/transcript\/translation\/(.*)') AS resource_event_data,
+                      event_type,
+                    FROM {DATASETS}
+                    WHERE
+                      time > TIMESTAMP("2010-10-01 01:02:03")
+                      AND username != ""
+                      AND ( (NOT event_type CONTAINS "/xblock/"                                                          # Trasncript Download
+                          AND event_type = 'edx.ui.lms.link_clicked'                                                  # Trasncript Download
+                          AND REGEXP_MATCH(JSON_EXTRACT(event, '$.target_url'), r'(.*handler/transcript/download)') ) # Transcript Download
+                        OR (REGEXP_MATCH(event_type, "/transcript/translation/.*") )                                   # Transcript Language Toggle
+                        )
+                    ORDER BY
+                      time )
+                  GROUP BY
+                    username,
+                    course_id,
+                    resource,
+                    resource_event_data,
+                    resource_event_type,
+                    event_type,
+                    time )
+                GROUP BY
+                  username,
+                  course_id,
+                  date,
+                  resource,
+                  resource_event_data,
+                  resource_event_type,
+                ORDER BY
+                  date ASC,
+                  username ASC
+                  '''
 
     def gdf(row):
         return datetime.datetime.strptime(row['date'], '%Y-%m-%d')

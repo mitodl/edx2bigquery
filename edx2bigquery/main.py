@@ -247,6 +247,7 @@ def setup_sql(param, args, steps, course_id=None):
                                 )
         except Exception as err:
             print(err)
+            traceback.print_exc()
 
     if sqlall or 'sql2bq' in steps:
         from . import load_course_sql
@@ -260,6 +261,7 @@ def setup_sql(param, args, steps, course_id=None):
                                                 )
         except Exception as err:
             print(err)
+            traceback.print_exc()
 
     if sqlall or 'load_forum' in steps:
         from . import rephrase_forum_data
@@ -272,6 +274,7 @@ def setup_sql(param, args, steps, course_id=None):
                                                                )
         except Exception as err:
             print(err)
+            traceback.print_exc()
 
 
 def setup_sql_single(param, course_id, optargs=None):
