@@ -138,7 +138,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
 
     nusers = 0
     fields = ['username', 'email', 'is_staff', 'last_login', 'date_joined']
-    for line in csv.DictReader(openfile('users.csv')):
+    for line in csv.DictReader(openfile('users.csv', mode='rb')):
         uid = int(line['id'])
         copy_elements(line, uic[uid], fields)
         uic[uid]['user_id'] = uid
@@ -331,7 +331,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
             print("data = %s" % data)
             print("Suppressing this row")
             continue
-        ofp.write(json.dumps(data) + '\n')
+        ofp.write((json.dumps(data) + '\n').encode("utf8"))
         try:
             ocsv.writerow(data)
         except Exception as err:

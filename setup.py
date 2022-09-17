@@ -46,6 +46,7 @@ setup(
                       'google-api-python-client',
                       'edxcut',
                       'unidecode',
+                      'pandas',
                       ],
     dependency_links = [
         ],

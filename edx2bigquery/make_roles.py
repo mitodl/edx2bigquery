@@ -64,7 +64,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
     SCHEMA_FILE = '%s/schemas/schema_roles.json' % mypath
     the_dict_schema = schema2dict(json.loads(open(SCHEMA_FILE).read())['staff']) 
     
-    role_data = defaultdict(dict)		# dict with key = user_id, and val = dict to be written out as JSON line
+    role_data = defaultdict(dict)               # dict with key = user_id, and val = dict to be written out as JSON line
     
     def convertLongToWide( longData, unique_id, column_header, values, columns ):
         import numpy as np
@@ -118,7 +118,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         else:
             if add_dir:
                 fn = cdir / fn_in
-	    else:
+            else:
                 fn = fn_in
             if fn.endswith('.gz'):
                 return gzip.GzipFile(fn, mode)
@@ -126,7 +126,7 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
 
     def createRoleVar( wideData, all_roles ):
 
-	if wideData[ all_roles ].notnull().values.any():
+        if wideData[ all_roles ].notnull().values.any():
              return str("Staff")
         else:
              return str("Student")
