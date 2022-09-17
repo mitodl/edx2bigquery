@@ -428,7 +428,7 @@ def make_axis(dir):
                 try:
                     #dn = dn.decode('utf-8')
                     dn = str(dn)
-                    dn = fix_bad_unicode(dn)
+                    # dn = fix_bad_unicode(dn)
                 except Exception as err:
                     logit('unicode error, type(dn)=%s'  % type(dn))
                     raise

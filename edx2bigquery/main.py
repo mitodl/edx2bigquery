@@ -499,6 +499,7 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
             transfer_logs_to_gs.process_dir(course_id,
                                             edx2bigquery_config.GS_BUCKET,
                                             args.logs_dir or edx2bigquery_config.TRACKING_LOGS_DIRECTORY,
+                                            not_before=args.not_before,
                                             verbose=verbose,
                                             )
         except Exception as err:
@@ -1744,6 +1745,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--time-on-task-config", type=str, help="time-on-task computation parameters for overriding default config, as string of comma separated values")
     parser.add_argument("--subsection", help="Add grades_persistent_subsection instead of grades_persistent",
                         action="store_true")
+    parser.add_argument("--not-before", type=str, help="for logs2gs do not transfer files that already exist in gs with date before this")
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
 
     args = parser.parse_args()

@@ -46,7 +46,7 @@ def make_gp_table(course_id, basedir=None, datedir=None,
     
     ofnb = 'grading_policy.csv'
     ofn = sdir / ofnb
-    ofp = open(ofn, 'w')
+    ofp = open(ofn, 'wb')
     cdw = csv.DictWriter(ofp, fieldnames=fields)
     cdw.writeheader()
     cdw.writerows(gptab)

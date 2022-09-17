@@ -26,12 +26,19 @@ import dateutil.parser
 from path import Path as path
 from . import gsutil
 
-def process_dir(course_id, gspath='gs://x-data', logs_directory="TRACKING_LOGS", verbose=True):
+def process_dir(course_id, gspath='gs://x-data', logs_directory="TRACKING_LOGS", not_before=None, verbose=True):
+    '''
+    not_before = (str) for logs2gs do not transfer files that already exist in gs with date before this
+    '''
 
     cdir = path(logs_directory) / gsutil.path_from_course_id(course_id)
 
     print("="*77)
     print("Transferring tracking logs for %s from directory %s (start %s)" % (course_id, cdir, datetime.datetime.now()))
+    if not_before:
+        not_before = dateutil.parser.parse(not_before)
+        not_before = pytz.utc.localize(not_before)		# make datetime-aware, because that gsutil dates are in UTC
+        print("Skipping files with date < %s" % str(not_before))
     print("="*77)
 
     if not os.path.exists(cdir):
@@ -58,12 +65,16 @@ def process_dir(course_id, gspath='gs://x-data', logs_directory="TRACKING_LOGS",
         local_dt = local.localize(mt, is_dst=None)
         utc_dt = local_dt.astimezone (pytz.utc)
 
-        if fnb in filelist and filelist[fnb]['date'] > utc_dt:
+        if fnb in filelist and (filelist[fnb]['date'] > utc_dt):
             if verbose:
                 print("%s already exists, skipping" % fn)
             continue
+        if fnb in filelist and not_before and filelist[fnb]['date'] < not_before:
+            if verbose:
+                print("%s date=%s before %s, skipping" % (fnb, filelist[fnb]['date'], not_before))
+            continue
         elif fnb in filelist:
-            print("%s already exists, but has date=%s and mtime=%s, re-uploading" % (fn, filelist[fnb]['date'], mt))
+            print("%s already exists, but has date=%s and mtime utc_dt=%s, re-uploading" % (fn, filelist[fnb]['date'], utc_dt))
         cmd = 'gsutil cp %s %s' % (fn, gp + '/')
         print(cmd)
         sys.stdout.flush()
