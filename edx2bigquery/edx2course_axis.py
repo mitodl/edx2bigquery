@@ -43,6 +43,7 @@ import codecs
 import json
 import glob
 import datetime
+import traceback
 from . import xbundle
 import tempfile
 from collections import namedtuple, defaultdict
@@ -680,7 +681,13 @@ def process_xml_tar_gz_file(fndir, use_dataset_latest=False, force_course_id=Non
     os.system(cmd)
     newfn = glob.glob('%s/*' % tdir)[0]
     print("Using %s as the course xml directory" % newfn)
-    process_course(newfn, use_dataset_latest=use_dataset_latest, force_course_id=force_course_id)
+    try:
+        process_course(newfn, use_dataset_latest=use_dataset_latest, force_course_id=force_course_id)
+    except Exception as err:
+        print("[edx2course_axis] failed in process course, err=%s" % str(err))
+        print("removing temporary files %s" % tdir)
+        os.system('rm -rf %s' % tdir)
+        raise
     print("removing temporary files %s" % tdir)
     os.system('rm -rf %s' % tdir)
 

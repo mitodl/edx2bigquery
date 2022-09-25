@@ -252,10 +252,14 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data",
     os.system(cmd)
     os.system(cmd)
 
-    table = 'forum'
-    bqutil.load_data_to_table(dataset, table, gsfn, SCHEMA, wait=True)
-    msg = "Original data from %s" % (lfp / fn)
-    bqutil.add_description_to_table(dataset, table, msg, append=True)
+    try:
+        table = 'forum'
+        bqutil.load_data_to_table(dataset, table, gsfn, SCHEMA, wait=True)
+        msg = "Original data from %s" % (lfp / fn)
+        bqutil.add_description_to_table(dataset, table, msg, append=True)
+    except Exception as err:
+        os.unlink(tmp_fname)				# remove temporary file
+        raise
 
     os.system('mv %s "%s"' % (tmp_fname, ofn))		# rename after successful load into bq
     print("...done (%s)" % datetime.datetime.now())
