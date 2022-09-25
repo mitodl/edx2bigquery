@@ -62,7 +62,7 @@ def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=N
                 check_schema(linecnt, item, the_ds[key]['dict_schema'], path=path + '/' + key, coerce=coerce)
             return
 
-        if bqtype=="TIMESTAMP" and type(val)==str and len(val) > 12:			# mongo stores timestamps in microseconds, but bq wants them in seconds
+        if bqtype=="TIMESTAMP" and type(val)==str and len(val) > 12 and ('-' not in val):	# mongo stores timestamps in microseconds, but bq wants them in seconds
             data[key] = "%s.%s" % (val[:-9], val[-9:])
             if 0:
                 print("[check_schema] TIMESTAMP made into seconds: %s" % data[key])
@@ -109,7 +109,7 @@ def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=N
                         elif '$numberLong' in val:
                             data[key] = val['$numberLong']
                         if bqtype=="TIMESTAMP":			# mongo stores timestamps in nanoseconds, but bq wants them in microseconds
-                            if len(data[key]) > 12:
+                            if len(data[key]) > 12  and ('-' not in data[key]):
                                 val = data[key]
                                 data[key] = "%s.%s" % (val[:-9], val[-9:])
                                 if 0:

@@ -63,7 +63,10 @@ def do_save(cid, caset_in, xbundle, datadir, log_msg, use_dataset_latest=False):
             except Exception as err:
                 print("failed to create json for %s, error=%s" % (data, err))
         if ca['start'] is not None:
-            ca['start'] = str(ca['start'])	# datetime to string
+            dtstr = str(ca['start'])	# datetime to string
+            if '.' in dtstr:
+                raise Exception("[axis2bigquery] oops, got start='%s' -- has period in it?  start dt=%s" % (dtstr, repr(ca['start'])))
+            ca['start'] = dtstr
         if  ca['due'] is not None:
             ca['due'] = str(ca['due'])	# datetime to string
         if (ca['data'] is None) or (ca['data']==''):
