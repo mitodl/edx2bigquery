@@ -54,12 +54,18 @@ def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=N
             raise Exception("[check_schema] Oops! field %s is not in the schema, linecnt=%s, path=%s" % (key, linecnt, path))
 
         ptype = the_ds[key]['ptype']	# python type corresponding to the BigQuery schema field type
+        bqtype = the_ds[key]['type']	# bigquery type
 
         # allow repeated nested records (see https://cloud.google.com/bigquery/preparing-data-for-bigquery?hl=ja#dataformats)
         if ptype==dict and type(val)==list and the_ds[key].get('mode')=='REPEATED':
             for item in val:
                 check_schema(linecnt, item, the_ds[key]['dict_schema'], path=path + '/' + key, coerce=coerce)
             return
+
+        if bqtype=="TIMESTAMP" and type(val)==str and len(val) > 12:			# mongo stores timestamps in microseconds, but bq wants them in seconds
+            data[key] = "%s.%s" % (val[:-9], val[-9:])
+            if 0:
+                print("[check_schema] TIMESTAMP made into seconds: %s" % data[key])
 
         if not type(val)==ptype:
             if type(val)==int and ptype==float:
@@ -82,6 +88,32 @@ def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=N
                 if type(val) in [str, str] and ptype==int:
                     try:
                         data[key] = int(val)
+                    except Exception as err:
+                        print("Error coercing data for key=%s path=%s, val=%s, err=%s" % (key, path, val, str(err)))
+                        raise
+                    continue
+                if type(val) in [dict] and ptype==int:
+                    try:
+                        if '$numberInt' in val:
+                            data[key] = int(val['$numberInt'])
+                        elif '$numberLong' in val:
+                            data[key] = int(val['$numberLong'])
+                    except Exception as err:
+                        print("Error coercing data for key=%s path=%s, val=%s, err=%s" % (key, path, val, str(err)))
+                        raise
+                    continue
+                if type(val) in [dict] and ptype==str:
+                    try:
+                        if '$numberInt' in val:
+                            data[key] = val['$numberInt']
+                        elif '$numberLong' in val:
+                            data[key] = val['$numberLong']
+                        if bqtype=="TIMESTAMP":			# mongo stores timestamps in nanoseconds, but bq wants them in microseconds
+                            if len(data[key]) > 12:
+                                val = data[key]
+                                data[key] = "%s.%s" % (val[:-9], val[-9:])
+                                if 0:
+                                    print("[check_schema] TIMESTAMP made into seconds: %s" % data[key])
                     except Exception as err:
                         print("Error coercing data for key=%s path=%s, val=%s, err=%s" % (key, path, val, str(err)))
                         raise

@@ -196,7 +196,8 @@ def guess_module_id(doc):
             mid = "%s/%s/%s/%s" % (rr2.group('org'), rr2.group('course'), rr2.group('mtype'), rr2.group('id'))
             # sys.stderr.write("ok mid = %s\n" % mid)
             return mid
-        sys.stderr.write("ok parse failed on %s" % json.dumps(doc, indent=4))
+        # sys.stderr.write("\nok parse failed on %s\n" % str(json.dumps(doc, indent=4))[:500])
+        # fall through to more processing, and do not emit error
   
     if (event_type=="problem_graded" and type(event)==list and len(event)>0 and event[0].startswith("input_")):
         page = doc.get('page', '') or ''
@@ -213,7 +214,8 @@ def guess_module_id(doc):
             mid = "%s/%s/%s/%s" % (rr2.group('org'), rr2.group('course'), rr2.group('mtype'), rr2.group('id'))
             # sys.stderr.write("ok mid = %s\n" % mid)
             return mid
-        sys.stderr.write("ok parse failed on %s" % json.dumps(doc, indent=4))
+        # sys.stderr.write("\nok parse failed on %s\n" % str(json.dumps(doc, indent=4))[:500])
+        # fall through to more processing, and do not emit error
 
     rr = okre3.search(event_type)
     if (rr):

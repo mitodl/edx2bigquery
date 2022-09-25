@@ -218,13 +218,13 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data",
     cnt = 0
     tmp_fd, tmp_fname = tempfile.mkstemp(dir="/tmp", prefix='{p}_'.format(p=os.getpid()), suffix='_tmp.json.gz')
     os.fchmod(tmp_fd, stat.S_IRWXG | stat.S_IRWXU | stat.S_IROTH)
-    ofp = gzip.GzipFile(fileobj=os.fdopen(tmp_fd, 'w'))
+    ofp = gzip.GzipFile(fileobj=os.fdopen(tmp_fd, 'wb'), mode='w')
     data = OrderedDict()
     for line in fp:
         cnt += 1
         # Write JSON row
         newline = do_rephrase_line(line, linecnt=cnt)
-        ofp.write(newline)
+        ofp.write(newline.encode("utf8"))
 
         try:
             #Write CSV row
@@ -257,8 +257,7 @@ def rephrase_forum_json_for_course(course_id, gsbucket="gs://x-data",
     msg = "Original data from %s" % (lfp / fn)
     bqutil.add_description_to_table(dataset, table, msg, append=True)
 
-    os.system('mv %s "%s"' % (tmp_fname, ofn))
-
+    os.system('mv %s "%s"' % (tmp_fname, ofn))		# rename after successful load into bq
     print("...done (%s)" % datetime.datetime.now())
     sys.stdout.flush()
 

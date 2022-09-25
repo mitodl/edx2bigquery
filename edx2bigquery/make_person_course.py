@@ -1650,6 +1650,14 @@ class PersonCourse(object):
         self.output_table()
         self.upload_to_bigquery()
         
+    def mark_sql_data_processed(self):
+        '''
+        Add a ".edx2bigquery_processed" file to the SQL_DATA directory of the course data just processed
+        '''
+        donefn = self.cdir / ".edx2bigquery_processed"
+        with open(donefn, 'w') as ofp:
+            ofp.write(str(datetime.datetime.now()))
+
 #-----------------------------------------------------------------------------
 
 def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-21", options='', 
@@ -1701,6 +1709,7 @@ def make_person_course(course_id, basedir="X-Year-2-data-sql", datedir="2013-09-
         pc.nightly_update()
     else:
         pc.make_all()
+    pc.mark_sql_data_processed()
     print("Done processing person course for %s (end %s)" % (course_id, datetime.datetime.now()))
     print("-"*77)
         

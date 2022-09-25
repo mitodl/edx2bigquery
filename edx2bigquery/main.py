@@ -978,6 +978,7 @@ def person_course(param, courses, args, just_do_nightly=False, force_recompute=F
                 # continue
             raise
 
+
 def doall(param, course_id, args, stdout=None):
     start = datetime.datetime.now()
     success = False

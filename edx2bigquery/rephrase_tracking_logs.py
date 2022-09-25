@@ -278,7 +278,13 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                              ['environment'],			# 06sep2017 rp
                              ['minion_id'],			# 06sep2017 rp
                              ['event_struct', 'duration'],	# 22nov2017 ic
-                             ['event_struct', 'play_medium']
+                             ['event_struct', 'play_medium'],
+                             ['context', 'enterprise_uuid'],	 		# 2022-09-22
+                             ['labels'],	 		# 2022-09-22
+                             ['log_file'],	 		# 2022-09-22
+                             ['log_host'],	 		# 2022-09-22
+                             ['source_type'],	 		# 2022-09-22
+                             ["vector_timestamp"],		# 2022-09-22
                          ])
 
     #----------------------------------------
