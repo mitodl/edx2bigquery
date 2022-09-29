@@ -285,6 +285,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                              ['log_host'],	 		# 2022-09-22
                              ['source_type'],	 		# 2022-09-22
                              ["vector_timestamp"],		# 2022-09-22
+                             ['event_struct', 'username'],	# 2022-09-27
                          ])
 
     #----------------------------------------
