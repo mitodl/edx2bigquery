@@ -448,7 +448,8 @@ def get_youtube_api_stats(youtube_id, api_key, part, delay_secs=0):
     Youtube video duration lookup, using specified API_KEY from configuration file
     Visit https://developers.google.com/console/help/new/#generatingdevkeys for details on how to generate public key
     '''
-    if youtube_id is '': return None
+    if youtube_id == '':
+        return None
     sleep(delay_secs)
 
     try:
@@ -533,6 +534,14 @@ def findVideoLength(dataset, youtube_id, api_key=None):
     try:
         youtube_id = unidecode(youtube_id)
     except Exception as err:
+        if youtube_id is None:
+            return 0
+        try:
+            youtube_id = youtube_id.strip()
+            if youtube_id=="None":
+                return 0
+        except Exception as err:
+            pass
         print("youtube_id is not ascii?  ytid=", youtube_id)
         return 0
     try:
@@ -590,7 +599,7 @@ def getYoutubeDurations(dataset, bq_table_input, api_key, outputfilename, schema
         check_schema(linecnt, verified_row, the_ds=schema, coerce=True)
         
         try:
-            fp.write(json.dumps(verified_row)+'\n')
+            fp.write((json.dumps(verified_row)+'\n').encode("utf8"))
         except Exception as err:
             print("Failed to write line %s!  Error=%s, data=%s" % (linecnt, str(err), dataset))
     

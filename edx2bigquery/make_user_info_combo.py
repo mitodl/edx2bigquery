@@ -83,6 +83,8 @@ def process_file(course_id, basedir=None, datedir=None, use_dataset_latest=False
         for key in fields:
             if skip_empty and (not key in src):
                 src[key] = None
+            if not key in src:
+                continue
             if src[key]=='NULL':
                 continue
             if key=='course_id' and src[key].startswith('course-v1:'):
