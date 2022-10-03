@@ -1654,7 +1654,7 @@ class PersonCourse(object):
         '''
         Add a ".edx2bigquery_processed" file to the SQL_DATA directory of the course data just processed
         '''
-        donefn = self.cdir / ".edx2bigquery_processed"
+        donefn = self.cdir / ".edx2bigquery_processed.person_course"
         with open(donefn, 'w') as ofp:
             ofp.write(str(datetime.datetime.now()))
 

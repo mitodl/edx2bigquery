@@ -988,6 +988,23 @@ def doall(param, course_id, args, stdout=None):
         print("-"*100)
         print("DOALL PROCESSING %s" % course_id)
         print("-"*100)
+
+        if args.skip_already_successful:	# skip if SQL data directory has .edx2bigquery_processed.doall
+            has_done = has_sql_data_processed(course_id,
+                                              course_dir_root=param.the_basedir,
+                                              course_dir_date=param.the_datedir,
+                                              use_dataset_latest=param.use_dataset_latest,
+                                              use_latest_sql_dir=args.latest_sql_dir,
+                                              phase="doall"
+            )
+            if has_done:
+                print(f"==> already successful doneall processed, skipping {course_id}")
+                end = datetime.datetime.now()
+                ret = {'start': start, 'end': end, 'dt' : end-start, 'success': True, 'course_id': course_id, 'stdout': stdout}
+                print("-"*100)
+                sys.stdout.flush()
+                return ret
+
         setup_sql(param, course_id, 'setup_sql')
         try:
             analyze_problems(param, course_id, args)
@@ -1037,11 +1054,50 @@ def doall(param, course_id, args, stdout=None):
 
     end = datetime.datetime.now()
     ret = {'start': start, 'end': end, 'dt' : end-start, 'success': success, 'course_id': course_id, 'stdout': stdout}
+
+    if success:
+        mark_sql_data_processed(course_id,
+                                course_dir_root=param.the_basedir,
+                                course_dir_date=param.the_datedir,
+                                use_dataset_latest=param.use_dataset_latest,
+                                use_latest_sql_dir=args.latest_sql_dir,
+                                phase="doall"
+        )
+
     print("-"*100)
     print("DOALL DONE WITH %s, success=%s, dt=%s" % (course_id, ret['success'], ret['dt']))
     print("-"*100)
     sys.stdout.flush()
     return ret
+
+def mark_sql_data_processed(course_id, course_dir_root='', course_dir_date='', use_dataset_latest=False,
+                            use_latest_sql_dir=False, phase="doall"):
+    '''
+    Add file SQL_DATA/<course_id>/.edx2bigquery_processed.<phase> to a course's SQL data directory, to
+    indicate successful completion of a particular phase of edx2bigquery processing.
+    '''
+    from .load_course_sql import find_course_sql_dir
+
+    cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
+    donefn = cdir / f".edx2bigquery_processed.{phase}"
+    with open(donefn, 'w') as ofp:
+        ofp.write(str(datetime.datetime.now()))
+    print(f"[mark_sql_data_processed] created {donefn} to mark successful completion of {phase}")
+
+
+def has_sql_data_processed(course_id, course_dir_root='', course_dir_date='', use_dataset_latest=False,
+                           use_latest_sql_dir=False, phase="doall"):
+    '''
+    Return True if SQL_DATA/<course_id>/.edx2bigquery_processed.<phase> exists in a course's SQL data directory
+    '''
+    from .load_course_sql import find_course_sql_dir
+
+    cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
+    donefn = cdir / f".edx2bigquery_processed.{phase}"
+    if os.path.exists(donefn):
+        print(f"[has_sql_data_processed] {donefn} exists!")
+        return True
+    return False
 
 
 def run_nightly_single(param, course_id, args=None):
@@ -1747,6 +1803,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--subsection", help="Add grades_persistent_subsection instead of grades_persistent",
                         action="store_true")
     parser.add_argument("--not-before", type=str, help="for logs2gs do not transfer files that already exist in gs with date before this")
+    parser.add_argument("--skip-already-successful", help="for doall skip course_id if SQL data directory has .edx2bigquery_processed.doall", action="store_true")
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
 
     args = parser.parse_args()
@@ -2273,6 +2330,17 @@ check_for_duplicates        : check list of courses for duplicates
 
         courses = get_course_ids(args)
         run_parallel_or_serial(research, param, courses, args, parallel=args.parallel)
+
+    elif (args.command=='test_mark_processed'):
+        courses = get_course_ids(args)
+        for course_id in courses:
+            mark_sql_data_processed(course_id,
+                                    course_dir_root=param.the_basedir,
+                                    course_dir_date=param.the_datedir,
+                                    use_dataset_latest=param.use_dataset_latest,
+                                    use_latest_sql_dir=args.latest_sql_dir,
+                                    phase="doall"
+            )
 
     elif (args.command=='combinepc'):
         from . import make_combined_person_course
