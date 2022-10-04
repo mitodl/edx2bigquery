@@ -1055,6 +1055,16 @@ def doall(param, course_id, args, stdout=None):
     end = datetime.datetime.now()
     ret = {'start': start, 'end': end, 'dt' : end-start, 'success': success, 'course_id': course_id, 'stdout': stdout}
 
+    if stdout:		# write output to SQL_DATA/<course>/<date>/LOG.doall 
+        write_log_file_to_sql_data_subdir(course_id,
+                                          course_dir_root=param.the_basedir,
+                                          course_dir_date=param.the_datedir,
+                                          use_dataset_latest=param.use_dataset_latest,
+                                          use_latest_sql_dir=args.latest_sql_dir,
+                                          output=stdout.output,
+                                          phase="doall"
+        )
+
     if success:
         mark_sql_data_processed(course_id,
                                 course_dir_root=param.the_basedir,
@@ -1070,6 +1080,23 @@ def doall(param, course_id, args, stdout=None):
     sys.stdout.flush()
     return ret
 
+def write_log_file_to_sql_data_subdir(course_id, course_dir_root='', course_dir_date='', use_dataset_latest=False,
+                                      use_latest_sql_dir=False, output="", phase="log"):
+    '''
+    Write output to SQL_DATA/<course_id>/LOG.<phase> to a course's SQL data directory
+    '''
+    from .load_course_sql import find_course_sql_dir
+
+    try:
+        cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
+        ofn = cdir / f"LOG.{phase}"
+        with open(ofn, 'w') as ofp:
+            ofp.write(output)
+        print(f"[write_log_file_to_sql_data_subdir] wrote {ofn}")
+    except Exception as err:
+        print(f"[write_log_file_to_sql_data_subdir] Failed to write log file for {phase}, err={err}")
+    sys.stdout.flush()
+
 def mark_sql_data_processed(course_id, course_dir_root='', course_dir_date='', use_dataset_latest=False,
                             use_latest_sql_dir=False, phase="doall"):
     '''
@@ -1078,11 +1105,15 @@ def mark_sql_data_processed(course_id, course_dir_root='', course_dir_date='', u
     '''
     from .load_course_sql import find_course_sql_dir
 
-    cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
-    donefn = cdir / f".edx2bigquery_processed.{phase}"
-    with open(donefn, 'w') as ofp:
-        ofp.write(str(datetime.datetime.now()))
-    print(f"[mark_sql_data_processed] created {donefn} to mark successful completion of {phase}")
+    try:
+        cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
+        donefn = cdir / f".edx2bigquery_processed.{phase}"
+        with open(donefn, 'w') as ofp:
+            ofp.write(str(datetime.datetime.now()))
+        print(f"[mark_sql_data_processed] created {donefn} to mark successful completion of {phase}")
+    except Exception as err:
+        print(f"[mark_sql_data_processed] failed to create mark for {phase}, err={err}")
+    sys.stdout.flush()
 
 
 def has_sql_data_processed(course_id, course_dir_root='', course_dir_date='', use_dataset_latest=False,
@@ -1092,11 +1123,14 @@ def has_sql_data_processed(course_id, course_dir_root='', course_dir_date='', us
     '''
     from .load_course_sql import find_course_sql_dir
 
-    cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
-    donefn = cdir / f".edx2bigquery_processed.{phase}"
-    if os.path.exists(donefn):
-        print(f"[has_sql_data_processed] {donefn} exists!")
-        return True
+    try:
+        cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
+        donefn = cdir / f".edx2bigquery_processed.{phase}"
+        if os.path.exists(donefn):
+            print(f"[has_sql_data_processed] {donefn} exists!")
+            return True
+    except Exception as err:
+        return False
     return False
 
 
