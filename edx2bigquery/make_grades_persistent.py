@@ -125,7 +125,7 @@ def upload_grades_persistent_data(cid, basedir, datedir, use_dataset_latest=Fals
     else:
         cleanup_rows_from_grade_persistent(csvfn, tempfn, field_to_fix="first_attempted")
 
-    gsutil.upload_file_to_gs(csvfn, gsdir, options="-z csv", verbose=True)
+    gsutil.upload_file_to_gs(csvfn, gsdir / csv_name, options="-z csv", verbose=True)
 
     dataset = bqutil.course_id2dataset(cid, use_dataset_latest=use_dataset_latest)
     bqutil.create_dataset_if_nonexistent(dataset)  # create dataset if not already existent
