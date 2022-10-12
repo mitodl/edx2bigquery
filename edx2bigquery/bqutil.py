@@ -127,18 +127,21 @@ def convert_data_dict_to_csv(tdata, extra_fields=None):
     This can be used, e.g. for adding course_id to a table missing that field.
     '''
     import unicodecsv as csv
-    from io import StringIO
+    from io import BytesIO
 
-    sfp = StringIO()
+    sfp = BytesIO()
     extra_fields = extra_fields or {}
     fields = list(extra_fields.keys())
     fields += tdata['field_names']
     dw = csv.DictWriter(sfp, fieldnames=fields)
     dw.writeheader()
+    cnt = 0
     for row in tdata['data']:
         row.update(extra_fields)
         dw.writerow(row)
-    return sfp.getvalue()
+        cnt += 1
+    # print(f"[convert_data-dict_to_csv] processed {cnt} rows")
+    return sfp.getvalue().decode("utf8")
 
 def get_table_data(dataset_id, table_id, key=None, logger=default_logger, 
                    project_id=DEFAULT_PROJECT_ID, 
