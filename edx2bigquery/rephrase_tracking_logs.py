@@ -280,6 +280,7 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
                              ['event_struct', 'duration'],	# 22nov2017 ic
                              ['event_struct', 'play_medium'],
                              ['context', 'enterprise_uuid'],	 		# 2022-09-22
+                             ['context', 'enterprise_enrollment'],	 		# 2022-10-13
                              ['labels'],	 		# 2022-09-22
                              ['log_file'],	 		# 2022-09-22
                              ['log_host'],	 		# 2022-09-22
