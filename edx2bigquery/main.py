@@ -462,8 +462,12 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
         return
 
     if 'split' in steps:
+        from . import rephrase_tracking_logs
         from . import split_and_rephrase
         import pytz
+        
+        rephrase_tracking_logs.DYNAMIC_TRACKING_LOGS_REPHRASING_CONFIG_FN = getattr(edx2bigquery_config, "DYNAMIC_TRACKING_LOGS_REPHRASING_CONFIG_FN", None)
+
         tlfn = course_id                # tracking log filename
         if '*' in tlfn:
             import glob
@@ -1407,7 +1411,7 @@ def get_data_tables(tables, args, course_id_by_table=None, just_status=False, re
 #-----------------------------------------------------------------------------
 # command line processing
 
-def CommandLine():
+def CommandLine(argv=None):
     help_text = """usage: %prog [command] [options] [arguments]
 
 Examples of common commands:
@@ -1840,7 +1844,9 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument("--skip-already-successful", help="for doall skip course_id if SQL data directory has .edx2bigquery_processed.doall", action="store_true")
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
 
-    args = parser.parse_args()
+    if argv is None:
+        argv = sys.argv
+    args = parser.parse_args(argv)
     if args.verbose:
         sys.stderr.write("command = %s\n" % args.command)
         sys.stderr.flush()
@@ -1918,10 +1924,12 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='rephrase_logs'):
         if args.courses:
             # if arguments are provided, they are taken as filenames of files to be rephrased IN PLACE
-            from .rephrase_tracking_logs import do_rephrase_file
+            from . import rephrase_tracking_logs
+            rephrase_tracking_logs.DYNAMIC_TRACKING_LOGS_REPHRASING_CONFIG_FN = getattr(edx2bigquery_config, "DYNAMIC_TRACKING_LOGS_REPHRASING_CONFIG_FN", None)
+
             files = args.courses
             for fn in files:
-                do_rephrase_file(fn)
+                rephrase_tracking_logs.do_rephrase_file(fn)
         else:
             from .rephrase_tracking_logs import do_rephrase_line
             for line in sys.stdin:

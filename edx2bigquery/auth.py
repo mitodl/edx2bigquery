@@ -17,7 +17,10 @@ import httplib2
 import json
 import os
 import sys
-from edx2bigquery_config import auth_key_file
+try:
+  from edx2bigquery_config import auth_key_file
+except:
+  auth_key_file = "NoAuthKeyFile"
 
 from apiclient import discovery
 from oauth2client.client import flow_from_clientsecrets, Credentials

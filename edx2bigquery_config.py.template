@@ -81,5 +81,7 @@ EDX_USER = getattr( CFG, "EDX_USER", None )
 EDX_PW = getattr( CFG, "EDX_PW", None )
 
 
+# file to store dynamic tracking logs schema updates (computed when logs are rephrased)
+DYNAMIC_TRACKING_LOGS_REPHRASING_CONFIG_FN = "edx2bigquery_tracking_logs_rephrasing.json"
 
 #-----------------------------------------------------------------------------

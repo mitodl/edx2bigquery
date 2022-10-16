@@ -37,6 +37,19 @@ def schema2dict(the_schema_in):
 
 ds = schema2dict(schema)
 
+class KeyNotInSchema(Exception):
+    """Exception raised when key is in data but not supposed to be in schema
+
+    Attributes:
+        key -- key which was found in data
+        path -- path to key in data
+    """
+    def __init__(self, key, path, message):
+        self.key = key
+        self.path = path
+        self.message = message
+        super().__init__(self.message)
+
 def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=None):
 
     global ds
@@ -51,7 +64,8 @@ def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=N
         if val is None:
             continue
         if not key in the_ds:
-            raise Exception("[check_schema] Oops! field %s is not in the schema, linecnt=%s, path=%s" % (key, linecnt, path))
+            # raise Exception("[check_schema] Oops! field %s is not in the schema, linecnt=%s, path=%s" % (key, linecnt, path))
+            raise KeyNotInSchema(key, path, "[check_schema] Oops! field %s is not in the schema, linecnt=%s, path=%s" % (key, linecnt, path))
 
         ptype = the_ds[key]['ptype']	# python type corresponding to the BigQuery schema field type
         bqtype = the_ds[key]['type']	# bigquery type

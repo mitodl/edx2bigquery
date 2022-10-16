@@ -29,15 +29,17 @@ import json
 import os
 import sys
 import string
+import filelock
 import traceback
 from math import isnan
 from path import Path as path
 
 from .addmoduleid import add_module_id
-from .check_schema_tracking_log import check_schema
+from .check_schema_tracking_log import check_schema, KeyNotInSchema
 
+DYNAMIC_TRACKING_LOGS_REPHRASING_CONFIG_FN = None	# set this to the name of the JSON file containing rephrasing config to enable dynammic rephrasing
 
-def do_rephrase(data, do_schema_check=True, linecnt=0):
+def do_rephrase(data, do_schema_check=True, linecnt=0, rephrasing_list=None):
     """
     Modify the provided data dictionary in place to rephrase
     certain pieces of data for easy loading to BigQuery
@@ -53,6 +55,8 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
     :param linecnt: Some line count value
     :rtype: None
     :return: Nothing is returned since the data parameter is modified in place
+
+    drc = (instance of DynamicRephraseConfig)
     """
     # add course_id?
     if 'course_id' not in data:
@@ -259,35 +263,40 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
 
     # 16-Mar-15: remove event_struct.requested_skip_interval
 
-    move_fields_to_mongoid([ ['referer'],
-                             ['accept_language'],
-                             ['event_struct', 'requested_skip_interval'],
-                             ['event_struct', 'submitted_answer'],
-                             ['event_struct', 'num_attempts'],
-                             ['event_struct', 'task_id'],	# 05oct15
-                             ['event_struct', 'content'],	# 11jan16
-                             ['nonInteraction'], 	# 24aug15
-                             ['label'],	 		# 24aug15
-                             ['event_struct', 'widget_placement'],	# 08may16
-                             ['event_struct', 'tab_count'],	# 08may16
-                             ['event_struct', 'current_tab'],	# 08may16
-                             ['event_struct', 'target_tab'],	# 08may16
-                             ['event_struct', 'state', 'has_saved_answers'],	# 06dec2016
-                             ['context', 'label'],	 		# 24aug15
-                             ['roles'],				# 06sep2017 rp
-                             ['environment'],			# 06sep2017 rp
-                             ['minion_id'],			# 06sep2017 rp
-                             ['event_struct', 'duration'],	# 22nov2017 ic
-                             ['event_struct', 'play_medium'],
-                             ['context', 'enterprise_uuid'],	 		# 2022-09-22
-                             ['context', 'enterprise_enrollment'],	 		# 2022-10-13
-                             ['labels'],	 		# 2022-09-22
-                             ['log_file'],	 		# 2022-09-22
-                             ['log_host'],	 		# 2022-09-22
-                             ['source_type'],	 		# 2022-09-22
-                             ["vector_timestamp"],		# 2022-09-22
-                             ['event_struct', 'username'],	# 2022-09-27
-                         ])
+    the_rephrasing_list = [ ['referer'],
+                            ['accept_language'],
+                            ['event_struct', 'requested_skip_interval'],
+                            ['event_struct', 'submitted_answer'],
+                            ['event_struct', 'num_attempts'],
+                            ['event_struct', 'task_id'],	# 05oct15
+                            ['event_struct', 'content'],	# 11jan16
+                            ['nonInteraction'], 	# 24aug15
+                            ['label'],	 		# 24aug15
+                            ['event_struct', 'widget_placement'],	# 08may16
+                            ['event_struct', 'tab_count'],	# 08may16
+                            ['event_struct', 'current_tab'],	# 08may16
+                            ['event_struct', 'target_tab'],	# 08may16
+                            ['event_struct', 'state', 'has_saved_answers'],	# 06dec2016
+                            ['context', 'label'],	 		# 24aug15
+                            ['roles'],				# 06sep2017 rp
+                            ['environment'],			# 06sep2017 rp
+                            ['minion_id'],			# 06sep2017 rp
+                            ['event_struct', 'duration'],	# 22nov2017 ic
+                            ['event_struct', 'play_medium'],
+                            ['context', 'enterprise_uuid'],	 		# 2022-09-22
+                            ['context', 'enterprise_enrollment'],	 		# 2022-10-13
+                            ['labels'],	 		# 2022-09-22
+                            ['log_file'],	 		# 2022-09-22
+                            ['log_host'],	 		# 2022-09-22
+                            ['source_type'],	 		# 2022-09-22
+                            ["vector_timestamp"],		# 2022-09-22
+                            ['event_struct', 'username'],	# 2022-09-27
+    ]
+
+    if rephrasing_list:
+        the_rephrasing_list += rephrasing_list
+        
+    move_fields_to_mongoid(the_rephrasing_list)
 
     #----------------------------------------
     # general checks
@@ -380,13 +389,76 @@ def do_rephrase(data, do_schema_check=True, linecnt=0):
 
     try:
         check_schema(linecnt, data, coerce=True)
+    except KeyNotInSchema as err:
+        sys.stderr.write(f"[{linecnt}:KeyNotInSchema] key={err.key}, path={err.path}, data={json.dumps(data, indent=4)}\n")
+        raise
     except Exception as err:
         sys.stderr.write('[%d] oops, err=%s, failed in check_schema %s\n' % (linecnt, str(err), json.dumps(data, indent=4)))
         sys.stderr.write(traceback.format_exc())
+
         return
 
+class DynamicRephraseConfig:
+    '''
+    Store list of fields not in base schema.
+    These fields are maped to strings inside "mongoid".
+    This needs to be done since edX adds fields from time to
+    time, but the bigquery database schema for tracking
+    logs isn't meant to change.
 
-def do_rephrase_line(line, linecnt=0):
+    The list is stored in the file named by the module variable
+
+         DYNAMIC_TRACKING_LOGS_REPHRASING_CONFIG_FN
+
+    if that variable is None or "", then no dynamic rephrasing
+    is done.
+
+    Methods are provided to retrieve the dynamic rephrasing config
+    and to update it.
+    '''
+    def __init__(self):
+        self.dfn = DYNAMIC_TRACKING_LOGS_REPHRASING_CONFIG_FN
+
+    def get_list(self):
+        if not self.dfn:
+            self.drc_list = []
+            return []
+        if not os.path.exists(self.dfn):
+            self.drc_list = []
+            return []
+        try:
+            with open(self.dfn) as fp:
+                self.drc_list = json.loads(fp.read())
+                print(f"[rephrase_tracking_logs.DynamicRephraseConfig] loaded {len(self.drc_list)} from {self.dfn}")
+                sys.stdout.flush()
+        except Exception as err:
+            print(f"[rephrase_tracking_logs.DynamicRephraseConfig] failed to load config from {self.dfn}, err={err}")
+            sys.stdout.flush()
+            self.drc_list = []
+        return self.drc_list
+            
+    def update_list(self, new_entry):
+        if not self.dfn:
+            print(f"[rephrase_tracking_logs.DynamicRephraseConfig] no DYNAMIC_TRACKING_LOGS_REPHRASING_CONFIG_FN defined, cannot add {new_entry}")
+            sys.stdout.flush()
+            return
+            
+        try:
+            lock = filelock.FileLock(f"{self.dfn}.lock")
+            with lock:
+                self.get_list()
+                self.drc_list.append(new_entry)
+                with open(self.dfn, "w") as fp:
+                    fp.write(json.dumps(self.drc_list, indent=4))
+                    print(f"[rephrase_tracking_logs.DynamicRephraseConfig] updated {self.dfn} to have {len(self.drc_list)} entries, added {new_entry}")
+                    sys.stdout.flush()
+        except Exception as err:
+            print(f"[rephrase_tracking_logs.DynamicRephraseConfig] failed to update config {self.dfn} with new_entry={new_entry}, err={err}")
+            sys.stdout.flush()
+        
+        return self.drc_list
+
+def do_rephrase_line(line, linecnt=0, rephrasing_list=None):
     try:
         data = json.loads(line)
     except Exception as err:
@@ -394,13 +466,43 @@ def do_rephrase_line(line, linecnt=0):
         return
 
     try:
-        do_rephrase(data, do_schema_check=True, linecnt=linecnt)
+        do_rephrase(data, do_schema_check=True, linecnt=linecnt, rephrasing_list=rephrasing_list)
+    except KeyNotInSchema as err:
+        sys.stderr.write(f"[{linecnt}:KeyNotInSchema] key={err.key}, path={err.path}\n")
+        raise	# pass this through so that caller can handle dynamic rephrasing
     except Exception as err:
         sys.stderr.write('[%d] oops, err=%s, bad log line %s\n' % (linecnt, str(err), line))
         sys.stderr.write(traceback.format_exc())
         return
     return json.dumps(data)+'\n'
 
+def do_rephrase_lines(lines):
+    '''
+    Rephrase lines (an iterator, e.g. list or file object).
+    Yield new lines
+    '''
+    drc = DynamicRephraseConfig()
+    rephrasing_list = drc.get_list()
+
+    linecnt = 0
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        linecnt += 1
+        nretry = 0
+        done = False
+        newline = None
+        while nretry < 10:
+            try:
+                newline = do_rephrase_line(line, linecnt, rephrasing_list)
+                break
+            except KeyNotInSchema as err:
+                new_entry = err.path[1:].split("/") + [err.key]
+                print(f"[do_rephrase_file] adding {new_entry} to dynamic rephrasing list")
+                rephrasing_list = drc.update_list(new_entry)
+            nretry += 1
+        yield newline
 
 def do_rephrase_file(fn):
     '''
@@ -415,11 +517,13 @@ def do_rephrase_file(fn):
     sys.stdout.flush()
 
     ofn = fn.dirname() / ("tmp-" + fn.basename())
+    if not ofn.endswith(".gz"):
+        ofn += ".gz"
     ofp = openfile(ofn, 'w')
 
-    for line in openfile(fn):
-        newline = do_rephrase_line(line)
-        ofp.write(newline)
+    for newline in do_rephrase_lines(openfile(fn)):
+        if newline:
+            ofp.write(newline.encode("utf8"))
 
     ofp.close()
 

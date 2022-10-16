@@ -30,7 +30,12 @@ import re
 import datetime
 import pytz
 import gzip
-from . import bqutil
+
+try:
+    from . import bqutil
+except Exception as err:
+    print(f"[load_course_sql] Warning - failed to load bqutil, err={err}")
+
 from . import gsutil
 import unicodecsv as csv
 from path import Path as path

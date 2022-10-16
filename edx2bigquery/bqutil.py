@@ -19,7 +19,10 @@ except:
 try:
     from edx2bigquery_config import PROJECT_ID as DEFAULT_PROJECT_ID
 except:
-    from local_config import PROJECT_ID as DEFAULT_PROJECT_ID
+    try:
+        from local_config import PROJECT_ID as DEFAULT_PROJECT_ID
+    except:
+        DEFAULT_PROJECT_ID = "NoProjectID"
 
 from . import auth
 from collections import OrderedDict

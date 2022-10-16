@@ -16,8 +16,10 @@ import json
 import gzip
 import dateutil.parser
 import pytz
+import copy
 import traceback
-from .rephrase_tracking_logs import do_rephrase
+from .rephrase_tracking_logs import do_rephrase, DynamicRephraseConfig
+from .check_schema_tracking_log import KeyNotInSchema
 
 ofpset = {}
 
@@ -65,14 +67,13 @@ def guess_course_id(data, org="MITx"):
 
 
 def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='MITx', logs_dir=LOGS_DIR,
-             dynamic_dates=False, timezone=None):
+             dynamic_dates=False, timezone=None, rephrasing_list=None):
     '''
     if dynamic_dates=True, then use the date on each tracking log line for the date string in the filename.
     
     if timezone is specified (as a pytz timezone), and if dynamic_dates=True, then use the timezone in parsing dates,
     instead of the default UTC.
     '''
-    
     line = line.strip()
     if not line.startswith('{'):
         # bug workaround for very old logs
@@ -119,7 +120,7 @@ def do_split(line, linecnt=0, run_rephrase=True, date=None, do_zip=False, org='M
         cid = guess_course_id(data, org=org)
 
     if run_rephrase:
-        do_rephrase(data)
+        do_rephrase(data, rephrasing_list=rephrasing_list)
 
     ofn = cid.replace('/','__')     # determine output filename
     if ofn.startswith("("):		# skip lines with badly formatted course-id, e.g. "path": "/courses/(select(0)from(select(sleep(15)))v ..."
@@ -187,15 +188,29 @@ def do_file(fn, logs_dir=LOGS_DIR, dynamic_dates=False, timezone=None, logfn_kee
 
     cnt = 0
     try:
+        drc = DynamicRephraseConfig()
+        rephrasing_list = drc.get_list()
         for line in fp:
             if type(line)==bytes:
                 line = line.decode("utf8")
             cnt += 1
             try:
-                newline = do_split(line, linecnt=cnt, run_rephrase=True, date=the_date, do_zip=True, logs_dir=logs_dir,
-                                   dynamic_dates=dynamic_dates, timezone=timezone)
+                nretry = 0
+                while nretry < 10:
+                    try:
+                        newline = do_split(line, linecnt=cnt, run_rephrase=True, date=the_date, do_zip=True, logs_dir=logs_dir,
+                                           dynamic_dates=dynamic_dates, timezone=timezone, rephrasing_list=rephrasing_list)
+                        break
+                    except KeyNotInSchema as err:
+                        new_entry = err.path[1:].split("/") + [err.key]
+                        print(f"[split_and_rephrase] adding {new_entry} to dynamic rephrasing list")
+                        sys.stdout.flush()
+                        rephrasing_list = drc.update_list(new_entry)
+                        nretry += 1
+                
             except Exception as err:
                 print("[split_and_rephrase] ===> OOPS, failed err=%s in parsing line %s" % (str(err), line))
+                sys.stdout.flush()
                 raise
             if ((cnt % 10000)==0):
                 sys.stdout.write('.')
@@ -203,6 +218,7 @@ def do_file(fn, logs_dir=LOGS_DIR, dynamic_dates=False, timezone=None, logfn_kee
     except Exception as err:
         print(("[split_and_rephrase] =====> ERROR, failed in parsing line=%s, file=%s, err=%s" % (cnt, fn, str(err))))
         traceback.print_exc()
+        sys.stdout.flush()
     print()
 
     mdir = '%s/META' % logs_dir
