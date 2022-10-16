@@ -1845,7 +1845,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
 
     if argv is None:
-        argv = sys.argv
+        argv = sys.argv[1:]
     args = parser.parse_args(argv)
     if args.verbose:
         sys.stderr.write("command = %s\n" % args.command)
