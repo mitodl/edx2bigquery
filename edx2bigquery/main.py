@@ -1783,6 +1783,8 @@ testbq                      : test authentication to BigQuery, by listing access
 
 get_course_tables <cid>     : dump list of tables in the course_id BigQuery dataset.  Good to use as a test case for parallel execution.
 
+list_course_logs <cid>      : dump list of tracking log tables for the course_id in the BigQuery dataset.  
+
 get_tables <dataset>        : dump information about the tables in the specified BigQuery dataset.
 
 get_table_data <dataset>    : dump table data as JSON text to stdout
@@ -2141,6 +2143,14 @@ check_for_duplicates        : check list of courses for duplicates
     elif (args.command=='get_tables'):
         from . import bqutil
         print(json.dumps(bqutil.get_tables(args.courses[0]), indent=4))
+
+    elif (args.command=='list_course_logs'):
+        from . import bqutil
+        course_id = args.courses[0]
+        dataset = bqutil.course_id2dataset(course_id, dtype="logs")
+        tablist = bqutil.get_list_of_table_ids(dataset)
+        print(f"Found {len(tablist)} tracking log tables for {course_id}")
+        print(json.dumps(tablist, indent=4))
 
     elif (args.command=='get_table_data'):
         from . import bqutil

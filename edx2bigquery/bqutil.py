@@ -108,8 +108,8 @@ def get_projects(project_id=DEFAULT_PROJECT_ID):
         if (project['id'] == project_id):
             print('Found %s: %s' % (project_id, project['friendlyName']))
 
-def get_tables(dataset_id, project_id=DEFAULT_PROJECT_ID, verbose=False):
-    table_list = tables.list(datasetId=dataset_id, projectId=project_id, maxResults=1000).execute()
+def get_tables(dataset_id, project_id=DEFAULT_PROJECT_ID, verbose=False, pageToken=None):
+    table_list = tables.list(datasetId=dataset_id, projectId=project_id, maxResults=1000, pageToken=pageToken).execute()
     if verbose:
         for current in table_list['tables']:
             print("table: ", current)
@@ -118,6 +118,26 @@ def get_tables(dataset_id, project_id=DEFAULT_PROJECT_ID, verbose=False):
     return table_list
 
 def get_list_of_table_ids(dataset_id):
+    '''
+    handles paging
+    '''
+    cnt = 0
+    tables = []
+    pageToken = None
+    while cnt < 100:
+        cnt += 1
+        tables_data = get_tables(dataset_id, pageToken=pageToken)
+        if 'tables' in tables_data:
+            tables_info = tables_data.get('tables', [])
+            table_id_list = [ x['tableReference']['tableId'] for x in tables_info ]
+            tables += table_id_list
+        if 'nextPageToken' in tables_data:
+            pageToken = tables_data['nextPageToken']
+        else:
+            break
+    return tables
+
+def OLD_get_list_of_table_ids(dataset_id):
     tables_info = get_tables(dataset_id).get('tables', [])
     table_id_list = [ x['tableReference']['tableId'] for x in tables_info ]
     return table_id_list
