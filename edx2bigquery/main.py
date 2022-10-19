@@ -515,6 +515,7 @@ def daily_logs(param, args, steps, course_id=None, verbose=True, wait=False):
             load_daily_tracking_logs.load_all_daily_logs_for_course(course_id, edx2bigquery_config.GS_BUCKET,
                                                                     verbose=verbose, wait=wait,
                                                                     check_dates= (not wait),
+                                                                    not_before=args.not_before,
                                                                     )
         except Exception as err:
             print(err)
@@ -1002,7 +1003,7 @@ def doall(param, course_id, args, stdout=None):
                                               phase="doall"
             )
             if has_done:
-                print(f"==> already successful doneall processed, skipping {course_id}")
+                print(f"==> already successful doall processed, skipping {course_id}")
                 end = datetime.datetime.now()
                 ret = {'start': start, 'end': end, 'dt' : end-start, 'success': True, 'course_id': course_id, 'stdout': stdout}
                 print("-"*100)
@@ -1092,7 +1093,8 @@ def write_log_file_to_sql_data_subdir(course_id, course_dir_root='', course_dir_
     from .load_course_sql import find_course_sql_dir
 
     try:
-        cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
+        # cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
+        cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_latest_sql_dir)
         ofn = cdir / f"LOG.{phase}"
         with open(ofn, 'w') as ofp:
             ofp.write(output)
@@ -1110,7 +1112,8 @@ def mark_sql_data_processed(course_id, course_dir_root='', course_dir_date='', u
     from .load_course_sql import find_course_sql_dir
 
     try:
-        cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
+        # cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
+        cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_latest_sql_dir)
         donefn = cdir / f".edx2bigquery_processed.{phase}"
         with open(donefn, 'w') as ofp:
             ofp.write(str(datetime.datetime.now()))
@@ -1128,7 +1131,8 @@ def has_sql_data_processed(course_id, course_dir_root='', course_dir_date='', us
     from .load_course_sql import find_course_sql_dir
 
     try:
-        cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
+        # cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_dataset_latest or use_latest_sql_dir)
+        cdir = find_course_sql_dir(course_id, course_dir_root, course_dir_date, use_latest_sql_dir)
         donefn = cdir / f".edx2bigquery_processed.{phase}"
         if os.path.exists(donefn):
             print(f"[has_sql_data_processed] {donefn} exists!")
@@ -1145,8 +1149,23 @@ def run_nightly_single(param, course_id, args=None):
     print("-"*100)
 
 
+    success = False
 
     try:
+        if args.skip_already_successful:	# skip if SQL data directory has .edx2bigquery_processed.nightly
+            has_done = has_sql_data_processed(course_id,
+                                              course_dir_root=param.the_basedir,
+                                              course_dir_date=param.the_datedir,
+                                              use_dataset_latest=param.use_dataset_latest,
+                                              use_latest_sql_dir=args.latest_sql_dir,
+                                              phase="nightly"
+            )
+            if has_done:
+                print(f"==> already successful nightly processed, skipping {course_id}")
+                print("-"*100)
+                sys.stdout.flush()
+                return 
+
         daily_logs(param, args, ['logs2gs', 'logs2bq'], course_id, verbose=args.verbose, wait=True)
 
         # Ensure latest problem, video and forum data for person course day
@@ -1176,6 +1195,7 @@ def run_nightly_single(param, course_id, args=None):
         show_answer_table(param, course_id, args)
         analyze_ora(param, course_id, args)
         time_on_task(param, course_id, args, skip_totals=True)
+        success = True
 
     except Exception as err:
         print("="*100)
@@ -1184,6 +1204,14 @@ def run_nightly_single(param, course_id, args=None):
         sys.stdout.flush()
         raise
 
+    if success:
+        mark_sql_data_processed(course_id,
+                                course_dir_root=param.the_basedir,
+                                course_dir_date=param.the_datedir,
+                                use_dataset_latest=param.use_dataset_latest,
+                                use_latest_sql_dir=args.latest_sql_dir,
+                                phase="nightly"
+        )
 
 def list_tables_in_course_db(param, courses, args):
     from . import bqutil
@@ -1845,7 +1873,7 @@ check_for_duplicates        : check list of courses for duplicates
     parser.add_argument('courses', nargs = '*', help = 'courses or course directories, depending on the command')
 
     if argv is None:
-        argv = sys.argv
+        argv = sys.argv[1:]
     args = parser.parse_args(argv)
     if args.verbose:
         sys.stderr.write("command = %s\n" % args.command)

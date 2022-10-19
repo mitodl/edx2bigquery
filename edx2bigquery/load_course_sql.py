@@ -65,7 +65,7 @@ def find_course_sql_dir(course_id, basedir, datedir=None, use_dataset_latest=Fal
 
     if use_dataset_latest:	# overrides datedir
         # find the directory with the latest date, and use that date, for any local SQL accesses
-        datedirs = glob.glob(lfp / '20*-*-*')
+        datedirs = glob.glob(lfp / '20*-*-??')
         datedirs.sort()
         if not datedirs:
             msg = "[find_course_sql_dir] use_dateset_latest=True, but no date directories found in %s!" % (lfp)

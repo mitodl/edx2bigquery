@@ -233,7 +233,9 @@ def run_query_on_tracking_logs(SQL, table, course_id, force_recompute=False, use
     try:
         bqutil.create_bq_table(dataset, table, the_sql, wait=True, overwrite=overwrite, allowLargeResults=True)
     except Exception as err:
-        if ( ('Response too large to return.' in str(err) or 'Too many tables for query' in str(err) ) and has_hash_limit ):
+        # if ( ('Response too large to return.' in str(err) or 'Too many tables for query' in str(err) ) and has_hash_limit ):
+        # Exception: BQ Error creating table Too many tables, views, and persistent user-defined functions for query: Max: 1000
+        if ( ('Response too large to return.' in str(err) or 'Too many tables' in str(err) ) and has_hash_limit ):
             # try using hash limit on username
             # e.g. WHERE ABS(HASH(username)) % 4 = 0
 

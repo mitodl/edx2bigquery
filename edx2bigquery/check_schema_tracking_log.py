@@ -99,6 +99,14 @@ def check_schema(linecnt, data, the_ds=None, path='', coerce=False, the_schema=N
                         print("Error coercing data for key=%s path=%s, val=%s, err=%s" % (key, path, val, str(err)))
                         data[key] = None
                     continue
+                if type(val) in [str, str] and ptype==bytes:
+                    try:
+                        data[key] = val.decode("utf8")
+                    except Exception as err:
+                        print("Error coercing data for key=%s path=%s, val=%s, err=%s" % (key, path, val, str(err)))
+                        raise
+                        data[key] = None
+                    continue
                 if type(val) in [str, str] and ptype==int:
                     try:
                         data[key] = int(val)

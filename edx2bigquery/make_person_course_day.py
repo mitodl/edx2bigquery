@@ -528,6 +528,7 @@ def process_course(course_id, force_recompute=False, use_dataset_latest=False, e
                                                      use_dataset_latest=use_dataset_latest,
                                                      end_date=end_date,
                                                      get_date_function=gdf,
+                                                     # has_hash_limit=True,		# 2022-10-18
                                                      newer_than=datetime.datetime( 2017, 2, 8, 16, 30 ),
                                                      skip_last_day=skip_last_day)
     
