@@ -701,6 +701,7 @@ def show_answer_table(param, course_id, args=None):
         make_problem_analysis.make_show_answer_table(course_id,
                                                      force_recompute=param.force_recompute,
                                                      use_dataset_latest=param.use_dataset_latest,
+                                                     end_date=args.end_date,
                                                      )
     except Exception as err:
         print(err)
@@ -714,11 +715,13 @@ def enrollment_events_table(param, course_id, args=None):
         make_enrollment_day.make_enrollment_events(course_id,
                                                    force_recompute=param.force_recompute,
                                                    use_dataset_latest=param.use_dataset_latest,
+                                                   end_date=args.end_date,
                                                    )
 
         make_enrollment_day.make_enrollment_verified_events_per_user(course_id,
-                                                   force_recompute=param.force_recompute,
-                                                   use_dataset_latest=param.use_dataset_latest,
+                                                                     force_recompute=param.force_recompute,
+                                                                     use_dataset_latest=param.use_dataset_latest,
+                                                                     end_date=args.end_date,
                                                    )
 
     except Exception as err:
