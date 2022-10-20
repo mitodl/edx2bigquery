@@ -30,6 +30,8 @@ class CourseReport(object):
         
         if only_step and ',' in only_step:
             only_step = only_step.split(',')
+        if only_step and not type(only_step)==list:
+            only_step = [only_step]		# make sure it's a list, or None
         self.only_step = only_step
 
         self.end_date = end_date;
@@ -53,7 +55,31 @@ class CourseReport(object):
 
         course_datasets = [ bqutil.course_id2dataset(x, use_dataset_latest=use_dataset_latest) for x in course_id_set]
 
-        # check to see which datasets have person_course tables
+        all_tables = ['person_course', 'course_axis', 'video_axis', 'pcday_ip_counts', 'pcday_trlang_counts',
+                      'user_info_combo', 'time_on_task_totals']
+
+        # dict specifying just the tables which should be listed for each report
+        # if not in this dict, then the report will require all tables
+        tables_required_by_report = {'broad_stats_by_course': ['person_course'],
+        }
+
+        required_tables = []
+        if only_step:
+            for report_table_name in only_step:
+                required_tables += tables_required_by_report.get(report_table_name, all_tables)
+        else:
+            required_tables = all_tables
+
+        if only_step:
+            print(f"[make_course_report_tables] Only running reports for {only_step} on {len(course_datasets)} courses")
+        else:
+            print(f"[make_course_report_tables] Running all reports for {len(course_datasets)} courses")
+
+        print(f"[make_course_report_tables] Gathering lists of required tables for {len(course_datasets)} courses")
+        print(f"     required_tables={required_tables}")
+        sys.stdout.flush()
+
+        # check to see which datasets have required tables, including person_course tables
         datasets_with_pc = []
         self.all_pc_tables = OrderedDict()
         self.all_pcday_ip_counts_tables = OrderedDict()
@@ -62,9 +88,12 @@ class CourseReport(object):
         self.all_ca_tables = OrderedDict()
         self.all_va_tables = OrderedDict()
         self.all_tott_tables = OrderedDict()
-        for cd in course_datasets:
+        for cnt, cd in enumerate(course_datasets):
             try:
-                table = bqutil.get_bq_table_info(cd, 'person_course')
+                if 'person_course' in required_tables:
+                    table = bqutil.get_bq_table_info(cd, 'person_course')
+                else:
+                    table = None
             except Exception as err:
                 print("[make-course_report_tables] Err: %s" % str(err))
                 table = None
@@ -73,7 +102,10 @@ class CourseReport(object):
                 datasets_with_pc.append(cd)
 
             try:
-                table = bqutil.get_bq_table_info(cd, 'course_axis')
+                if 'course_axis' in required_tables:
+                    table = bqutil.get_bq_table_info(cd, 'course_axis')
+                else:
+                    table = None
             except Exception as err:
                 print("[make_course_axis_tables] Err: %s" % str(err))
                 table = None
@@ -81,7 +113,10 @@ class CourseReport(object):
                 self.all_ca_tables[cd] = table
 
             try:
-                table = bqutil.get_bq_table_info(cd, 'video_axis')
+                if 'video_axis' in required_tables:
+                    table = bqutil.get_bq_table_info(cd, 'video_axis')
+                else:
+                    table = None
             except Exception as err:
                 print("[make_video_axis_tables] Err: %s" % str(err))
                 table = None
@@ -89,33 +124,52 @@ class CourseReport(object):
                 self.all_va_tables[cd] = table
 
             try:
-                table = bqutil.get_bq_table_info(cd, 'pcday_ip_counts')
+                if 'pcday_ip_counts' in required_tables:
+                    table = bqutil.get_bq_table_info(cd, 'pcday_ip_counts')
+                else:
+                    table = None
             except Exception as err:
                 table = None
             if table is not None:
                 self.all_pcday_ip_counts_tables[cd] = table
 
             try:
-                table = bqutil.get_bq_table_info(cd, 'pcday_trlang_counts')
+                if 'pcday_trlang_counts' in required_tables:
+                    table = bqutil.get_bq_table_info(cd, 'pcday_trlang_counts')
+                else:
+                    table = None
             except Exception as err:
                 table = None
             if table is not None:
                 self.all_pcday_trlang_counts_tables[cd] = table
 
             try:
-                table = bqutil.get_bq_table_info(cd, 'user_info_combo')
+                if 'user_info_combo' in required_tables:
+                    table = bqutil.get_bq_table_info(cd, 'user_info_combo')
+                else:
+                    table = None
             except Exception as err:
                 table = None
             if table is not None:
                 self.all_uic_tables[cd] = table
 
             try:
-                table = bqutil.get_bq_table_info(cd, 'time_on_task_totals')
+                if 'time_on_task_totals' in required_tables:
+                    table = bqutil.get_bq_table_info(cd, 'time_on_task_totals')
+                else:
+                    table = None
             except Exception as err:
                 print("[make-course_report_tables] Err: %s" % str(err))
                 table = None
             if table is not None:
                 self.all_tott_tables[cd] = table
+
+            if (cnt % 100)==0:
+                print(".", end="")
+                sys.stdout.flush()
+
+        print(f"    Done gathering table info")
+        sys.stdout.flush()
 
         pc_tables = ',\n'.join(['[%s.person_course]' % x for x in datasets_with_pc])
         pcday_tables = ',\n'.join(['[%s.person_course_day]' % x for x in datasets_with_pc])
